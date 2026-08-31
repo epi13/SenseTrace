@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Notebooks / local analysis
+.ipynb_checkpoints/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# SenseTrace generated data
+/data/raw/
+/data/processed/
+/data/manifests/*.parquet
+/data/manifests/*.csv
+/data/splits/*.json
+
+# Model artifacts
+/checkpoints/
+/models/
+/runs/
+*.pt
+*.pth
+*.onnx
+
+# Local environment
+.env
+.env.*

@@ -1,0 +1,67 @@
+experiment:
+  name: phase0-pipeline-controls
+  description: Validate SenseTrace acquisition, splitting, training, and metrics before interpreting DRAM measurements.
+  seed: 1337
+
+data:
+  target_balance: 0.50
+  samples: 100000
+  trace_channels: 1
+  trace_length: 2048
+  sample_rate_hz: null
+
+controls:
+  synthetic_null:
+    enabled: true
+    expected_balanced_accuracy: 0.50
+  injected_weak_signal:
+    enabled: true
+    amplitude_sigma: 0.10
+    start_index: 800
+    width: 32
+  shuffled_labels:
+    enabled: true
+    expected_balanced_accuracy: 0.50
+
+splits:
+  primary:
+    strategy: grouped
+    group_keys:
+      - session_id
+      - device_id
+      - row_id
+      - cell_or_offset_id
+    train_fraction: 0.70
+    validation_fraction: 0.15
+    test_fraction: 0.15
+  prohibit_identity_features: true
+
+models:
+  logistic_regression:
+    enabled: true
+  boosted_trees:
+    enabled: true
+  tiny_cnn:
+    enabled: true
+    channels: [16, 32, 32, 64]
+    kernels: [11, 7, 5, 3]
+    dense_width: 32
+    target_parameter_budget: 50000
+
+training:
+  objective: binary_cross_entropy
+  batch_size: 256
+  epochs: 50
+  early_stopping_patience: 5
+  seeds: [11, 23, 37, 53, 71]
+
+reporting:
+  metrics:
+    - balanced_accuracy
+    - auroc
+    - confusion_matrix
+  report_parameter_count: true
+  report_class_balance: true
+  report_confidence_interval: true
+  report_repeated_run_variance: true
+  require_negative_controls: true

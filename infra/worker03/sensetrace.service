@@ -13,6 +13,9 @@ WorkingDirectory=/opt/sensetrace/source
 ExecStart=/opt/sensetrace/venv/bin/sensetrace runner --config /etc/sensetrace/worker03.yaml
 Restart=on-failure
 RestartSec=10s
+# A bounded allowance for the controlled Phase 1A acquisition buffer.  The
+# default unprivileged 64 KiB memlock limit rejects even the calibration page.
+LimitMEMLOCK=64M
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict

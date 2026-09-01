@@ -8,6 +8,12 @@ project_dir=${1:-/opt/sensetrace/source}
 reset_config=${2:-0}
 install -d -m 0750 -o worker-03 -g worker-03 /opt/sensetrace /etc/sensetrace /var/lib/sensetrace
 install -d -m 0750 -o worker-03 -g worker-03 /var/lib/sensetrace/data /var/lib/sensetrace/runs /var/lib/sensetrace/state
+# The service appends lifecycle events as worker-03.  Establish the journal
+# ownership before enabling it; shell redirection below would otherwise create
+# this file as root during the first system migration.
+touch /var/lib/sensetrace/state/service-events.jsonl
+chown worker-03:worker-03 /var/lib/sensetrace/state/service-events.jsonl
+chmod 0640 /var/lib/sensetrace/state/service-events.jsonl
 install -m 0644 "$project_dir/infra/worker03/sensetrace.service" /etc/systemd/system/sensetrace.service
 install -m 0644 "$project_dir/infra/worker03/sensetrace.target" /etc/systemd/system/sensetrace.target
 install -m 0644 "$project_dir/infra/worker03/90-sensetrace.conf" /etc/sysctl.d/90-sensetrace.conf
@@ -21,6 +27,6 @@ fi
 systemd-tmpfiles --create /etc/tmpfiles.d/sensetrace.conf
 sysctl --system
 systemctl daemon-reload
-systemctl enable --now sensetrace.service
 printf '{"event":"service_migration","mode":"system","config_action":"%s","timestamp_utc":"%s"}\n' "$config_action" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> /var/lib/sensetrace/state/service-events.jsonl
+systemctl enable --now sensetrace.service
 systemctl --no-pager --full status sensetrace.service

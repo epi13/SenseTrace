@@ -19,6 +19,20 @@ The controller re-inspected the live host before making changes.
   watchdog is `10min`.
 - `sudo -n true`: not authorized; an interactive sudo password was not
   available to the controller session.
+- Final unprivileged deployment source marker: commit
+  `0aa130fd761d92781125028b5158363840fbdd90`.
+- The live operator config remained unchanged across deployment:
+  `fd04b5ed629f96c44e5bb7049e1466a9494b9b8584e0ba3568c26f7d1114e569`.
+- The deployment attempted the native build, but worker-03 has no `make`; the
+  build therefore did not install the native timing library. The user service
+  nevertheless restarted with exactly one runner (current observed PID
+  `192955`).
+- A remote Phase 0 smoke run materialized two replicates per condition across
+  both balance modes and wrote run
+  `phase0-calibration-20260901T050827Z-c30294d1`. Its frozen protocol hash was
+  `3e10e9a1e9b4cf8b98dd9e52855b430e41ed1fd415bf22ff9b1f310d80e2c0db`;
+  fresh null/shuffled rates were `0/2`, while the one-replicate-per-mode weak
+  injection smoke did not meet the configured detection threshold.
 
 ## Interpretation
 
@@ -37,8 +51,11 @@ not met.
 
 No multi-user baseline, fresh post-reboot SSH acceptance, system-service boot,
 dedicated-target isolation, or hardware watchdog reset test has yet been
-performed. Display-manager removal, service-count changes, CPU-profile changes,
-and watchdog selection remain operator-authorized actions.
+performed. The remote smoke is engineering validation only, not a Phase 0
+gate ensemble. Display-manager removal, service-count changes, CPU-profile
+changes, and watchdog selection remain operator-authorized actions. The worker
+also requires a local native-toolchain installation or a separately approved
+native-library provisioning path before Phase 1A can run.
 
 ## Claim boundary
 

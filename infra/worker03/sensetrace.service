@@ -1,0 +1,26 @@
+[Unit]
+Description=SenseTrace unattended experiment runner
+Wants=network-online.target
+After=local-fs.target network-online.target
+StartLimitIntervalSec=5min
+StartLimitBurst=10
+
+[Service]
+Type=simple
+User=worker-03
+Group=worker-03
+WorkingDirectory=/opt/sensetrace/source
+ExecStart=/opt/sensetrace/venv/bin/sensetrace runner --config /etc/sensetrace/worker03.yaml
+Restart=on-failure
+RestartSec=10s
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/var/lib/sensetrace
+UMask=0077
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

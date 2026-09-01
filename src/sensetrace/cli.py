@@ -1,0 +1,223 @@
+"""Command-line entrypoint for local experiments and controller operations."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+from pathlib import Path
+
+from .config import load_config, validate_config
+from .datasets import load_dataset
+from .host.client import RemoteHost
+from .inventory import collect_inventory
+from .phase0 import run_phase0
+from .recovery import recovery_test
+from .runner import daemon
+
+
+def _json(value: object) -> None:
+    print(json.dumps(value, indent=2, sort_keys=True, default=str))
+
+
+def _override_phase0_config(
+    config: dict[str, object], args: argparse.Namespace
+) -> dict[str, object]:
+    value = json.loads(json.dumps(config))
+    if args.samples is not None:
+        value.setdefault("data", {})["samples"] = args.samples
+    if args.trace_length is not None:
+        value.setdefault("data", {})["trace_length"] = args.trace_length
+        signal = value.setdefault("controls", {}).setdefault("injected_weak_signal", {})
+        if int(signal.get("start_index", 0)) + int(signal.get("width", 1)) > args.trace_length:
+            signal["start_index"] = args.trace_length // 3
+            signal["width"] = max(4, args.trace_length // 16)
+    if args.seed is not None:
+        value.setdefault("experiment", {})["seed"] = args.seed
+    if args.models:
+        for model in ["logistic_regression", "boosted_trees", "tiny_mlp", "tiny_cnn"]:
+            value.setdefault("models", {}).setdefault(model, {})["enabled"] = model in args.models
+    return value
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(prog="sensetrace")
+    sub = parser.add_subparsers(dest="command", required=True)
+    inventory = sub.add_parser("inventory", help="capture the local host inventory")
+    inventory.add_argument("--json", action="store_true")
+
+    run = sub.add_parser("run", help="execute an experiment")
+    run_sub = run.add_subparsers(dest="run_command", required=True)
+    phase0 = run_sub.add_parser("phase0", help="run synthetic Phase 0 controls")
+    phase0.add_argument("--config", default="configs/phase0.example.yaml")
+    phase0.add_argument("--output")
+    phase0.add_argument("--host")
+    phase0.add_argument("--curve", action="store_true")
+    phase0.add_argument("--conditions", nargs="*")
+    phase0.add_argument("--samples", type=int)
+    phase0.add_argument("--trace-length", type=int)
+    phase0.add_argument("--seed", type=int)
+    phase0.add_argument(
+        "--models",
+        nargs="+",
+        choices=["logistic_regression", "boosted_trees", "tiny_mlp", "tiny_cnn"],
+    )
+
+    validate = sub.add_parser("validate", help="validate a dataset run directory")
+    validate.add_argument("dataset")
+    status = sub.add_parser("status", help="show local run status or remote host status")
+    status.add_argument("--run-dir")
+    status.add_argument("--host")
+
+    runner = sub.add_parser("runner", help="run the unattended systemd process")
+    runner.add_argument("--config", required=True)
+
+    selftest = sub.add_parser("selftest", help="run local integration self-tests")
+    selftest_sub = selftest.add_subparsers(dest="selftest_command", required=True)
+    recovery = selftest_sub.add_parser("recovery")
+    recovery.add_argument("--output")
+
+    host = sub.add_parser("host", help="controller-side Fabric/SSH operations")
+    host_sub = host.add_subparsers(dest="host_command", required=True)
+    for name in [
+        "inventory",
+        "doctor",
+        "bootstrap",
+        "deploy",
+        "status",
+        "verify-recovery",
+        "reboot",
+    ]:
+        command = host_sub.add_parser(name)
+        command.add_argument("host", nargs="?", default="worker-03")
+    logs = host_sub.add_parser("logs")
+    logs.add_argument("host", nargs="?", default="worker-03")
+    logs.add_argument("--lines", type=int, default=100)
+    remote_run = host_sub.add_parser("run-phase0")
+    remote_run.add_argument("host", nargs="?", default="worker-03")
+    remote_run.add_argument("--config", default="configs/phase0.example.yaml")
+    remote_run.add_argument("--output")
+    remote_run.add_argument("--curve", action="store_true")
+    remote_run.add_argument(
+        "--models",
+        nargs="+",
+        choices=["logistic_regression", "boosted_trees", "tiny_mlp", "tiny_cnn"],
+    )
+    results = sub.add_parser("results", help="retrieve result artifacts")
+    results_sub = results.add_subparsers(dest="results_command", required=True)
+    latest = results_sub.add_parser("latest")
+    latest.add_argument("--host", default="worker-03")
+    fetch = results_sub.add_parser("fetch")
+    fetch.add_argument("--host", default="worker-03")
+    fetch.add_argument("--destination", default="evidence/latest")
+    fetch.add_argument("--run-id")
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
+    if args.command == "inventory":
+        _json(collect_inventory())
+        return 0
+    if args.command == "run" and args.run_command == "phase0":
+        config = validate_config(_override_phase0_config(load_config(args.config), args))
+        if args.host:
+            print(
+                RemoteHost(args.host).run_phase0(
+                    args.config,
+                    output=args.output,
+                    include_curve=args.curve,
+                    samples=args.samples,
+                    trace_length=args.trace_length,
+                    seed=args.seed,
+                    models=args.models,
+                )
+            )
+        else:
+            _json(
+                run_phase0(
+                    config,
+                    args.output or "runs",
+                    include_curve=args.curve,
+                    conditions=args.conditions,
+                )
+            )
+        return 0
+    if args.command == "validate":
+        traces, labels, metadata, shards, manifest = load_dataset(args.dataset)
+        _json(
+            {
+                "valid": True,
+                "rows": len(labels),
+                "trace_shape": list(traces.shape),
+                "shards": [item.as_dict() for item in shards],
+                "dataset_fingerprint": manifest["dataset_fingerprint"],
+                "metadata_fields": sorted(metadata),
+            }
+        )
+        return 0
+    if args.command == "status":
+        if args.host:
+            _json(RemoteHost(args.host).status())
+        else:
+            run_path = Path(args.run_dir or "runs")
+            _json(
+                {
+                    "path": str(run_path),
+                    "exists": run_path.exists(),
+                    "run": json.loads((run_path / "run.json").read_text())
+                    if (run_path / "run.json").exists()
+                    else None,
+                }
+            )
+        return 0
+    if args.command == "runner":
+        daemon(args.config)
+        return 0
+    if args.command == "selftest" and args.selftest_command == "recovery":
+        result = recovery_test(args.output)
+        _json(result)
+        return 0 if result["passed"] else 1
+    if args.command == "host":
+        remote = RemoteHost(args.host)
+        if args.host_command == "inventory":
+            _json(remote.inventory())
+        elif args.host_command == "doctor":
+            _json(remote.doctor())
+        elif args.host_command == "bootstrap":
+            _json(remote.bootstrap())
+        elif args.host_command == "deploy":
+            _json(remote.deploy())
+        elif args.host_command == "status":
+            _json(remote.status())
+        elif args.host_command in {"start", "stop", "restart"}:
+            _json(remote.service_action(args.host_command))
+        elif args.host_command == "logs":
+            print(remote.logs(lines=args.lines), end="")
+        elif args.host_command == "run-phase0":
+            print(
+                remote.run_phase0(
+                    args.config,
+                    output=args.output,
+                    include_curve=args.curve,
+                    models=args.models,
+                ),
+                end="",
+            )
+        elif args.host_command == "verify-recovery":
+            _json(remote.verify_recovery())
+        elif args.host_command == "reboot":
+            print(remote.reboot())
+        return 0
+    if args.command == "results":
+        remote = RemoteHost(args.host)
+        if args.results_command == "latest":
+            _json(remote.latest_result())
+        else:
+            print(remote.fetch_results(args.destination, run_id=args.run_id))
+        return 0
+    return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main())

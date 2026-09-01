@@ -5,15 +5,29 @@ host:
   vram_gb: 2
   storage: hdd
 
+experiment:
+  name: worker03-unattended-runner
+  description: Keep the appliance alive and ready for explicitly launched campaigns.
+  seed: 1337
+
+data:
+  target_balance: 0.50
+  samples: 100000
+  trace_channels: 1
+  trace_length: 2048
+
 runner:
   unattended: true
   resume_on_boot: true
   journal_enabled: true
   verify_last_finalized_shard_on_startup: true
   quarantine_incomplete_shards: true
+  mode: idle
+  state_dir: /var/lib/sensetrace/state
 
 acquisition:
   backend: synthetic
+  enabled: false
   target_source: cryptographic_random
   target_balance: 0.50
   buffer_samples: 8192
@@ -23,11 +37,19 @@ acquisition:
   checksum: sha256
 
 storage:
-  raw_dir: data/raw
-  manifest_dir: data/manifests
+  raw_dir: /var/lib/sensetrace/data/raw
+  manifest_dir: /var/lib/sensetrace/data/manifests
   run_dir_template: "run-{run_id}"
   one_file_per_trace: false
   preserve_raw_traces: true
+
+safety:
+  minimum_free_gb: 20
+  minimum_free_percent: 10
+  use_controlled_memory_region: true
+  document_actual_isolation_guarantee: true
+  use_generated_random_patterns_only: true
+  no_sensitive_memory_contents: true
 
 telemetry:
   record_host_inventory: true
@@ -56,9 +78,4 @@ training:
   enabled_during_acquisition: false
   device_preference: cpu
   allow_gpu_if_available: true
-
-safety:
-  use_controlled_memory_region: true
-  document_actual_isolation_guarantee: true
-  use_generated_random_patterns_only: true
-  no_sensitive_memory_contents: true
+  seeds: [11, 23, 37]

@@ -1,0 +1,20 @@
+[Unit]
+Description=SenseTrace unattended experiment runner (user fallback)
+After=default.target
+StartLimitIntervalSec=5min
+StartLimitBurst=10
+
+[Service]
+Type=simple
+WorkingDirectory=%h/.local/share/sensetrace/source
+ExecStart=%h/.local/share/sensetrace/venv/bin/sensetrace runner --config %h/.config/sensetrace/worker03.yaml
+Restart=on-failure
+RestartSec=10s
+NoNewPrivileges=true
+PrivateTmp=true
+UMask=0077
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target

@@ -72,12 +72,22 @@ class SyntheticBackend(AcquisitionBackend):
         self.permutation_seed = (
             self.permute_seed if self.permute_seed is not None else self.seed + 7919
         )
+        self.permutation_strata = (
+            "synthetic_location_id"
+            if self.balance_mode == "group_stratified_balance"
+            else "synthetic_dataset_id"
+        )
         self.permutation_fingerprint: str | None = None
         if self.condition == "shuffled":
             permutation = np.arange(self.count, dtype=np.int64)
             permutation_rng = np.random.default_rng(self.permutation_seed)
-            for start in range(0, self.count, self.observations_per_location):
-                stop = min(start + self.observations_per_location, self.count)
+            stratum_size = (
+                self.observations_per_location
+                if self.permutation_strata == "synthetic_location_id"
+                else self.count
+            )
+            for start in range(0, self.count, stratum_size):
+                stop = min(start + stratum_size, self.count)
                 indexes = np.arange(start, stop, dtype=np.int64)
                 permutation[indexes] = permutation_rng.permutation(indexes)
             self._labels = self._source_labels[permutation]

@@ -46,6 +46,10 @@ def phase0_protocol(config: dict[str, Any]) -> dict[str, Any]:
             "split_policy": splits.get("strategy", "grouped"),
             "split_seed_is_independent": True,
         },
+        "feature_extraction": {
+            "implementation": "sensetrace.datasets.build_feature_matrix",
+            "identity_metadata_excluded": True,
+        },
         "models": {
             "enabled": [name for name, value in models.items() if value.get("enabled", False)],
             "training_seeds": training.get("seeds", [11, 23, 37]),
@@ -63,6 +67,15 @@ def phase0_protocol(config: dict[str, Any]) -> dict[str, Any]:
                     "group_stratified_balance": ["synthetic_location_id"],
                 },
             ),
+        },
+        "calibration_rule": {
+            "fresh_validation_required": True,
+            "minimum_injected_detection_rate": calibration.get(
+                "minimum_injected_detection_rate", 0.8
+            ),
+            "false_positive_tolerance": "rate <= alpha + max(0.05, alpha) and Wilson lower bound <= alpha",
+            "null_and_shuffled_decision": "no family-wise corrected departure from the empirical null",
+            "injected_decision": "predeclared signal strength detected at the minimum configured rate",
         },
     }
 

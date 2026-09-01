@@ -125,6 +125,7 @@ def _generate_condition(
             ),
             "permutation_seed": backend.permutation_seed if condition == "shuffled" else None,
             "permutation_reference": backend.permutation_fingerprint,
+            "permutation_strata": backend.permutation_strata if condition == "shuffled" else None,
         },
     )
     return manifest

@@ -93,6 +93,25 @@ def test_synthetic_group_balance_and_seed_provenance():
     assert samples[0].metadata["trace_seed"] == 12
 
 
+def test_synthetic_shuffle_declares_exchangeability_strata():
+    global_balance = SyntheticBackend(
+        count=40,
+        trace_length=16,
+        seed=2,
+        condition="shuffled",
+        balance_mode="global_balance_only",
+    )
+    group_balance = SyntheticBackend(
+        count=40,
+        trace_length=16,
+        seed=2,
+        condition="shuffled",
+        balance_mode="group_stratified_balance",
+    )
+    assert global_balance.permutation_strata == "synthetic_dataset_id"
+    assert group_balance.permutation_strata == "synthetic_location_id"
+
+
 def test_max_statistic_and_permutation_preserve_strata():
     statistic, component = max_statistic({"logistic.ba": 0.52, "tree.auroc": 0.54})
     assert statistic == 0.040000000000000036

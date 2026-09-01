@@ -2,36 +2,37 @@
 
 ## Observed fact
 
-Local run ID: `phase0-calibration-local-20260901-v3`.
+Full example-config run ID: `phase0-calibration-20260901T051610Z-65c134bc`.
 
 - Protocol: `phase0-protocol-v1`.
-- Protocol hash: `940213259a7482f07864e7129b01482347ebdd1a7798e349c12f4f3f8fcc55d7`.
-- Calibration: 10 null, 10 shuffled, and 10 injected replicates for each of
-  `global_balance_only` and `group_stratified_balance` (20 per condition total).
-- Fresh validation: 20 null, 20 shuffled, and 20 injected datasets, all with
+- Protocol hash: `8bd9ce4b32704dfcd9998ca07549fb4507d090045dd479b50695fbe8b6fe7939`.
+- Calibration: 50 null, 50 shuffled, and 50 injected replicates for each of
+  `global_balance_only` and `group_stratified_balance` (100 per condition total).
+- Fresh validation: 100 null, 100 shuffled, and 100 injected datasets, all with
   fingerprints distinct from the calibration ensemble.
-- The injected-strength curve materialized 0.05, 0.10, and 0.20 sigma levels.
+- The injected-strength curve materialized 0.05, 0.10, and 0.20 sigma levels,
+  with 50 replicates per non-primary curve level and balance mode.
 - Alpha was 0.05. The empirical null critical maximum statistic was
-  `0.0906474`.
-- Fresh null: 1/20 positive, estimated false-positive rate 5.0%, Wilson 95%
-  interval `[0.0089, 0.2361]`.
-- Fresh shuffled: 1/20 positive, estimated false-positive rate 5.0%, with the
-  same Wilson interval.
-- The configured local engineering gate passed: null, shuffled, injected
-  detection rate 50% against a local minimum of 50%, and false-positive-rate
-  check all passed. This run used 20 rather than the example configuration's
-  50 replicates and is therefore a calibration milestone, not a high-powered
-  final campaign.
+  `0.0840286`.
+- Calibration null: 5/100 positive, estimated false-positive rate 5.0%, Wilson
+  95% interval `[0.0215, 0.1118]`.
+- Fresh null: 7/100 positive, estimated false-positive rate 7.0%, Wilson 95%
+  interval `[0.0343, 0.1375]`.
+- Fresh shuffled: 7/100 positive, with the same 7.0% rate and Wilson interval.
+- Fresh injected detection was 68/100 (68%), below the configured minimum of
+  80%. Null, shuffled, and pipeline false-positive checks passed, but the
+  overall Phase 1 gate correctly remained closed.
 
 ## Historical null investigation
 
-The old boosted-tree values are ordinary under the new empirical null:
+The old boosted-tree and shuffled-logistic values are ordinary under the new
+empirical null:
 
 | historical value | marginal null percentile | raw empirical p | max-statistic percentile | family-wise p |
 | --- | ---: | ---: | ---: | ---: |
-| boosted-tree BA 0.5318 | 75% | 0.286 | 45% | 0.571 |
-| boosted-tree AUROC 0.5486 | 70% | 0.333 | 65% | 0.381 |
-| shuffled logistic BA 0.5400 | 70% | 0.333 | 55% | 0.476 |
+| boosted-tree BA 0.5318 | 86% | 0.149 | 61% | 0.396 |
+| boosted-tree AUROC 0.5486 | 91% | 0.099 | 79% | 0.218 |
+| shuffled logistic BA 0.5400 | 89% | 0.119 | 74% | 0.267 |
 
 These values are not re-read from the old raw dataset; they are fixed historical
 comparators evaluated against the new null distribution. The evidence supports
@@ -40,11 +41,12 @@ prove that every possible construction or feature family is null.
 
 ## Randomization and native controls
 
-The fixed-dataset Monte Carlo permutation tests used 20 permutations and plus-one
-empirical p-values. Global-balance data permuted within the materialized dataset;
-group-stratified data permuted within synthetic location. Both representative
-injected tests returned `p = 0.0476`, consistent with the intentionally injected
-signal at this small permutation count.
+The fixed-dataset Monte Carlo permutation tests used 100 permutations and plus-one
+empirical p-values. Global-balance data permuted within the materialized dataset
+(`p = 0.1386`); group-stratified data permuted within synthetic location
+(`p = 0.0099`). The latter is the expected randomization evidence for the known
+injected signal when its within-location balance is preserved, not an independent
+physical result.
 
 Native calibration run: 200 repetitions on the controller's x86 host. Cached
 load median was 22 TSC cycles; CLFLUSH load median was 188 cycles. Timer-only
@@ -57,12 +59,15 @@ The calibrated decision rule no longer treats every score above 0.5 as a
 failure, and it does not reject a validation ensemble because one null replicate
 fires at alpha. The maximum statistic controls the tested model/metric family;
 the validation false-positive rate estimates how often the complete pipeline
-opens its positive decision under known null data.
+opens its positive decision under known null data. The full campaign therefore
+closed Phase 1 for a substantive reason: the configured 0.10-sigma injection
+was detected in only 68% of fresh replicates, below the predeclared 80% power
+criterion. The implementation did not weaken the control to force a pass.
 
-The 20-replicate interval is wide. Larger unattended campaigns (50–200 or more)
-are required before making a precise claim about the long-run false-positive
-rate. Training-seed means are used in the replicate statistic and each seed is
-recorded; repeated fits on one dataset are not treated as independent datasets.
+The 100-replicate intervals are still not a substitute for a power analysis over
+the intended physical effect size. Training-seed means are used in the replicate
+statistic and each seed is recorded; repeated fits on one dataset are not treated
+as independent datasets.
 
 ## Claim boundary
 

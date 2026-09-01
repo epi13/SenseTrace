@@ -85,6 +85,9 @@ def build_parser() -> argparse.ArgumentParser:
         "bootstrap",
         "deploy",
         "status",
+        "start",
+        "stop",
+        "restart",
         "verify-recovery",
         "reboot",
     ]:

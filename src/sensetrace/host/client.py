@@ -195,6 +195,11 @@ class RemoteHost:
     def deploy(self, *, reset_config: bool = False) -> dict[str, Any]:
         bootstrap = self.bootstrap()
         home = bootstrap["home"]
+        existing = bootstrap["existing_service_management"]
+        if existing["mode"] == "user-fallback":
+            self.run("systemctl --user stop sensetrace.service 2>/dev/null || true", warn=True)
+        elif existing["mode"] == "system":
+            self.run("sudo -n systemctl stop sensetrace.service 2>/dev/null || true", warn=True)
         archive = self._archive_project()
         remote_archive = f"/tmp/sensetrace-source-{os.getpid()}.tar.gz"
         try:
@@ -221,11 +226,18 @@ class RemoteHost:
                 # A system install is authoritative. Remove a user fallback
                 # before enabling it, and make the installer preserve live
                 # operator configuration unless reset_config was explicit.
+                self.run("systemctl --user stop sensetrace.service 2>/dev/null || true", warn=True)
                 self.run(
-                    "systemctl --user stop sensetrace.service 2>/dev/null || true; "
-                    "systemctl --user disable sensetrace.service 2>/dev/null || true",
-                    warn=True,
+                    "systemctl --user disable sensetrace.service 2>/dev/null || true", warn=True
                 )
+                fallback_after = self.service_management()
+                if (
+                    fallback_after["user"]["active"] == "active"
+                    or fallback_after["user"]["enabled"] == "enabled"
+                ):
+                    raise RuntimeError(
+                        "user fallback remained active/enabled before system migration"
+                    )
                 live_config = "/etc/sensetrace/worker03.yaml"
                 before = self._remote_hash(live_config)
                 reset = "1" if reset_config else "0"

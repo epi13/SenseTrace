@@ -604,11 +604,11 @@ class RemoteHost:
         if not fresh_ssh:
             raise RuntimeError("fresh SSH validation failed before headless transition")
         self.run("sudo -n systemctl set-default multi-user.target")
-        display = self.run("sudo -n systemctl disable --now display-manager.service", warn=True)
-        if not display.ok:
-            raise RuntimeError(
-                display.stderr.strip() or "could not disable display-manager.service"
-            )
+        # Fedora systems can have no display-manager alias at all once the
+        # graphical stack is inactive.  Stopping/disabling that absent alias
+        # is not a failed headless transition; verify the resulting profile.
+        self.run("sudo -n systemctl disable display-manager.service", warn=True, hide=True)
+        self.run("sudo -n systemctl stop display-manager.service", warn=True, hide=True)
         after = self.boot_profile()
         if (
             after["default_target"] != "multi-user.target"

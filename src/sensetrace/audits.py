@@ -94,32 +94,40 @@ def _label_balance(
 def _feature_distribution_differences(
     feature_matrix: np.ndarray, partitions: dict[str, np.ndarray]
 ) -> dict[str, Any]:
-    train = feature_matrix[partitions["train"]]
-    test = feature_matrix[partitions["test"]]
-    rows: list[dict[str, Any]] = []
-    for index in range(feature_matrix.shape[1]):
-        train_mean = float(np.mean(train[:, index]))
-        test_mean = float(np.mean(test[:, index]))
-        train_std = float(np.std(train[:, index]))
-        test_std = float(np.std(test[:, index]))
-        pooled = max(float(np.sqrt((train_std**2 + test_std**2) / 2)), 1e-12)
-        rows.append(
-            {
-                "feature_index": index,
-                "train_mean": train_mean,
-                "test_mean": test_mean,
-                "train_std": train_std,
-                "test_std": test_std,
-                "standardized_mean_difference": (test_mean - train_mean) / pooled,
-            }
-        )
+    comparisons: dict[str, Any] = {}
+    names = list(partitions)
+    for left_name, right_name in zip(names, names[1:], strict=False):
+        left = feature_matrix[partitions[left_name]]
+        right = feature_matrix[partitions[right_name]]
+        rows: list[dict[str, Any]] = []
+        for index in range(feature_matrix.shape[1]):
+            left_mean = float(np.mean(left[:, index]))
+            right_mean = float(np.mean(right[:, index]))
+            left_std = float(np.std(left[:, index]))
+            right_std = float(np.std(right[:, index]))
+            pooled = max(float(np.sqrt((left_std**2 + right_std**2) / 2)), 1e-12)
+            rows.append(
+                {
+                    "feature_index": index,
+                    "left_mean": left_mean,
+                    "right_mean": right_mean,
+                    "left_std": left_std,
+                    "right_std": right_std,
+                    "standardized_mean_difference": (right_mean - left_mean) / pooled,
+                }
+            )
+        comparisons[f"{left_name}_vs_{right_name}"] = {
+            "left": left_name,
+            "right": right_name,
+            "feature_count": len(rows),
+            "features": rows,
+            "max_absolute_standardized_mean_difference": max(
+                (abs(row["standardized_mean_difference"]) for row in rows), default=float("nan")
+            ),
+        }
     return {
-        "comparison": "train_vs_test",
-        "feature_count": len(rows),
-        "features": rows,
-        "max_absolute_standardized_mean_difference": max(
-            (abs(row["standardized_mean_difference"]) for row in rows), default=float("nan")
-        ),
+        "comparison": "adjacent materialized partitions",
+        "comparisons": comparisons,
     }
 
 

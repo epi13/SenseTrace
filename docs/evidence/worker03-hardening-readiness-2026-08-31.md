@@ -48,6 +48,15 @@ when its uncertainty excludes chance in the recorded grouped assessment. The
 Phase 1 gate therefore remains closed pending independent null-resampling and
 group-balance investigation.
 
+The historical boosted-tree observation was approximately balanced accuracy
+`0.5425` and AUROC `0.5535`. A compact rerun on the same style of materialized
+synthetic grouped split produced approximately `0.5301` and `0.5479`. This
+variation, the deterministic repeated-fit behavior, and visible group label
+imbalance are recorded as plausible finite-sample/group/split explanations;
+they do not prove or disprove an unintended signal. Metadata-only,
+identity-only, trial-order, and feature-distribution audits are now emitted so
+the remaining alternatives can be checked with independent null resampling.
+
 ## Claim boundary
 
 This artifact establishes repository/controller readiness evidence and a clear

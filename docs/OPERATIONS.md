@@ -31,6 +31,7 @@ sensetrace host boot-profile worker-03
 sensetrace host services worker-03
 sensetrace host noise-baseline worker-03
 sensetrace host verify-boot worker-03
+sensetrace host reboot-acceptance worker-03 --cycles 3
 ```
 
 `deploy` is repeatable. It initializes a missing live configuration from the example, then preserves it on normal deployments. `--reset-config` is the deliberate replacement operation. The result records configuration hashes before and after deployment. With noninteractive sudo it first stops and disables the user fallback, installs `/opt/sensetrace`, `/etc/sensetrace`, `/var/lib/sensetrace`, the system unit, the candidate `sensetrace.target`, tmpfiles policy, and the documented kernel recovery sysctls. Without it, deployment uses `~/.local/share/sensetrace`, a user systemd unit, and records that reboot persistence is not proven until user-manager linger or a system unit is configured.

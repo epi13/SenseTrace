@@ -330,7 +330,8 @@ def run_phase0(
     acceptance = _acceptance(results)
     null_models = results.get("null", {}).get("models", {})
     null_assessments = acceptance.get("control_model_assessments", {}).get("null", {})
-    null_group_audits = results.get("null", {}).get("leakage_audits", {}).get("label_balance", {})
+    null_audits = results.get("null", {}).get("leakage_audits", {})
+    null_group_audits = null_audits.get("label_balance", {})
     max_group_imbalance = max(
         (
             float(group["absolute_deviation_from_half"])
@@ -355,6 +356,40 @@ def run_phase0(
                 "auroc_std": item["summary"]["auroc_std"],
             }
             for name, item in null_models.items()
+        },
+        "alternative_explanations": {
+            "finite_sample_variation": "plausible; one materialized null is not an independent null-resampling study",
+            "group_imbalance": {
+                "observed": max_group_imbalance > 0,
+                "maximum_positive_rate_deviation": max_group_imbalance,
+                "evidence": "see leakage_audits.label_balance",
+            },
+            "metadata_structure": {
+                "status": "audit-only; inspect metadata_only and identity_only results",
+                "metadata_only": null_audits.get("metadata_only"),
+                "identity_only": null_audits.get("identity_only"),
+            },
+            "feature_engineering_artifact": {
+                "status": "not resolved by score alone",
+                "feature_distribution_differences": null_audits.get(
+                    "feature_distribution_differences"
+                ),
+            },
+            "split_artifact": {
+                "status": "not ruled out; split is materialized and grouped",
+                "partition_class_balance": results.get("null", {}).get("partition_class_balance"),
+            },
+            "repeated_seed_artifact": {
+                "status": "not resolved; repeated fits on one fixed dataset are deterministic",
+                "training_seed_variation": {
+                    name: {
+                        "balanced_accuracy_std": item["summary"]["balanced_accuracy_std"],
+                        "auroc_std": item["summary"]["auroc_std"],
+                    }
+                    for name, item in null_models.items()
+                },
+            },
+            "actual_unintended_synthetic_signal": "not established; the null backend injects no intentional label-dependent trace signal",
         },
         "interpretation": (
             "The boosted-tree elevation is retained as FAIL / INVESTIGATE. "

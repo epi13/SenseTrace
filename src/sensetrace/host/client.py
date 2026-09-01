@@ -250,6 +250,10 @@ class RemoteHost:
                 if management["mode"] == "invalid-dual-service":
                     raise RuntimeError("system deployment left an invalid dual-service state")
                 process_count = self._runner_process_count()
+                if management["mode"] != "system" or process_count != 1:
+                    raise RuntimeError(
+                        "system deployment did not establish exactly one authoritative runner"
+                    )
                 return {
                     "mode": "system",
                     "service": "sensetrace.service",
@@ -306,6 +310,16 @@ class RemoteHost:
         except ValueError:
             return 0
 
+    def _runner_pids(self) -> list[int]:
+        result = self.run("pgrep -f '[s]ensetrace runner' || true", warn=True, hide=True)
+        pids: list[int] = []
+        for value in result.stdout.split():
+            try:
+                pids.append(int(value))
+            except ValueError:
+                continue
+        return pids
+
     def status(self) -> dict[str, Any]:
         management = self.service_management()
         disk = self.run("df -h /", warn=True, hide=True)
@@ -314,6 +328,7 @@ class RemoteHost:
             "management_mode": management["mode"],
             "service_management": management,
             "runner_process_count": self._runner_process_count(),
+            "runner_pids": self._runner_pids(),
             "disk_root": disk.stdout.strip(),
         }
 
@@ -374,21 +389,52 @@ class RemoteHost:
             "interpretation": "baseline evidence; fewer services alone do not establish lower measurement noise",
         }
 
+    def cpu_profile(self) -> dict[str, Any]:
+        commands = {
+            "frequency_info": "cpupower frequency-info 2>/dev/null || true",
+            "governors": "grep -H . /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor 2>/dev/null || true",
+            "current_frequency": "grep -H . /sys/devices/system/cpu/cpu*/cpufreq/scaling_cur_freq 2>/dev/null || true",
+            "available_governors": "grep -H . /sys/devices/system/cpu/cpu*/cpufreq/scaling_available_governors 2>/dev/null || true",
+            "turbo": "cat /sys/devices/system/cpu/intel_pstate/no_turbo 2>/dev/null || true",
+            "turbostat_available": "command -v turbostat || true",
+            "temperature": "sensors 2>/dev/null || true",
+        }
+        return {
+            "host": self.alias,
+            "timestamp_epoch": time.time(),
+            "measurements": {
+                name: self.run(command, warn=True, hide=True).stdout
+                for name, command in commands.items()
+            },
+            "claim": "policy inventory; compare separate controlled runs before selecting a timing profile",
+        }
+
     def verify_boot(self, *, expected_boot_id: str | None = None) -> dict[str, Any]:
         boot_id = self.run("cat /proc/sys/kernel/random/boot_id", warn=True, hide=True)
         profile = self.boot_profile()
         service = self.status()
         doctor = self.doctor()
+        services = self.services()
+        home = self._home()
+        recovery = self.run(
+            f"grep 'journal_recovery' {quote(home)}/.local/share/sensetrace/runs/*/events.jsonl "
+            "2>/dev/null | tail -1 || true",
+            warn=True,
+            hide=True,
+        )
         result = {
             "host": self.alias,
             "ssh": True,
             "boot_id": boot_id.stdout.strip() or "unavailable",
             "expected_boot_id": expected_boot_id,
-            "boot_id_changed": expected_boot_id is None
-            or boot_id.stdout.strip() != expected_boot_id,
+            "boot_id_changed": (
+                None if expected_boot_id is None else boot_id.stdout.strip() != expected_boot_id
+            ),
             "boot_profile": profile,
             "service": service,
             "doctor": doctor,
+            "services": services,
+            "journal_recovery_evidence": recovery.stdout.strip() or "not observed",
         }
         result["passed"] = bool(
             result["ssh"]
@@ -399,6 +445,56 @@ class RemoteHost:
         )
         return result
 
+    def reboot_acceptance(self, *, cycles: int = 3, timeout_seconds: int = 180) -> dict[str, Any]:
+        """Perform repeated fresh-SSH reboot checks once sudo authorization exists."""
+
+        if cycles < 1:
+            raise ValueError("cycles must be positive")
+        records: list[dict[str, Any]] = []
+        current = self
+        for cycle in range(1, cycles + 1):
+            old_boot_id = current.run(
+                "cat /proc/sys/kernel/random/boot_id", hide=True
+            ).stdout.strip()
+            request_timestamp = time.time()
+            request = current.reboot()
+            current.connection.close()
+            deadline = time.monotonic() + timeout_seconds
+            fresh: RemoteHost | None = None
+            verification: dict[str, Any] | None = None
+            while time.monotonic() < deadline:
+                try:
+                    candidate = RemoteHost(self.alias, project_root=self.project_root)
+                    verification = candidate.verify_boot(expected_boot_id=old_boot_id)
+                    if verification["passed"] and verification["boot_id_changed"]:
+                        fresh = candidate
+                        break
+                    candidate.connection.close()
+                except Exception:
+                    pass
+                time.sleep(5)
+            records.append(
+                {
+                    "cycle": cycle,
+                    "old_boot_id": old_boot_id,
+                    "request_timestamp_epoch": request_timestamp,
+                    "request": request,
+                    "fresh_ssh_verification": verification,
+                    "passed": fresh is not None,
+                }
+            )
+            if fresh is None:
+                break
+            current = fresh
+        self.connection = current.connection
+        return {
+            "host": self.alias,
+            "cycles_requested": cycles,
+            "cycles_completed": len(records),
+            "records": records,
+            "passed": len(records) == cycles and all(record["passed"] for record in records),
+        }
+
     def set_headless(self) -> dict[str, Any]:
         """Switch the default to multi-user.target after SSH is already verified."""
 
@@ -406,8 +502,17 @@ class RemoteHost:
             raise RuntimeError("headless transition requires existing authorized sudo")
         before = self.boot_profile()
         self.run("sudo -n systemctl set-default multi-user.target")
-        self.run("sudo -n systemctl disable --now display-manager.service", warn=True)
+        display = self.run("sudo -n systemctl disable --now display-manager.service", warn=True)
+        if not display.ok:
+            raise RuntimeError(
+                display.stderr.strip() or "could not disable display-manager.service"
+            )
         after = self.boot_profile()
+        if (
+            after["default_target"] != "multi-user.target"
+            or after["display_manager_active"] == "active"
+        ):
+            raise RuntimeError("headless transition did not verify a stopped display manager")
         return {
             "before": before,
             "after": after,
@@ -418,7 +523,13 @@ class RemoteHost:
         if not self.sudo_available():
             raise RuntimeError("target isolation requires existing authorized sudo")
         self.run("sudo -n systemctl isolate sensetrace.target")
-        return self.verify_boot()
+        result = self.verify_boot()
+        if not any(
+            "sensetrace.target" in target for target in result["boot_profile"]["active_targets"]
+        ):
+            result["passed"] = False
+            result["error"] = "sensetrace.target is not active after isolation"
+        return result
 
     def set_sensetrace_default(self) -> dict[str, Any]:
         if not self.sudo_available():
@@ -426,6 +537,8 @@ class RemoteHost:
         before = self.boot_profile()
         self.run("sudo -n systemctl set-default sensetrace.target")
         after = self.boot_profile()
+        if after["default_target"] != "sensetrace.target":
+            raise RuntimeError("dedicated target was not made default")
         return {
             "before": before,
             "after": after,
@@ -456,11 +569,18 @@ class RemoteHost:
         }
 
     def logs(self, *, lines: int = 100) -> str:
-        command = (
-            f"journalctl -u sensetrace.service -n {int(lines)} --no-pager 2>/dev/null; "
-            f"journalctl --user -u sensetrace.service -n {int(lines)} --no-pager 2>/dev/null; "
-            f"tail -n {int(lines)} ~/.local/share/sensetrace/state/service-events.jsonl 2>/dev/null"
-        )
+        management = self.service_management()
+        if management["mode"] == "invalid-dual-service":
+            raise RuntimeError("refusing logs in invalid-dual-service mode")
+        if management["mode"] == "system":
+            command = f"journalctl -u sensetrace.service -n {int(lines)} --no-pager"
+        elif management["mode"] == "user-fallback":
+            command = (
+                f"journalctl --user -u sensetrace.service -n {int(lines)} --no-pager 2>/dev/null; "
+                f"tail -n {int(lines)} ~/.local/share/sensetrace/state/service-events.jsonl 2>/dev/null"
+            )
+        else:
+            return "runner service is not installed\n"
         return self.run(command, warn=True).stdout
 
     def run_phase0(
@@ -615,10 +735,15 @@ class RemoteHost:
         return str(local_dir)
 
     def reboot(self) -> str:
+        # Schedule the reboot after this SSH command returns so the controller
+        # receives an unambiguous request record instead of a transport error.
         result = self.run(
             "boot_id=$(cat /proc/sys/kernel/random/boot_id); "
+            "sudo -n true && "
+            "(nohup sh -c 'sleep 1; exec sudo -n systemctl reboot' "
+            ">/dev/null 2>&1 </dev/null &) && "
             'printf \'{"old_boot_id":"%s","request_epoch":%.6f}\n\' '
-            '"$boot_id" "$(date +%s.%N)"; sudo -n systemctl reboot',
+            '"$boot_id" "$(date +%s.%N)"',
             warn=True,
         )
         if result.ok:

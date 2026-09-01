@@ -96,9 +96,11 @@ def build_parser() -> argparse.ArgumentParser:
         "restart",
         "verify-recovery",
         "reboot",
+        "reboot-acceptance",
         "boot-profile",
         "services",
         "noise-baseline",
+        "cpu-profile",
         "verify-boot",
         "headless",
         "isolate-target",
@@ -112,6 +114,9 @@ def build_parser() -> argparse.ArgumentParser:
                 action="store_true",
                 help="deliberately replace the live operator config with the example template",
             )
+        if name == "reboot-acceptance":
+            command.add_argument("--cycles", type=int, default=3)
+            command.add_argument("--timeout", type=int, default=180)
     logs = host_sub.add_parser("logs")
     logs.add_argument("host", nargs="?", default="worker-03")
     logs.add_argument("--lines", type=int, default=100)
@@ -252,12 +257,16 @@ def main(argv: list[str] | None = None) -> int:
             _json(remote.verify_recovery())
         elif args.host_command == "reboot":
             print(remote.reboot())
+        elif args.host_command == "reboot-acceptance":
+            _json(remote.reboot_acceptance(cycles=args.cycles, timeout_seconds=args.timeout))
         elif args.host_command == "boot-profile":
             _json(remote.boot_profile())
         elif args.host_command == "services":
             _json(remote.services())
         elif args.host_command == "noise-baseline":
             _json(remote.noise_baseline())
+        elif args.host_command == "cpu-profile":
+            _json(remote.cpu_profile())
         elif args.host_command == "verify-boot":
             _json(remote.verify_boot())
         elif args.host_command == "headless":

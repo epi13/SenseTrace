@@ -20,6 +20,7 @@ privileged host changes or reboot acceptance have passed.
 - Watchdog inventory: `intel_oc_wdt`/60 s and `iTCO_wdt`/30 s, both inactive; systemd watchdog use disabled.
 - Energy inventory: RAPL package/core/uncore/DRAM domain names visible, energy reads unavailable to `worker-03`.
 - PMU inventory: `perf` unavailable to the unprivileged environment.
+- Latest deployed source marker: `e5a69e3e4051dc950717346360ef250e02184f44`.
 
 ## Privileged boundary
 
@@ -56,6 +57,21 @@ imbalance are recorded as plausible finite-sample/group/split explanations;
 they do not prove or disprove an unintended signal. Metadata-only,
 identity-only, trial-order, and feature-distribution audits are now emitted so
 the remaining alternatives can be checked with independent null resampling.
+
+The actual worker compact rerun was
+`phase0-20260901T041024Z-9ecd2e60`, with 1,600 samples, trace length 128,
+grouped `session_id` CIs, and logistic/boosted-tree models:
+
+| condition | model | balanced accuracy | AUROC | control status |
+| --- | --- | ---: | ---: | --- |
+| null | logistic regression | 0.5017 | 0.5162 | WARN |
+| null | boosted trees | 0.5318 | 0.5486 | FAIL / INVESTIGATE |
+| injected | logistic regression | 0.6071 | 0.6479 | detected control |
+| injected | boosted trees | 0.5910 | 0.6076 | detected control |
+| shuffled same observations | logistic regression | 0.5424 | 0.5158 | FAIL / INVESTIGATE |
+| shuffled same observations | boosted trees | 0.4928 | 0.5054 | WARN |
+
+The run's `phase1_gate` is `false`. No physical Phase 1A campaign was started.
 
 ## Claim boundary
 

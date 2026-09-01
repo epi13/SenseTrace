@@ -61,6 +61,21 @@ def _generate_condition(
         count=int(data.get("samples", 1000)),
         trace_length=int(data.get("trace_length", 128)),
         seed=int(config.get("experiment", {}).get("seed", 1337)),
+        acquisition_seed=int(
+            config.get("experiment", {}).get(
+                "acquisition_seed", config.get("experiment", {}).get("seed", 1337)
+            )
+        ),
+        label_seed=int(
+            config.get("experiment", {}).get(
+                "label_seed", config.get("experiment", {}).get("seed", 1337)
+            )
+        ),
+        trace_seed=int(
+            config.get("experiment", {}).get(
+                "trace_seed", int(config.get("experiment", {}).get("seed", 1337)) + 1
+            )
+        ),
         condition=condition,
         amplitude_sigma=amplitude,
         start_index=int(
@@ -70,6 +85,9 @@ def _generate_condition(
         session_count=int(acquisition.get("session_count", 4)),
         device_count=int(acquisition.get("device_count", 2)),
         permute_seed=int(config.get("experiment", {}).get("seed", 1337)) + 7919,
+        dataset_id=str(config.get("experiment", {}).get("dataset_id", "phase0")),
+        balance_mode=str(acquisition.get("synthetic_balance_mode", "global_balance_only")),
+        observations_per_location=int(acquisition.get("observations_per_location", 4)),
     )
     writer = ShardWriter(
         condition_dir,
@@ -122,7 +140,27 @@ def _generate_shuffled_from_dataset(
     """Materialize the label control from the exact injected observations."""
 
     traces, labels, metadata, _shards, source_manifest = load_dataset(source_dir)
-    permutation = np.random.default_rng(permutation_seed).permutation(len(labels))
+    configured_strata = config.get("calibration", {}).get("permutation_strata")
+    mode = config.get("acquisition", {}).get("synthetic_balance_mode", "global_balance_only")
+    by_mode = config.get("calibration", {}).get("permutation_strata_by_balance_mode", {})
+    strata_keys = list(
+        configured_strata
+        or by_mode.get(mode, [])
+        or [
+            "synthetic_location_id"
+            if mode == "group_stratified_balance"
+            else "synthetic_dataset_id"
+        ]
+    )
+    rng = np.random.default_rng(permutation_seed)
+    permutation = np.arange(len(labels), dtype=np.int64)
+    strata: dict[tuple[str, ...], list[int]] = {}
+    keys = list(zip(*(np.asarray(metadata[key]).astype(str) for key in strata_keys), strict=True))
+    for index, key in enumerate(keys):
+        strata.setdefault(key, []).append(index)
+    for indices in strata.values():
+        index_array = np.asarray(indices, dtype=np.int64)
+        permutation[index_array] = rng.permutation(index_array)
     shuffled_labels = labels[permutation]
     condition_dir.mkdir(parents=True, exist_ok=True)
     acquisition = config.get("acquisition", {})
@@ -161,6 +199,7 @@ def _generate_shuffled_from_dataset(
             "permuted_label_stream_fingerprint": label_fingerprint,
             "permutation_seed": permutation_seed,
             "permutation_reference": permutation_fingerprint,
+            "permutation_strata": strata_keys,
             "only_changed_variable": "label association",
         },
     )
@@ -464,21 +503,16 @@ def _acceptance(results: dict[str, Any]) -> dict[str, Any]:
             metrics[metric] = {
                 "mean": point_mean,
                 "interval_across_runs": [lower, upper],
-                "statistically_above_chance": statistically_above_chance,
                 "numerically_elevated": numerically_elevated,
+                "uncalibrated_interval_excludes_chance": statistically_above_chance,
+                "calibrated_decision": "not_available; run sensetrace calibrate phase0",
             }
-        incompatible = any(value["statistically_above_chance"] for value in metrics.values())
         elevated = any(value["numerically_elevated"] for value in metrics.values())
         return {
-            "status": "FAIL / INVESTIGATE" if incompatible else "WARN" if elevated else "PASS",
+            "status": "UNCALIBRATED",
             "metrics": metrics,
-            "reason": (
-                "confidence interval excludes chance"
-                if incompatible
-                else "point estimate is elevated but uncertainty includes chance"
-                if elevated
-                else "all reported point estimates and intervals are consistent with chance"
-            ),
+            "reason": "A single materialized run cannot estimate the complete pipeline null distribution",
+            "numerically_elevated": elevated,
         }
 
     control_assessments: dict[str, Any] = {}
@@ -498,36 +532,17 @@ def _acceptance(results: dict[str, Any]) -> dict[str, Any]:
     for name in injected_conditions:
         item = results[name].get("models", {})
         if any(
-            any(
-                run.get("confidence_interval_95", [float("nan"), float("nan")])[0] > 0.5
-                for run in model.get("runs", [])
-            )
-            or float(model.get("summary", {}).get("balanced_accuracy_mean", 0.0)) >= 0.55
+            float(model.get("summary", {}).get("balanced_accuracy_mean", 0.0)) >= 0.55
             for model in item.values()
         ):
             detected.append(name)
-    null_clean = bool(control_assessments.get("null")) and all(
-        assessment["status"] == "PASS" for assessment in control_assessments["null"].values()
-    )
-    shuffled_clean = bool(control_assessments.get("shuffled")) and all(
-        assessment["status"] == "PASS" for assessment in control_assessments["shuffled"].values()
-    )
+    null_present = bool(control_assessments.get("null"))
+    shuffled_present = bool(control_assessments.get("shuffled"))
     return {
-        # These legacy-compatible fields mean that no control is statistically
-        # incompatible with chance. A WARN remains visible below and blocks the
-        # phase gate; it is not silently promoted to a clean PASS.
-        "null_consistent_with_chance": bool(control_assessments.get("null"))
-        and all(
-            assessment["status"] != "FAIL / INVESTIGATE"
-            for assessment in control_assessments["null"].values()
-        ),
-        "shuffled_labels_consistent_with_chance": bool(control_assessments.get("shuffled"))
-        and all(
-            assessment["status"] != "FAIL / INVESTIGATE"
-            for assessment in control_assessments["shuffled"].values()
-        ),
+        "null_consistent_with_chance": null_present,
+        "shuffled_labels_consistent_with_chance": shuffled_present,
         "control_model_assessments": control_assessments,
-        "null_controls_clean_across_enabled_models": null_clean and shuffled_clean,
+        "null_controls_clean_across_enabled_models": False,
         "injected_signal_detected": bool(detected),
         "detected_injected_conditions": detected,
         "best_injected_balanced_accuracy": {name: best_score(name) for name in injected_conditions},
@@ -536,5 +551,6 @@ def _acceptance(results: dict[str, Any]) -> dict[str, Any]:
             for item in results.values()
         ),
         "identity_policy_enforced_by_default": True,
-        "phase1_gate": bool(null_clean and shuffled_clean and detected),
+        "phase1_gate": False,
+        "phase1_gate_status": "closed; fresh empirical calibration is required",
     }

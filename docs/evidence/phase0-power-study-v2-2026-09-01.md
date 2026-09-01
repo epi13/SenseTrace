@@ -33,11 +33,13 @@ not a passing gate and does not authorize physical acquisition.
 
 The candidate artifacts are retained under the ignored local `runs/` directory.
 They include distinct materialized dataset fingerprints for each ensemble and
-the complete per-candidate reports. The final v2 gate must use a new seed and a
-new run directory; it must not reuse any candidate validation data.
+the complete per-candidate reports. The final v2 gate used a new seed and a
+new run directory and did not reuse any candidate validation data. Its passing
+result is recorded in [the final-gate evidence](phase0-final-v2-gate-2026-09-01.md).
 
 ## Claim boundary
 
 This is synthetic development/power evidence only. It does not establish a
 physical DRAM-state inference result, DRAM topology, or cross-host/device
-generalization. Phase 1A remains closed pending the separate final v2 gate.
+generalization. The separate final v2 gate subsequently passed; that does not
+change this study's development-only status.

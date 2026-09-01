@@ -72,7 +72,11 @@ def _watchdog_inventory() -> list[dict[str, str]]:
                 "state": _read(str(path / "state")) or "unavailable",
                 "timeout": _read(str(path / "timeout")) or "unavailable",
                 "timeleft": _read(str(path / "timeleft")) or "unavailable",
-                "driver": _read(str(path / "device/driver/module")) or "unavailable",
+                "driver": (
+                    os.path.basename(os.path.realpath(path / "device/driver"))
+                    if (path / "device/driver").exists()
+                    else "unavailable"
+                ),
             }
         )
     return devices

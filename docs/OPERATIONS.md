@@ -95,7 +95,7 @@ The configured acquisition guard records a `storage_guard_stop` event and stops 
 
 `sensetrace host reboot worker-03` requires noninteractive sudo and is intentionally refused when that authorization is unavailable. A controlled reboot acceptance test must verify a new SSH connection, a changed boot ID, automatic service start, journal recovery, and resumed samples. `sensetrace host headless` changes the default to `multi-user.target` only after that authorization is available; `sensetrace host isolate-target` and `sensetrace host set-target` are separate explicit operations for the candidate target. The current worker has `graphical.target` as its default and `user manager linger=no`; therefore the user fallback is not an automatic-after-reboot appliance.
 
-The worker exposes `/dev/watchdog`, `/dev/watchdog0`, and `/dev/watchdog1`, but no provider was safely identified from the unprivileged session. SenseTrace does not enable a watchdog speculatively.
+The worker exposes `/dev/watchdog`, `/dev/watchdog0`, and `/dev/watchdog1`. The current unprivileged inventory identifies `intel_oc_wdt` and `iTCO_wdt` with inactive 60-second and 30-second sysfs timeouts, respectively; systemd watchdog use remains disabled. SenseTrace does not enable a watchdog speculatively. The inventory also records RAPL domain names without pretending that unavailable energy reads are measurements.
 
 ## Phase 1A gate and safe observables
 

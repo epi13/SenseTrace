@@ -17,6 +17,9 @@ privileged host changes or reboot acceptance have passed.
 - Authoritative controller mode: `user-fallback`.
 - Runner process count: 1 (PID 176356 during this observation).
 - Root filesystem: approximately 214 GiB available at observation time.
+- Watchdog inventory: `intel_oc_wdt`/60 s and `iTCO_wdt`/30 s, both inactive; systemd watchdog use disabled.
+- Energy inventory: RAPL package/core/uncore/DRAM domain names visible, energy reads unavailable to `worker-03`.
+- PMU inventory: `perf` unavailable to the unprivileged environment.
 
 ## Privileged boundary
 
@@ -27,7 +30,7 @@ privileged host changes or reboot acceptance have passed.
 - `sensetrace.target` installation/isolation/default;
 - display-manager disablement;
 - `kernel.panic=10` and `kernel.panic_on_oops=1`;
-- watchdog provider validation or enablement;
+- watchdog enablement or reset-behavior testing;
 - firmware AC-power recovery inspection/configuration;
 - remote reboot acceptance.
 

@@ -484,6 +484,7 @@ def run_phase0_calibration(
     shuffled_replicates: int | None = None,
     injected_replicates: int | None = None,
     gate_validation_replicates: int | None = None,
+    calibration_role: str = "final_gate_validation",
 ) -> dict[str, Any]:
     """Materialize calibration and fresh validation ensembles with a frozen rule."""
 
@@ -696,7 +697,12 @@ def run_phase0_calibration(
                 )
             )
     report = {
-        "schema": "sensetrace.phase0-calibration-report.v1",
+        "schema": (
+            "sensetrace.phase0-calibration-report.v2"
+            if protocol["version"] == "phase0-protocol-v2"
+            else "sensetrace.phase0-calibration-report.v1"
+        ),
+        "calibration_role": calibration_role,
         "run_id": run_id,
         "protocol_version": protocol["version"],
         "protocol_hash": protocol_hash,
@@ -752,6 +758,9 @@ def run_phase0_calibration(
             "shuffled_pass": shuffled_pass,
             "injected_pass": injected_pass,
             "injected_detection_rate": detection_rate,
+            "injected_detection_wilson_interval_95": wilson_interval(
+                injected_positives, len(fresh_injected)
+            ),
             "minimum_injected_detection_rate": minimum_detection_rate,
             "pipeline_false_positive_rate_pass": bool(fpr_pass),
             "phase1_gate": bool(null_pass and shuffled_pass and injected_pass and fpr_pass),
@@ -771,3 +780,126 @@ def run_phase0_calibration(
     )
     _write_json(run_dir / "run.json", run)
     return report
+
+
+def run_phase0_power_study(
+    config: dict[str, Any],
+    output_root: str | Path,
+    *,
+    sample_counts: list[int] | None = None,
+    candidate_replicates: int | None = None,
+    run_id: str | None = None,
+) -> dict[str, Any]:
+    """Select Phase 0 v2 power from development ensembles only.
+
+    Each candidate is a complete, independently materialized calibration with
+    its own null, shuffled, injected, and fresh validation ensembles. Candidate
+    reports are development evidence; the selected sample count must be used in
+    a subsequent separately seeded final gate run.
+    """
+
+    base_calibration = config.get("calibration", {})
+    configured_study = base_calibration.get("power_study", {})
+    counts = [
+        int(value)
+        for value in (sample_counts or configured_study.get("sample_counts", [1000, 2000, 4000]))
+    ]
+    if not counts or any(value < 2 or value % 2 for value in counts):
+        raise ValueError("power-study sample_counts must be positive even integers")
+    replicates = int(candidate_replicates or configured_study.get("replicates", 20))
+    if replicates < 2:
+        raise ValueError("power-study replicates must be at least two")
+    run_id = run_id or new_run_id("phase0-power-study")
+    root = Path(output_root) / run_id
+    root.mkdir(parents=True, exist_ok=False)
+    candidates: list[dict[str, Any]] = []
+    base_seed = int(config.get("experiment", {}).get("seed", 1337))
+    target_rate = float(base_calibration.get("minimum_injected_detection_rate", 0.8))
+    target_strength = float(
+        base_calibration.get(
+            "target_injection_strength",
+            config.get("controls", {}).get("injected_weak_signal", {}).get("amplitude_sigma", 0.1),
+        )
+    )
+    development_permutations = int(
+        configured_study.get(
+            "permutation_repetitions",
+            min(int(base_calibration.get("permutation_repetitions", 100)), 20),
+        )
+    )
+    for index, count in enumerate(sorted(set(counts))):
+        candidate = json.loads(json.dumps(config))
+        candidate.setdefault("calibration", {})["protocol_version"] = "phase0-protocol-v2"
+        candidate["calibration"]["samples"] = count
+        candidate["calibration"]["null_replicates"] = replicates
+        candidate["calibration"]["shuffled_replicates"] = replicates
+        candidate["calibration"]["injected_replicates"] = replicates
+        candidate["calibration"]["gate_validation_replicates"] = replicates
+        # The development study is about power at one declared target effect;
+        # the optional strength curve belongs outside candidate selection.
+        candidate["calibration"]["injected_levels"] = [target_strength]
+        candidate["calibration"]["permutation_repetitions"] = development_permutations
+        candidate["calibration"]["_power_study_candidate"] = True
+        candidate.setdefault("experiment", {})["seed"] = base_seed + 1000003 * (index + 1)
+        report = run_phase0_calibration(
+            candidate,
+            root / "candidates",
+            run_id=f"sample-{count:06d}",
+            calibration_role="development_power_candidate",
+        )
+        acceptance = report["acceptance"]
+        injected_replicates = int(report["counts"]["fresh_gate_validation_injected_replicates"])
+        detection_rate = float(acceptance["injected_detection_rate"])
+        detection_interval = wilson_interval(
+            int(round(detection_rate * injected_replicates)), injected_replicates
+        )
+        candidates.append(
+            {
+                "sample_count": count,
+                "run_id": report["run_id"],
+                "protocol_hash": report["protocol_hash"],
+                "fresh_injected_detection_rate": detection_rate,
+                "fresh_injected_detection_wilson_interval_95": detection_interval,
+                "fresh_null_false_positive_rate": report["fresh_gate_validation"][
+                    "false_positive_rate"
+                ],
+                "fresh_shuffled_false_positive_rate": report["fresh_gate_validation"][
+                    "shuffled_false_positive_rate"
+                ],
+                "selection_eligible": bool(
+                    detection_rate >= target_rate
+                    and acceptance["null_pass"]
+                    and acceptance["shuffled_pass"]
+                ),
+                "candidate_report_path": str(
+                    root / "candidates" / report["run_id"] / "metrics.json"
+                ),
+            }
+        )
+    eligible = [candidate for candidate in candidates if candidate["selection_eligible"]]
+    selected = (
+        min(eligible, key=lambda item: item["sample_count"])
+        if eligible
+        else max(candidates, key=lambda item: item["sample_count"])
+    )
+    result = {
+        "schema": "sensetrace.phase0-power-study.v1",
+        "run_id": run_id,
+        "protocol_version": "phase0-protocol-v2",
+        "study_role": "development_only; no candidate gate result authorizes Phase 1A",
+        "sample_count_grid": sorted(set(counts)),
+        "candidate_replicates": replicates,
+        "target_injection_strength": target_strength,
+        "development_permutation_repetitions": development_permutations,
+        "minimum_injected_detection_rate": target_rate,
+        "candidates": candidates,
+        "selected_design": selected,
+        "selection_rule": (
+            "smallest candidate meeting target injected detection and development null/shuffled checks; "
+            "if none qualifies, largest candidate is recorded but the final gate remains a separate decision"
+        ),
+        "final_gate_requirement": "run one separately seeded phase0-protocol-v2 calibration after this study; do not reuse candidate validation data",
+        "claim_boundary": "development power evidence only; no physical DRAM-state or Phase 1A claim",
+    }
+    _write_json(root / "power-study.json", result)
+    return result

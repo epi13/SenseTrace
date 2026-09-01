@@ -131,6 +131,134 @@ def _feature_distribution_differences(
     }
 
 
+def _pair_order_balance(metadata: dict[str, np.ndarray], labels: np.ndarray) -> dict[str, Any]:
+    if "pair_order" not in metadata or "pair_position" not in metadata:
+        return {"status": "unavailable", "reason": "pair-order metadata is absent"}
+    orders = np.asarray(metadata["pair_order"]).astype(str)
+    positions = np.asarray(metadata["pair_position"])
+    result: dict[str, Any] = {
+        "status": "reported_audit_only",
+        "pair_order_counts": {
+            value: int(np.sum(orders == value)) for value in sorted(np.unique(orders))
+        },
+        "label_by_pair_position": {},
+        "groups": {},
+    }
+    for position in sorted(np.unique(positions).tolist()):
+        mask = positions == position
+        result["label_by_pair_position"][str(position)] = {
+            "count": int(np.sum(mask)),
+            "label_0": int(np.sum(labels[mask] == 0)),
+            "label_1": int(np.sum(labels[mask] == 1)),
+        }
+    group_field = "virtual_location_id" if "virtual_location_id" in metadata else "location_id"
+    session_field = (
+        "acquisition_session_id" if "acquisition_session_id" in metadata else "session_id"
+    )
+    if group_field in metadata:
+        keys = list(
+            zip(
+                np.asarray(metadata[session_field]).astype(str),
+                np.asarray(metadata[group_field]).astype(str),
+                strict=True,
+            )
+        )
+        groups: dict[tuple[str, str], list[int]] = {}
+        for index, key in enumerate(keys):
+            groups.setdefault(key, []).append(index)
+        for key, indices in groups.items():
+            local_orders = orders[indices]
+            result["groups"][f"{key[0]}|{key[1]}"] = {
+                "label_0_first": int(np.sum(local_orders == "label_0_first")),
+                "label_1_first": int(np.sum(local_orders == "label_1_first")),
+                "exact": bool(
+                    np.sum(local_orders == "label_0_first")
+                    == np.sum(local_orders == "label_1_first")
+                ),
+            }
+    result["exact"] = bool(
+        len(set(result["pair_order_counts"].values())) <= 1
+        and all(item["exact"] for item in result["groups"].values())
+    )
+    return result
+
+
+def _categorical_audit(
+    metadata: dict[str, np.ndarray], labels: np.ndarray, field: str
+) -> dict[str, Any]:
+    if field not in metadata:
+        return {"status": "unavailable", "reason": f"{field} is absent"}
+    values = np.asarray(metadata[field]).astype(str)
+    rows = []
+    for value in np.unique(values):
+        mask = values == value
+        rows.append(
+            {
+                "value": str(value),
+                "count": int(np.sum(mask)),
+                "label_0": int(np.sum(labels[mask] == 0)),
+                "label_1": int(np.sum(labels[mask] == 1)),
+            }
+        )
+    return {"status": "reported_audit_only", "field": field, "values": rows}
+
+
+def _drift_diagnostics(
+    traces: np.ndarray | None, labels: np.ndarray, metadata: dict[str, np.ndarray]
+) -> dict[str, Any]:
+    result: dict[str, Any] = {
+        "status": "reported_audit_only",
+        "channels_are_audit_only": True,
+        "session_identity": _categorical_audit(
+            metadata,
+            labels,
+            "acquisition_session_id" if "acquisition_session_id" in metadata else "session_id",
+        ),
+        "boot_identity": _categorical_audit(metadata, labels, "boot_id"),
+        "acquisition_block_identity": _categorical_audit(metadata, labels, "acquisition_block"),
+        "cpu_migration": _categorical_audit(metadata, labels, "cpu_id"),
+        "frequency_or_governor": _categorical_audit(metadata, labels, "cpu_frequency_regime"),
+        "cache_state": _categorical_audit(metadata, labels, "cache_control_method"),
+        "thermal": _categorical_audit(metadata, labels, "temperature_c"),
+    }
+    if traces is None or "trial_index" not in metadata:
+        result["run_drift"] = {"status": "unavailable", "reason": "trace or trial_index is absent"}
+        return result
+    measurement = np.median(np.asarray(traces, dtype=np.float64), axis=1)
+    order = np.asarray(metadata["trial_index"], dtype=np.float64)
+    centered_order = order - np.mean(order)
+    centered_measurement = measurement - np.mean(measurement)
+    denominator = float(np.sqrt(np.sum(centered_order**2) * np.sum(centered_measurement**2)))
+    correlation = (
+        float(np.sum(centered_order * centered_measurement) / denominator)
+        if denominator > 0
+        else float("nan")
+    )
+    slope = (
+        float(np.polyfit(order, measurement, 1)[0]) if len(np.unique(order)) > 1 else float("nan")
+    )
+    decile = max(1, len(measurement) // 10)
+    result["run_drift"] = {
+        "status": "reported_audit_only",
+        "measurement": "sample_median_latency",
+        "order_field": "trial_index",
+        "pearson_correlation": correlation,
+        "linear_slope_per_trial": slope,
+        "early_decile_mean": float(np.mean(measurement[np.argsort(order)[:decile]])),
+        "late_decile_mean": float(np.mean(measurement[np.argsort(order)[-decile:]])),
+        "label_stratified": {
+            str(label): {
+                "count": int(np.sum(labels == label)),
+                "measurement_mean": float(np.mean(measurement[labels == label])),
+                "order_mean": float(np.mean(order[labels == label])),
+            }
+            for label in [0, 1]
+            if np.any(labels == label)
+        },
+    }
+    return result
+
+
 def run_leakage_audits(
     labels: np.ndarray,
     metadata: dict[str, np.ndarray],
@@ -142,6 +270,7 @@ def run_leakage_audits(
     identity_fields: list[str] | None = None,
     balance_fields: list[str] | None = None,
     seed: int = 991,
+    traces: np.ndarray | None = None,
 ) -> dict[str, Any]:
     """Run visible, non-inference diagnostics for one materialized dataset."""
 
@@ -185,6 +314,17 @@ def run_leakage_audits(
     audits["feature_distribution_differences"] = _feature_distribution_differences(
         feature_matrix, partitions
     )
+    audits["pair_order_balance"] = _pair_order_balance(metadata, labels)
+    audits["acquisition_order_and_drift"] = _drift_diagnostics(traces, labels, metadata)
+    audits["audit_channels"] = [
+        "pair position and pair-order assignment",
+        "trial/acquisition order and monotonic drift",
+        "CPU migration",
+        "frequency/governor regime",
+        "thermal state",
+        "cache-control state",
+        "boot/session/block identity",
+    ]
     audits["warning"] = (
         "Audit models may use identity/order metadata and are never valid SenseTrace inference results."
     )

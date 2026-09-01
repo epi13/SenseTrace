@@ -16,10 +16,16 @@ Recommended metadata fields:
 | `label` | Ground-truth hidden bit (`0`/`1`) | Target only |
 | `trace_ref` | Reference to raw trace data | Yes, through trace loader |
 | `session_id` | Acquisition session grouping | No |
+| `acquisition_session_id` | Globally unambiguous actual acquisition-session UUID | No |
+| `acquisition_block` | Logical block within an acquisition session | No |
 | `device_id` | DIMM/chip grouping identifier | No |
 | `bank_id` | Physical grouping where known | No |
 | `row_id` | Physical grouping where known | No |
 | `cell_or_offset_id` | Fine physical grouping where known | No |
+| `virtual_location_id` | Controlled location in the anonymous virtual buffer | No |
+| `buffer_offset_id` | Controlled buffer-word offset identifier | No |
+| `pair_id` / `trial_pair_id` | Matched label-0/label-1 pair grouping | No |
+| `pair_order` / `pair_position` | Counterbalance and temporal-position audit fields | No |
 | `trial_index` | Acquisition ordering/audit | No |
 | `temperature_c` | Environmental measurement | Optional |
 | `vdd_v` | Supply measurement | Optional |
@@ -30,6 +36,30 @@ Recommended metadata fields:
 | `seed_id` | Reproducibility reference, not raw secret/random state | No |
 
 Exact physical topology fields may be unavailable on early hardware. Missing topology is acceptable, but the absence must be recorded because it limits which holdout claims can be made.
+
+`location_id` and `cell_or_offset_id` are retained for compatibility with older
+datasets. In Phase 1A they are virtual buffer identifiers, not known physical
+DRAM locations. New code should use `virtual_location_id`, `buffer_offset_id`,
+and `acquisition_session_id` explicitly.
+
+## Acquisition-session and campaign provenance
+
+An acquisition session is one independently started backend with its own fresh
+controlled memory allocation. It is not a slice of a continuous stream. Its
+`session.json` records the UUID, timestamps, host inventory snapshot, boot ID,
+allocation/locking result, label-stream fingerprint, measurement-kernel and
+cache-control provenance, journal boundaries, environment snapshot, and
+configuration/code hashes.
+
+A Phase 1A campaign may contain multiple source session datasets. The combined
+condition manifest records all source dataset fingerprints and embeds the
+individual source manifests in `source-manifests.json`; finalized source shards
+are never treated as anonymous rows. The intended conceptual hierarchy is:
+
+```text
+campaign -> boot -> acquisition session -> acquisition block
+         -> virtual location -> pair -> trial
+```
 
 ## Raw traces
 

@@ -7,7 +7,7 @@ import json
 import sys
 from pathlib import Path
 
-from .calibration import run_native_calibration, run_phase0_calibration
+from .calibration import run_native_calibration, run_phase0_calibration, run_phase0_power_study
 from .config import load_config, validate_config
 from .datasets import load_dataset
 from .host.client import RemoteHost
@@ -81,6 +81,13 @@ def build_parser() -> argparse.ArgumentParser:
     phase0_calibration.add_argument("--shuffled-replicates", type=int)
     phase0_calibration.add_argument("--injected-replicates", type=int)
     phase0_calibration.add_argument("--gate-validation-replicates", type=int)
+    phase0_power = calibrate_sub.add_parser(
+        "phase0-power", help="run a development-only Phase 0 v2 sample-count power study"
+    )
+    phase0_power.add_argument("--config", default="configs/phase0.example.yaml")
+    phase0_power.add_argument("--output", default="runs")
+    phase0_power.add_argument("--sample-counts", nargs="+", type=int)
+    phase0_power.add_argument("--replicates", type=int)
     native_calibration = calibrate_sub.add_parser(
         "native", help="calibrate native timer and cache-control distributions"
     )
@@ -235,6 +242,17 @@ def main(argv: list[str] | None = None) -> int:
                 shuffled_replicates=args.shuffled_replicates,
                 injected_replicates=args.injected_replicates,
                 gate_validation_replicates=args.gate_validation_replicates,
+            )
+        )
+        return 0
+    if args.command == "calibrate" and args.calibrate_command == "phase0-power":
+        config = validate_config(load_config(args.config))
+        _json(
+            run_phase0_power_study(
+                config,
+                args.output,
+                sample_counts=args.sample_counts,
+                candidate_replicates=args.replicates,
             )
         )
         return 0

@@ -1,0 +1,86 @@
+# Phase 0 v2 frozen candidate configuration. The development study selected
+# the largest tested candidate as a conservative fallback because no candidate
+# met both the power and false-positive criteria; the final gate remains open
+# only if its separate fresh validation passes.
+experiment:
+  name: phase0-pipeline-controls-v2
+  description: Power-calibrated synthetic gate; no physical acquisition.
+  seed: 271828
+
+data:
+  target_balance: 0.50
+  samples: 100000
+  trace_channels: 1
+  trace_length: 2048
+
+controls:
+  synthetic_null:
+    enabled: true
+  injected_weak_signal:
+    enabled: true
+    amplitude_sigma: 0.10
+    start_index: 800
+    width: 32
+  shuffled_labels:
+    enabled: true
+
+splits:
+  primary:
+    strategy: grouped
+    group_keys:
+      - synthetic_dataset_id
+      - synthetic_session_id
+      - synthetic_location_id
+    train_fraction: 0.70
+    validation_fraction: 0.15
+    test_fraction: 0.15
+
+models:
+  logistic_regression:
+    enabled: true
+  boosted_trees:
+    enabled: true
+  tiny_mlp:
+    enabled: false
+  tiny_cnn:
+    enabled: false
+
+training:
+  batch_size: 256
+  epochs: 30
+  early_stopping_patience: 5
+  seeds: [11, 23, 37, 53, 71]
+
+reporting:
+  ci_unit: session_id
+  bootstrap_repetitions: 400
+
+acquisition:
+  backend: synthetic
+  synthetic_balance_mode: group_stratified_balance
+  observations_per_location: 4
+  session_count: 4
+  device_count: 2
+  shard_target_mb: 512
+
+calibration:
+  protocol_version: phase0-protocol-v2
+  samples: 4000
+  trace_length: 128
+  target_injection_strength: 0.10
+  alpha: 0.05
+  null_replicates: 50
+  shuffled_replicates: 50
+  injected_replicates: 50
+  gate_validation_replicates: 50
+  minimum_injected_detection_rate: 0.80
+  permutation_repetitions: 100
+  permutation_model: logistic_regression
+  balance_modes: [global_balance_only, group_stratified_balance]
+  permutation_strata_by_balance_mode:
+    global_balance_only: [synthetic_dataset_id]
+    group_stratified_balance: [synthetic_location_id]
+  power_study:
+    sample_counts: [1000, 2000, 4000]
+    replicates: 20
+    permutation_repetitions: 20

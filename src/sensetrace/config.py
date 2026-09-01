@@ -18,7 +18,14 @@ DEFAULT_IDENTITY_FIELDS = [
     "bank_id",
     "row_id",
     "cell_or_offset_id",
+    "buffer_offset_id",
+    "virtual_location_id",
     "session_id",
+    "acquisition_session_id",
+    "acquisition_block",
+    "pair_id",
+    "trial_pair_id",
+    "pair_order",
     "trial_index",
     "sample_id",
 ]
@@ -72,6 +79,9 @@ def validate_config(config: dict[str, Any]) -> dict[str, Any]:
     alpha = calibration.get("alpha", 0.05)
     if not isinstance(alpha, (int, float)) or not 0 < alpha < 1:
         raise ConfigError("calibration.alpha must be between 0 and 1")
+    protocol_version = calibration.get("protocol_version", "phase0-protocol-v1")
+    if protocol_version not in {"phase0-protocol-v1", "phase0-protocol-v2"}:
+        raise ConfigError("calibration.protocol_version must be phase0-protocol-v1 or v2")
     for name in [
         "samples",
         "trace_length",
@@ -116,6 +126,21 @@ def validate_config(config: dict[str, Any]) -> dict[str, Any]:
         raise ConfigError(
             "calibration.injected_levels must be a non-empty list of non-negative numbers"
         )
+    power_study = calibration.get("power_study", {})
+    if not isinstance(power_study, dict):
+        raise ConfigError("calibration.power_study must be a mapping")
+    power_counts = power_study.get("sample_counts")
+    if power_counts is not None and (
+        not isinstance(power_counts, list)
+        or not power_counts
+        or any(not isinstance(value, int) or value < 2 or value % 2 for value in power_counts)
+    ):
+        raise ConfigError("calibration.power_study.sample_counts must be positive even integers")
+    power_replicates = power_study.get("replicates")
+    if power_replicates is not None and (
+        not isinstance(power_replicates, int) or power_replicates < 2
+    ):
+        raise ConfigError("calibration.power_study.replicates must be at least two")
     backend = _get(config, "acquisition.backend", "synthetic")
     if backend not in {"synthetic", "commodity"}:
         raise ConfigError("acquisition.backend must be synthetic or commodity")
@@ -140,13 +165,19 @@ def validate_config(config: dict[str, Any]) -> dict[str, Any]:
             raise ConfigError("phase1a.location_count must be a positive integer")
         if (
             not isinstance(trials_per_location, int)
-            or trials_per_location < 2
-            or trials_per_location % 2
+            or trials_per_location < 4
+            or trials_per_location % 4
         ):
-            raise ConfigError("phase1a.trials_per_location must be a positive even integer")
+            raise ConfigError(
+                "phase1a.trials_per_location must be a positive multiple of four "
+                "for exact pair-order counterbalancing"
+            )
         labels_per_location = _get(config, "phase1a.labels_per_location", trials_per_location // 2)
         if labels_per_location != trials_per_location // 2:
             raise ConfigError("phase1a.labels_per_location must equal half of trials_per_location")
+        session_count = _get(config, "phase1a.session_count", 1)
+        if not isinstance(session_count, int) or session_count < 1:
+            raise ConfigError("phase1a.session_count must be a positive integer")
     return config
 
 

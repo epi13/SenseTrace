@@ -269,3 +269,167 @@ def evaluate_predictions(
         "dataset_fingerprint": dataset_fingerprint,
         "split_fingerprint": split_fingerprint,
     }
+
+
+def paired_delta_analysis(
+    traces: np.ndarray,
+    labels: np.ndarray,
+    metadata: Mapping[str, np.ndarray],
+    *,
+    pair_key: str = "trial_pair_id",
+    session_key: str = "acquisition_session_id",
+    block_key: str = "acquisition_block",
+    repetitions: int = 2000,
+    seed: int = 9917,
+) -> dict[str, Any]:
+    """Analyze matched label-0/label-1 observations with preregisterable summaries.
+
+    The primary quantity is the within-pair difference in the sample median of
+    the timing trace, ``label_1 - label_0``. Sign flips are performed at the
+    pair level, while the percentile interval resamples complete
+    session/block clusters. This is a transparent paired diagnostic, not a
+    replacement for the classifier or a claim about DRAM topology.
+    """
+
+    if repetitions < 1:
+        raise ValueError("paired-analysis repetitions must be positive")
+    if pair_key not in metadata:
+        return {
+            "status": "unavailable",
+            "reason": f"pairing field {pair_key!r} is absent",
+            "primary_statistic": "sample_median_latency",
+        }
+    traces = np.asarray(traces, dtype=np.float64)
+    labels = np.asarray(labels, dtype=np.uint8)
+    pair_values = np.asarray(metadata[pair_key]).astype(str)
+    if len(traces) != len(labels) or len(pair_values) != len(labels):
+        raise ValueError("traces, labels, and pairing metadata must have matching rows")
+    rows_by_pair: dict[str, list[int]] = {}
+    for index, value in enumerate(pair_values):
+        rows_by_pair.setdefault(value, []).append(index)
+
+    deltas: list[float] = []
+    cluster_keys: list[str] = []
+    order_values: list[str] = []
+    excluded = 0
+    for indices in rows_by_pair.values():
+        if len(indices) != 2 or set(labels[indices].tolist()) != {0, 1}:
+            excluded += 1
+            continue
+        zero_index = indices[int(np.flatnonzero(labels[indices] == 0)[0])]
+        one_index = indices[int(np.flatnonzero(labels[indices] == 1)[0])]
+        deltas.append(float(np.median(traces[one_index]) - np.median(traces[zero_index])))
+        session = (
+            str(metadata[session_key][zero_index])
+            if session_key in metadata
+            else "session-unavailable"
+        )
+        block = (
+            str(metadata[block_key][zero_index]) if block_key in metadata else "block-unavailable"
+        )
+        cluster_keys.append(f"{session}|{block}")
+        if "pair_order" in metadata:
+            order_values.append(str(metadata["pair_order"][indices[0]]))
+        else:
+            order_values.append("unavailable")
+    if not deltas:
+        return {
+            "status": "unavailable",
+            "reason": "no complete matched pairs with one observation of each label",
+            "primary_statistic": "sample_median_latency",
+            "candidate_pair_count": len(rows_by_pair),
+            "excluded_pair_count": excluded,
+        }
+
+    delta_array = np.asarray(deltas, dtype=np.float64)
+    observed = float(np.mean(delta_array))
+    rng = np.random.default_rng(seed)
+    null = np.asarray(
+        [
+            float(np.mean(delta_array * rng.choice(np.asarray([-1.0, 1.0]), len(delta_array))))
+            for _ in range(repetitions)
+        ]
+    )
+    p_value = float((1 + np.sum(np.abs(null) >= abs(observed))) / (repetitions + 1))
+
+    cluster_array = np.asarray(cluster_keys)
+    unique_clusters = np.unique(cluster_array)
+    bootstrap_values: list[float] = []
+    for _ in range(repetitions):
+        selected = rng.choice(unique_clusters, size=len(unique_clusters), replace=True)
+        sampled = np.concatenate(
+            [delta_array[np.flatnonzero(cluster_array == cluster)] for cluster in selected]
+        )
+        bootstrap_values.append(float(np.mean(sampled)))
+
+    secondary_specs = {
+        "trace_mean_latency": lambda trace: float(np.mean(trace)),
+        "first_access_latency": lambda trace: float(trace[0]),
+        "p95_latency": lambda trace: float(np.quantile(trace, 0.95)),
+    }
+    secondary: dict[str, Any] = {}
+    for name, statistic in secondary_specs.items():
+        secondary_deltas: list[float] = []
+        for indices in rows_by_pair.values():
+            if len(indices) != 2 or set(labels[indices].tolist()) != {0, 1}:
+                continue
+            zero_index = indices[int(np.flatnonzero(labels[indices] == 0)[0])]
+            one_index = indices[int(np.flatnonzero(labels[indices] == 1)[0])]
+            secondary_deltas.append(statistic(traces[one_index]) - statistic(traces[zero_index]))
+        secondary_array = np.asarray(secondary_deltas, dtype=np.float64)
+        secondary_observed = float(np.mean(secondary_array))
+        secondary_null = np.asarray(
+            [
+                float(
+                    np.mean(
+                        secondary_array * rng.choice(np.asarray([-1.0, 1.0]), len(secondary_array))
+                    )
+                )
+                for _ in range(repetitions)
+            ]
+        )
+        secondary[name] = {
+            "status": "secondary_diagnostic",
+            "observed_delta_mean": secondary_observed,
+            "two_sided_sign_flip_p_value": float(
+                (1 + np.sum(np.abs(secondary_null) >= abs(secondary_observed))) / (repetitions + 1)
+            ),
+            "multiple_comparison_note": "secondary diagnostics are labeled exploratory; no primary claim uses them",
+        }
+
+    order_summary: dict[str, Any] = {}
+    for order in sorted(set(order_values)):
+        values = delta_array[np.asarray(order_values) == order]
+        if len(values):
+            order_summary[order] = {
+                "pair_count": int(len(values)),
+                "delta_mean": float(np.mean(values)),
+                "delta_median": float(np.median(values)),
+            }
+    return {
+        "status": "available",
+        "primary_statistic": "sample_median_latency",
+        "delta_definition": "median(trace[label=1]) - median(trace[label=0]) within each matched trial pair",
+        "pair_count": int(len(delta_array)),
+        "candidate_pair_count": len(rows_by_pair),
+        "excluded_pair_count": excluded,
+        "observed_delta_mean": observed,
+        "observed_delta_median": float(np.median(delta_array)),
+        "delta_std": float(np.std(delta_array, ddof=1)) if len(delta_array) > 1 else 0.0,
+        "sign_flip_test": {
+            "alternative": "two-sided",
+            "repetitions": repetitions,
+            "seed": seed,
+            "p_value": p_value,
+            "null_interval_95": [float(np.quantile(null, 0.025)), float(np.quantile(null, 0.975))],
+        },
+        "confidence_interval_95": [
+            float(np.quantile(bootstrap_values, 0.025)),
+            float(np.quantile(bootstrap_values, 0.975)),
+        ],
+        "confidence_interval_unit": "acquisition_session_id x acquisition_block",
+        "confidence_interval_method": "percentile bootstrap over complete session/block clusters",
+        "cluster_count": int(len(unique_clusters)),
+        "pair_order_diagnostic": order_summary,
+        "secondary_diagnostics": secondary,
+    }

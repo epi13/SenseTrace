@@ -1,3 +1,4 @@
+from pathlib import Path
 from types import SimpleNamespace
 
 from sensetrace.host.client import RemoteHost
@@ -6,7 +7,7 @@ from sensetrace.host.client import RemoteHost
 def test_headless_transition_accepts_an_absent_display_manager_alias(monkeypatch):
     host = RemoteHost.__new__(RemoteHost)
     host.alias = "worker-03"
-    host.project_root = "."
+    host.project_root = Path(".")
     profiles = iter(
         [
             {"default_target": "graphical.target", "display_manager_active": "inactive"},
@@ -16,7 +17,12 @@ def test_headless_transition_accepts_an_absent_display_manager_alias(monkeypatch
     commands: list[str] = []
     host.sudo_available = lambda: True  # type: ignore[method-assign]
     host.boot_profile = lambda: next(profiles)  # type: ignore[method-assign]
-    host.run = lambda command, **kwargs: commands.append(command) or SimpleNamespace(ok=False)  # type: ignore[method-assign]
+
+    def run(command: str, **kwargs: object) -> SimpleNamespace:
+        commands.append(command)
+        return SimpleNamespace(ok=False)
+
+    host.run = run  # type: ignore[method-assign]
 
     class FreshConnection:
         connection = SimpleNamespace(close=lambda: None)
@@ -24,7 +30,9 @@ def test_headless_transition_accepts_an_absent_display_manager_alias(monkeypatch
         def run(self, command, **kwargs):
             return SimpleNamespace(ok=True)
 
-    monkeypatch.setattr("sensetrace.host.client.RemoteHost", lambda *args, **kwargs: FreshConnection())
+    monkeypatch.setattr(
+        "sensetrace.host.client.RemoteHost", lambda *args, **kwargs: FreshConnection()
+    )
 
     result = host.set_headless()
 

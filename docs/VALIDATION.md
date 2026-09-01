@@ -22,11 +22,13 @@ All measurements associated with a target cell/offset are assigned to only one p
 
 This tests whether the model can generalize beyond memorized cell fingerprints.
 
-### Split C — unseen physical regions
+### Split C — unseen acquisition blocks / available regions
 
 Hold out complete rows, banks, subarrays, or the closest available grouping.
 
-This reduces the chance that nearby manufacturing variation is functioning as an identity signal.
+This holds out complete logical acquisition blocks. Commodity SenseTrace does
+not know DRAM topology, so no row/bank/subarray claim is made unless a future
+instrument explicitly supplies those grouping fields.
 
 ### Split D — unseen acquisition sessions
 
@@ -115,7 +117,25 @@ Because many measurements may come from the same physical location or session, d
 
 SenseTrace records the CI unit explicitly. Phase 0 defaults to a session-level bootstrap; a result must say `CI unit: session_id` (or `sample` when sample independence is the intended claim). Group-aware intervals resample complete groups rather than treating repeated observations as independent.
 
+Phase 1A materializes and independently evaluates every available split in the
+hierarchy. The report includes availability, grouping keys, partition sample
+and class composition, group counts, dataset/split fingerprints, model seeds,
+metrics, uncertainty, and the claim boundary. An unavailable session or boot
+split remains unavailable; it is never replaced by Split B without saying so.
+
+Phase 1A also reports a predeclared paired diagnostic: the within-pair change in
+sample median timing, `median(label=1) - median(label=0)`, with pair-level
+sign-flip testing and a confidence interval from complete session/block
+clusters. Trace mean, first-access latency, and p95 are secondary diagnostics
+and are labeled exploratory rather than selected as alternate primary outcomes.
+
 Every Phase 0 condition exposes construction audits for metadata-only prediction, identity-only prediction in a controlled audit mode, trial-order prediction, label balance by device/session/row/cell, and train/test feature-distribution differences. These are audit artifacts only and cannot establish SenseTrace inference.
+
+Phase 1A adds exact pair-order balance and audit channels for pair position,
+acquisition drift, CPU migration, frequency/governor regime, thermal state,
+cache state, boot/session identity, and block identity. These channels are
+reported to diagnose nuisance explanations and remain excluded from the
+default feature matrix.
 
 ## Multiple comparisons
 

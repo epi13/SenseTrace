@@ -8,7 +8,12 @@ def test_first_system_install_copies_live_fallback_config_without_reset():
     commands: list[str] = []
     hashes = iter(["missing", "fallback-sha256"])
     host._remote_hash = lambda path: next(hashes)  # type: ignore[method-assign]
-    host.run = lambda command: commands.append(command) or SimpleNamespace(ok=True)  # type: ignore[method-assign]
+
+    def run(command: str) -> SimpleNamespace:
+        commands.append(command)
+        return SimpleNamespace(ok=True)
+
+    host.run = run  # type: ignore[method-assign, assignment]
 
     result = host._preserve_fallback_config(
         fallback_config="/home/worker-03/.config/sensetrace/worker03.yaml",
@@ -32,7 +37,12 @@ def test_explicit_reset_does_not_copy_fallback_config():
     commands: list[str] = []
     hashes = iter(["missing", "fallback-sha256"])
     host._remote_hash = lambda path: next(hashes)  # type: ignore[method-assign]
-    host.run = lambda command: commands.append(command) or SimpleNamespace(ok=True)  # type: ignore[method-assign]
+
+    def run(command: str) -> SimpleNamespace:
+        commands.append(command)
+        return SimpleNamespace(ok=True)
+
+    host.run = run  # type: ignore[method-assign, assignment]
 
     result = host._preserve_fallback_config(
         fallback_config="/home/worker-03/.config/sensetrace/worker03.yaml",

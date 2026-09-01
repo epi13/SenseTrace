@@ -66,6 +66,28 @@ def run_phase1a(
 
 
 @task
+def calibrate_phase0(
+    c: Connection,
+    config: str = "configs/phase0.example.yaml",
+    output: str | None = None,
+    null_replicates: int | None = None,
+    shuffled_replicates: int | None = None,
+    injected_replicates: int | None = None,
+    gate_validation_replicates: int | None = None,
+) -> None:
+    print(
+        _remote(c).run_phase0_calibration(
+            config,
+            output=output,
+            null_replicates=null_replicates,
+            shuffled_replicates=shuffled_replicates,
+            injected_replicates=injected_replicates,
+            gate_validation_replicates=gate_validation_replicates,
+        )
+    )
+
+
+@task
 def start(c: Connection) -> None:
     print(_remote(c).service_action("start"))
 
@@ -149,6 +171,7 @@ for _name in [
     "status",
     "run_phase0",
     "run_phase1a",
+    "calibrate_phase0",
     "start",
     "stop",
     "restart",

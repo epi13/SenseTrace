@@ -156,7 +156,7 @@ class RemoteHost:
                     for item in excluded
                 ):
                     continue
-                if path.is_file():
+                if path.is_file() and path.suffix != ".so":
                     handle.add(path, arcname=str(relative))
         return archive
 
@@ -214,6 +214,7 @@ class RemoteHost:
                 f"python3 -m venv {venv} && {venv}/bin/python -m pip install --upgrade pip && {venv}/bin/pip install -e '{source}'",
                 warn=False,
             )
+            native_build = self.run(f"make -C {source}/native", warn=True, hide=True)
             if bootstrap["mode"] == "system":
                 self.run(
                     "sudo -n mkdir -p /opt/sensetrace/source /etc/sensetrace "
@@ -265,6 +266,10 @@ class RemoteHost:
                     "config_sha256_after": after,
                     "config_preserved": before != "missing" and before == after,
                     "config_reset_requested": reset_config,
+                    "native_kernel_build": native_build.ok,
+                    "native_kernel_build_error": native_build.stderr.strip()
+                    if not native_build.ok
+                    else None,
                 }
             user_unit = f"{home}/.config/systemd/user/sensetrace.service"
             live_config = f"{home}/.config/sensetrace/worker03.yaml"
@@ -293,6 +298,10 @@ class RemoteHost:
                 "config_sha256_after": after,
                 "config_preserved": before != "missing" and before == after,
                 "config_reset_requested": reset_config,
+                "native_kernel_build": native_build.ok,
+                "native_kernel_build_error": native_build.stderr.strip()
+                if not native_build.ok
+                else None,
             }
         finally:
             self.run(f"rm -f {remote_archive}", warn=True, hide=True)
@@ -355,6 +364,25 @@ class RemoteHost:
             "claim": "profile inventory only; no default-target change was made",
         }
 
+    def watchdog_profile(self) -> dict[str, Any]:
+        commands = {
+            "devices": "ls -l /dev/watchdog* 2>/dev/null || true",
+            "drivers": 'for p in /sys/class/watchdog/watchdog*/device/driver; do printf \'%s \' "$p"; readlink -f "$p" 2>/dev/null || true; done',
+            "timeouts": 'for p in /sys/class/watchdog/watchdog*; do printf \'%s \' "$p"; cat "$p"/timeout 2>/dev/null || true; done',
+            "nowayout": 'for p in /sys/class/watchdog/watchdog*; do printf \'%s \' "$p"; cat "$p"/nowayout 2>/dev/null || true; done',
+            "systemd_watchdog": "systemctl show -p RuntimeWatchdogUSec -p RebootWatchdogUSec --value",
+            "loaded_modules": "lsmod | grep -E '(^| )(intel_oc_wdt|iTCO_wdt)( |$)' || true",
+        }
+        return {
+            "host": self.alias,
+            "timestamp_epoch": time.time(),
+            "measurements": {
+                name: self.run(command, warn=True, hide=True).stdout
+                for name, command in commands.items()
+            },
+            "decision": "inventory only; do not enable both watchdog drivers without hardware-specific validation",
+        }
+
     def services(self) -> dict[str, Any]:
         running = self.run(
             "systemctl list-units --type=service --state=running --no-legend --no-pager",
@@ -409,7 +437,12 @@ class RemoteHost:
             "claim": "policy inventory; compare separate controlled runs before selecting a timing profile",
         }
 
-    def verify_boot(self, *, expected_boot_id: str | None = None) -> dict[str, Any]:
+    def verify_boot(
+        self,
+        *,
+        expected_boot_id: str | None = None,
+        require_appliance: bool = False,
+    ) -> dict[str, Any]:
         boot_id = self.run("cat /proc/sys/kernel/random/boot_id", warn=True, hide=True)
         profile = self.boot_profile()
         service = self.status()
@@ -435,14 +468,30 @@ class RemoteHost:
             "doctor": doctor,
             "services": services,
             "journal_recovery_evidence": recovery.stdout.strip() or "not observed",
+            "acceptance_profile": "dedicated-appliance" if require_appliance else "runner",
         }
-        result["passed"] = bool(
+        runner_checks = bool(
             result["ssh"]
             and result["boot_id"] != "unavailable"
             and service["management_mode"] in {"system", "user-fallback"}
             and service["runner_process_count"] == 1
             and doctor["management_mode"] != "invalid-dual-service"
         )
+        appliance_checks = bool(
+            profile["default_target"] == "sensetrace.target"
+            and profile["display_manager_active"] != "active"
+            and service["management_mode"] == "system"
+            and any("sensetrace.target" in target for target in profile["active_targets"])
+        )
+        result["passed"] = runner_checks and (appliance_checks if require_appliance else True)
+        result["appliance_checks"] = {
+            "default_target": profile["default_target"],
+            "display_manager_inactive": profile["display_manager_active"] != "active",
+            "system_service_authoritative": service["management_mode"] == "system",
+            "dedicated_target_active": any(
+                "sensetrace.target" in target for target in profile["active_targets"]
+            ),
+        }
         return result
 
     def reboot_acceptance(self, *, cycles: int = 3, timeout_seconds: int = 180) -> dict[str, Any]:
@@ -465,7 +514,9 @@ class RemoteHost:
             while time.monotonic() < deadline:
                 try:
                     candidate = RemoteHost(self.alias, project_root=self.project_root)
-                    verification = candidate.verify_boot(expected_boot_id=old_boot_id)
+                    verification = candidate.verify_boot(
+                        expected_boot_id=old_boot_id, require_appliance=True
+                    )
                     if verification["passed"] and verification["boot_id_changed"]:
                         fresh = candidate
                         break
@@ -501,6 +552,13 @@ class RemoteHost:
         if not self.sudo_available():
             raise RuntimeError("headless transition requires existing authorized sudo")
         before = self.boot_profile()
+        fresh_connection = RemoteHost(self.alias, project_root=self.project_root)
+        try:
+            fresh_ssh = fresh_connection.run("true", hide=True).ok
+        finally:
+            fresh_connection.connection.close()
+        if not fresh_ssh:
+            raise RuntimeError("fresh SSH validation failed before headless transition")
         self.run("sudo -n systemctl set-default multi-user.target")
         display = self.run("sudo -n systemctl disable --now display-manager.service", warn=True)
         if not display.ok:
@@ -516,6 +574,7 @@ class RemoteHost:
         return {
             "before": before,
             "after": after,
+            "fresh_ssh_before_transition": fresh_ssh,
             "reversible": "systemctl set-default graphical.target",
         }
 
@@ -535,6 +594,13 @@ class RemoteHost:
         if not self.sudo_available():
             raise RuntimeError("dedicated target transition requires existing authorized sudo")
         before = self.boot_profile()
+        if (
+            before["default_target"] != "multi-user.target"
+            or before["display_manager_active"] == "active"
+        ):
+            raise RuntimeError(
+                "dedicated target requires a proven multi-user headless baseline first"
+            )
         self.run("sudo -n systemctl set-default sensetrace.target")
         after = self.boot_profile()
         if after["default_target"] != "sensetrace.target":
@@ -543,6 +609,16 @@ class RemoteHost:
             "before": before,
             "after": after,
             "reversible": "systemctl set-default multi-user.target",
+        }
+
+    def authorize_sudo(self) -> dict[str, Any]:
+        """Prompt through the controlling terminal without capturing credentials."""
+
+        result = self.connection.run("sudo -v", pty=True, warn=True)
+        return {
+            "authorized": result.ok and self.sudo_available(),
+            "error": result.stderr.strip() if not result.ok else None,
+            "password_stored": False,
         }
 
     def service_action(self, action: str) -> dict[str, Any]:
@@ -610,6 +686,37 @@ class RemoteHost:
             command += f" --seed {int(seed)}"
         if models:
             command += " --models " + " ".join(models)
+        result = self.run(command, warn=True, hide=True)
+        if not result.ok:
+            raise RuntimeError(result.stderr or result.stdout)
+        return result.stdout
+
+    def run_phase0_calibration(
+        self,
+        config: str | Path,
+        *,
+        output: str | None = None,
+        null_replicates: int | None = None,
+        shuffled_replicates: int | None = None,
+        injected_replicates: int | None = None,
+        gate_validation_replicates: int | None = None,
+    ) -> str:
+        home = self._home()
+        venv = f"{home}/.local/share/sensetrace/venv/bin/sensetrace"
+        remote_config = f"{home}/.config/sensetrace/phase0-calibration.yaml"
+        self.connection.put(str(config), remote=remote_config)
+        destination = output or f"{home}/.local/share/sensetrace/runs"
+        command = (
+            f"{venv} calibrate phase0 --config {quote(remote_config)} --output {quote(destination)}"
+        )
+        for flag, value in [
+            ("--null-replicates", null_replicates),
+            ("--shuffled-replicates", shuffled_replicates),
+            ("--injected-replicates", injected_replicates),
+            ("--gate-validation-replicates", gate_validation_replicates),
+        ]:
+            if value is not None:
+                command += f" {flag} {int(value)}"
         result = self.run(command, warn=True, hide=True)
         if not result.ok:
             raise RuntimeError(result.stderr or result.stdout)

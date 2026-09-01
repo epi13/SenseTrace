@@ -38,16 +38,21 @@ acquisition:
 
 phase1a:
   status: exploratory
-  samples: 256
+  location_count: 128
+  trials_per_location: 64
+  labels_per_location: 32
+  samples: 8192
   trace_length: 32
   pattern: single_bit
   target_bit: 0
   word_count: 1024
   lock_memory: true
-  cache_control: eviction_buffer
+  cache_control: clflush
   eviction_bytes: 4194304
   cpu_affinity: null
   ci_unit: acquisition_block
+  use_native_kernel: true
+  require_native_kernel: true
 
 storage:
   raw_dir: /var/lib/sensetrace/data/raw

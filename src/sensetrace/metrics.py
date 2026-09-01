@@ -14,6 +14,12 @@ def _balanced_accuracy(labels: np.ndarray, predictions: np.ndarray) -> float:
     return float(recalls.mean())
 
 
+def _auroc(labels: np.ndarray, probabilities: np.ndarray) -> float:
+    if len(np.unique(labels)) < 2:
+        return float("nan")
+    return float(roc_auc_score(labels, probabilities))
+
+
 def bootstrap_interval(
     labels: np.ndarray,
     probabilities: np.ndarray,
@@ -50,7 +56,7 @@ def bootstrap_interval(
                 _balanced_accuracy(sampled_labels, (sampled_probabilities >= 0.5).astype(np.uint8))
             )
         else:
-            values.append(float(roc_auc_score(sampled_labels, sampled_probabilities)))
+            values.append(_auroc(sampled_labels, sampled_probabilities))
     if not values:
         return [float("nan"), float("nan")]
     return [float(np.quantile(values, 0.025)), float(np.quantile(values, 0.975))]
@@ -79,7 +85,7 @@ def evaluate_predictions(
         "sample_count": int(len(labels)),
         "class_balance": {"0": int(np.sum(labels == 0)), "1": int(np.sum(labels == 1))},
         "balanced_accuracy": _balanced_accuracy(labels, predictions),
-        "auroc": float(roc_auc_score(labels, probabilities)),
+        "auroc": _auroc(labels, probabilities),
         "confusion_matrix": matrix,
         "confidence_interval_95": bootstrap_interval(
             labels,

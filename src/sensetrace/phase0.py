@@ -238,11 +238,26 @@ def run_phase0(
     seeds = [int(seed) for seed in train_config.get("seeds", [11, 23, 37])]
     models = _enabled_models(config)
     injected_source_dirs: dict[str, Path] = {}
+    first_shuffled = next(
+        (index for index, spec in enumerate(condition_specs) if spec[1] == "shuffled"), None
+    )
+    first_injected = next(
+        (index for index, spec in enumerate(condition_specs) if spec[1] == "injected"), None
+    )
+    if first_shuffled is not None and (first_injected is None or first_shuffled < first_injected):
+        parent_dir = run_dir / "datasets" / "_injected_parent_for_shuffle"
+        _generate_condition(
+            _condition_config(config, "injected", signal_levels[-1]),
+            parent_dir,
+            "injected",
+            signal_levels[-1],
+        )
+        injected_source_dirs["_injected_parent_for_shuffle"] = parent_dir
     for condition_name, backend_condition, amplitude in condition_specs:
         journal.append("condition_started", condition=condition_name)
         condition_dir = run_dir / "datasets" / condition_name
         if backend_condition == "shuffled" and injected_source_dirs:
-            source_name = max(injected_source_dirs)
+            source_name = next(reversed(injected_source_dirs))
             source_dir = injected_source_dirs[source_name]
             # Use the injected configuration for the materialized parent so
             # the manifest records the exact observation provenance.

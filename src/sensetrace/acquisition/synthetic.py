@@ -46,12 +46,21 @@ class SyntheticBackend(AcquisitionBackend):
             raise ValueError("injected signal region must fit within trace")
         if self.session_count < 1 or self.device_count < 1:
             raise ValueError("session_count and device_count must be positive")
-        self._labels = balanced_labels(self.count, self.seed)
+        self._source_labels = balanced_labels(self.count, self.seed)
+        self._labels = self._source_labels.copy()
+        self.permutation_seed = (
+            self.permute_seed if self.permute_seed is not None else self.seed + 7919
+        )
+        self.permutation_fingerprint: str | None = None
         if self.condition == "shuffled":
-            shuffle_rng = np.random.default_rng(
-                self.permute_seed if self.permute_seed is not None else self.seed + 7919
-            )
-            shuffle_rng.shuffle(self._labels)
+            permutation = np.random.default_rng(self.permutation_seed).permutation(self.count)
+            self._labels = self._source_labels[permutation]
+            self.permutation_fingerprint = hashlib.sha256(
+                np.asarray(permutation, dtype=np.int64).tobytes()
+            ).hexdigest()
+        self.original_label_stream_fingerprint = hashlib.sha256(
+            self._source_labels.tobytes()
+        ).hexdigest()
         self.label_stream_fingerprint = hashlib.sha256(self._labels.tobytes()).hexdigest()
         self._trace_rng = np.random.default_rng(self.seed + 1)
         self._cells = self.cells_per_device or max(
@@ -67,8 +76,12 @@ class SyntheticBackend(AcquisitionBackend):
             trace = self._trace_rng.normal(0.0, 1.0, self.trace_length).astype(np.float32)
             if index < start_index:
                 continue
-            if self.condition == "injected":
-                direction = 1.0 if label else -1.0
+            if self.condition in {"injected", "shuffled"}:
+                # Shuffled is a post-acquisition label permutation.  Its trace
+                # is generated from the same hidden source label as injected,
+                # while the persisted label is deliberately decoupled.
+                source_label = int(self._source_labels[index])
+                direction = 1.0 if source_label else -1.0
                 trace[self.start_index : self.start_index + self.width] += (
                     direction * self.amplitude_sigma
                 )

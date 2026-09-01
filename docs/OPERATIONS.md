@@ -23,11 +23,20 @@ sensetrace host doctor worker-03
 sensetrace host inventory worker-03
 sensetrace host bootstrap worker-03
 sensetrace host deploy worker-03
+# only when an operator deliberately wants the example to replace live config:
+sensetrace host deploy worker-03 --reset-config
 sensetrace host status worker-03
 sensetrace host logs worker-03 --lines 100
+sensetrace host boot-profile worker-03
+sensetrace host services worker-03
+sensetrace host noise-baseline worker-03
+sensetrace host verify-boot worker-03
+sensetrace host reboot-acceptance worker-03 --cycles 3
 ```
 
-`deploy` is repeatable. With noninteractive sudo it installs `/opt/sensetrace`, `/etc/sensetrace`, `/var/lib/sensetrace`, the system unit, tmpfiles policy, and the documented kernel recovery sysctls. Without it, deployment uses `~/.local/share/sensetrace`, a user systemd unit, and records that reboot persistence is not proven until user-manager linger or a system unit is configured.
+`deploy` is repeatable. It initializes a missing live configuration from the example, then preserves it on normal deployments. `--reset-config` is the deliberate replacement operation. The result records configuration hashes before and after deployment. With noninteractive sudo it first stops and disables the user fallback, installs `/opt/sensetrace`, `/etc/sensetrace`, `/var/lib/sensetrace`, the system unit, the candidate `sensetrace.target`, tmpfiles policy, and the documented kernel recovery sysctls. Without it, deployment uses `~/.local/share/sensetrace`, a user systemd unit, and records that reboot persistence is not proven until user-manager linger or a system unit is configured.
+
+The controller reports exactly one management mode: `system`, `user-fallback`, `invalid-dual-service`, or `not-installed`. Service actions refuse `invalid-dual-service` and operate only on the authoritative scope.
 
 The privileged script intentionally does not change the graphical boot target or disable SDDM. If headless boot is later desired, validate a fresh SSH connection first, make the change separately, and retain a rollback path.
 
@@ -85,6 +94,20 @@ The configured acquisition guard records a `storage_guard_stop` event and stops 
 
 ## Reboot limitations
 
-`sensetrace host reboot worker-03` requires noninteractive sudo and is intentionally refused when that authorization is unavailable. A controlled reboot acceptance test must verify a new SSH connection, a changed boot ID, automatic service start, journal recovery, and resumed samples. The current worker has `graphical.target` as its default and `user manager linger=no`; therefore the user fallback is not an automatic-after-reboot appliance.
+`sensetrace host reboot worker-03` requires noninteractive sudo and is intentionally refused when that authorization is unavailable. A controlled reboot acceptance test must verify a new SSH connection, a changed boot ID, automatic service start, journal recovery, and resumed samples. `sensetrace host headless` changes the default to `multi-user.target` only after that authorization is available; `sensetrace host isolate-target` and `sensetrace host set-target` are separate explicit operations for the candidate target. The current worker has `graphical.target` as its default and `user manager linger=no`; therefore the user fallback is not an automatic-after-reboot appliance.
 
-The worker exposes `/dev/watchdog`, `/dev/watchdog0`, and `/dev/watchdog1`, but no provider was safely identified from the unprivileged session. SenseTrace does not enable a watchdog speculatively.
+The worker exposes `/dev/watchdog`, `/dev/watchdog0`, and `/dev/watchdog1`. The current unprivileged inventory identifies `intel_oc_wdt` and `iTCO_wdt` with inactive 60-second and 30-second sysfs timeouts, respectively; systemd watchdog use remains disabled. SenseTrace does not enable a watchdog speculatively. The inventory also records RAPL domain names without pretending that unavailable energy reads are measurements.
+
+## Phase 1A gate and safe observables
+
+Phase 1A is gated by a Phase 0 report. The local command requires a report whose `acceptance.phase1_gate` is true:
+
+```bash
+sensetrace run phase1a --config configs/worker03.example.yaml \
+  --phase0-report evidence/phase0/metrics.json --output runs
+sensetrace host run-phase1a worker-03 \
+  --config configs/worker03.example.yaml \
+  --phase0-report evidence/phase0/metrics.json
+```
+
+The safe backend uses an anonymous page-aligned buffer, records whether `mlock` actually succeeded, performs ordinary user-space writes and reads, and records `perf_counter_ns` timing traces. The ordinary digital read is audit-only and is not in the feature matrix. `eviction_buffer` is explicitly best-effort cache eviction and does not prove a DRAM access. No physical address, row/bank identity, refresh disabling, voltage change, or disturbance loop is exposed.

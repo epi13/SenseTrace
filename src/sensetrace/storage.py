@@ -54,7 +54,9 @@ def _fsync_directory(path: Path) -> None:
 
 
 def _string_array(values: list[object]) -> np.ndarray:
-    return np.asarray([str(value) for value in values], dtype="U256")
+    # Provenance fields such as the CPU-frequency regime can be longer than a
+    # sample identifier. Keep them lossless in the portable, pickle-free NPZ.
+    return np.asarray([str(value) for value in values], dtype="U2048")
 
 
 class ShardWriter:

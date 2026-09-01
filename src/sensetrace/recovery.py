@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from .config import validate_config
+from .journal import Journal
 from .runner import AcquisitionRunner
 
 
@@ -35,6 +36,22 @@ def recovery_test(output: str | Path | None = None) -> dict[str, Any]:
         temporary_shard = root / "shard-recovery.npz.tmp"
         temporary_shard.write_bytes(b"intentionally incomplete")
         second = AcquisitionRunner(config, root, run_id=root.name).run()
+        journal_path = root / "journal-tail-check.jsonl"
+        journal_check = Journal(journal_path)
+        journal_check.append("before_tail")
+        journal_prefix = journal_path.read_bytes()
+        journal_tail = b'{"event":"crashed","payload":'
+        journal_path.write_bytes(journal_prefix + journal_tail)
+        journal_read = journal_check.recover()
+        journal_check.append("after_tail")
+        journal_tail_recovery = {
+            "passed": [event["event"] for event in journal_read.events]
+            == ["before_tail", "journal_recovery"]
+            and [event["event"] for event in journal_check.read().events]
+            == ["before_tail", "journal_recovery", "after_tail"],
+            "discarded_byte_count": journal_read.events[-1].get("discarded_byte_count"),
+            "discarded_bytes_sha256": journal_read.events[-1].get("discarded_bytes_sha256"),
+        }
         events = [json.loads(line) for line in (root / "events.jsonl").read_text().splitlines()]
         final_indices = [
             event.get("next_sample_index")
@@ -48,11 +65,13 @@ def recovery_test(output: str | Path | None = None) -> dict[str, Any]:
                 and second["next_sample_index"] == 32
                 and bool(second["quarantined_temporary_shards"])
                 and len(final_indices) == len(set(final_indices))
+                and journal_tail_recovery["passed"]
             ),
             "first_run": first,
             "second_run": second,
             "finalized_next_sample_indices": final_indices,
             "journal": str(root / "events.jsonl"),
+            "journal_tail_recovery": journal_tail_recovery,
         }
         if output:
             Path(output).mkdir(parents=True, exist_ok=True)

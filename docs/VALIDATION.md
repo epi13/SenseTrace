@@ -113,6 +113,10 @@ At minimum report:
 
 Because many measurements may come from the same physical location or session, do not assume every sample is statistically independent. Where practical, bootstrap or aggregate by the grouping unit used for the claim.
 
+SenseTrace records the CI unit explicitly. Phase 0 defaults to a session-level bootstrap; a result must say `CI unit: session_id` (or `sample` when sample independence is the intended claim). Group-aware intervals resample complete groups rather than treating repeated observations as independent.
+
+Every Phase 0 condition exposes construction audits for metadata-only prediction, identity-only prediction in a controlled audit mode, trial-order prediction, label balance by device/session/row/cell, and train/test feature-distribution differences. These are audit artifacts only and cannot establish SenseTrace inference.
+
 ## Multiple comparisons
 
 Searching hundreds of channels, windows, architectures, and timing settings can eventually produce an above-chance result by luck.

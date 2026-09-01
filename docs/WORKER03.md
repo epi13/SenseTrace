@@ -13,9 +13,9 @@ Inventory observed from the controller on 2026-08-31:
 - WDC WD2500BEKT 232.9G disk, Btrfs root/home with approximately 215G free at inventory time;
 - `eno1` at `192.168.1.113`, SSH active and enabled;
 - DIMM/SPD, memory frequency/timings, voltage sensors, and Linux `sensors` unavailable from the unprivileged session;
-- `/dev/watchdog`, `/dev/watchdog0`, and `/dev/watchdog1` exist, but the provider was not identified and systemd watchdog use is not enabled;
+- `/dev/watchdog`, `/dev/watchdog0`, and `/dev/watchdog1` exist; unprivileged sysfs identifies `watchdog0` as `intel_oc_wdt` (60 s) and `watchdog1` as `iTCO_wdt` (30 s), both inactive, with systemd watchdog use not enabled;
 - `kernel.panic=0`, `kernel.panic_on_oops=0`, `graphical.target`, and `powersave` CPU governors;
-- `sudo -n` requires a password, so the live deployment is currently user-scoped.
+- `sudo -n` requires a password, so the live deployment is currently user-scoped; the controller reports `user-fallback` and refuses to claim system-service or reboot persistence. RAPL exposes package/core/uncore/DRAM domain names but energy reads are unavailable to this user; `perf` is unavailable.
 
 The monitor is not part of the tested workflow. The SSH alias in the controller's `~/.ssh/config` is the normal management path.
 
@@ -184,8 +184,8 @@ The worker-03 harness should therefore keep acquisition interfaces modular so th
 2. The synthetic backend exercises buffering, shard finalization, journaling, and deterministic resume.
 3. Tests cover temporary and invalid finalized shards, checksums, split fingerprints, and identity rejection.
 4. Phase 0 implements null, injected-signal, shuffled-label, grouped-split, repeated-seed, and baseline model controls.
-5. `CommodityDramBackend` is an explicit safe placeholder; no disturbance, refresh disabling, voltage, or firmware manipulation is exposed.
-6. The live worker user service and remote process-restart acceptance have been exercised. Kernel panic, watchdog, firmware power-loss, and reboot persistence remain privileged-host work.
+5. `CommodityDramBackend` provides safe ordinary user-space write/read timing observables with explicit buffer, cache-control, CPU-affinity, frequency-regime, and digital-verification provenance; no disturbance, refresh disabling, voltage, or firmware manipulation is exposed.
+6. The live worker user service and remote process-restart acceptance have been exercised. Kernel panic, watchdog, firmware power-loss, headless boot, dedicated-target boot, and reboot persistence remain privileged-host work until the operator authorizes the transition.
 
 ## Evidence boundary
 

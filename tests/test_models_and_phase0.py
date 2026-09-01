@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import numpy as np
+
 from sensetrace.config import validate_config
+from sensetrace.metrics import bootstrap_interval
 from sensetrace.phase0 import run_phase0
 
 
@@ -50,3 +53,20 @@ def test_repeated_seed_metadata_is_present(tmp_path):
     assert model["seeds"] == [11, 23]
     assert model["summary"]["balanced_accuracy_std"] >= 0
     assert all("confidence_interval_95" in run for run in model["runs"])
+    assert all(run["confidence_interval_unit"] == "session_id" for run in model["runs"])
+    assert "leakage_audits" in report["conditions"]["null"]
+
+
+def test_group_bootstrap_resamples_experimental_units():
+    labels = np.asarray([0, 1, 0, 1, 0, 1, 0, 1], dtype=np.uint8)
+    probabilities = np.asarray([0.1, 0.9, 0.2, 0.8, 0.6, 0.4, 0.7, 0.3])
+    groups = np.asarray(["a", "a", "b", "b", "c", "c", "d", "d"])
+    interval = bootstrap_interval(
+        labels,
+        probabilities,
+        seed=3,
+        repetitions=20,
+        groups=groups,
+        ci_unit="session_id",
+    )
+    assert len(interval) == 2

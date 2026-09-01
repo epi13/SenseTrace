@@ -1,0 +1,28 @@
+# ADR-006: Conservative Phase 1A measurement provenance
+
+## Decision
+
+Phase 1A begins with ordinary user-space accesses to an anonymous page-aligned
+buffer. `mlock` and CPU affinity are best-effort operations whose actual result
+is recorded. Timing uses the host's `perf_counter_ns` path and preserves raw
+observations. Cache controls are named and scoped: `none` is a cache-hit
+control, while `eviction_buffer` is best-effort eviction and does not prove a
+DRAM access. Whole-word contrast, single-bit contrast, and randomized words are
+separate patterns.
+
+The ordinary digital read verifies the controlled write but is excluded from
+the feature matrix. Physical address, row, bank, voltage, refresh, and
+disturbance claims are not exposed. Package/RAPL, PMU, environmental, CPU
+frequency, boot, session, and cache-control provenance are recorded when
+available.
+
+Phase 1A is exploratory and requires an explicit passing Phase 0 report. It
+includes same-observation label permutation, trial-order/metadata audits, cache
+hit, and idle/no-memory-operation controls. Confirmation requires a new
+acquisition after freezing method, preprocessing, model family, and evaluation.
+
+## Consequence
+
+Chance results are valid outcomes. Any positive result is bounded by the
+accessible host measurement channel and cannot be described as direct DRAM
+state inference without independent evidence.

@@ -28,13 +28,41 @@ def bootstrap(c: Connection) -> None:
 
 
 @task
-def deploy(c: Connection) -> None:
-    print(_remote(c).deploy())
+def deploy(c: Connection, reset_config: bool = False) -> None:
+    print(_remote(c).deploy(reset_config=reset_config))
 
 
 @task
 def status(c: Connection) -> None:
     print(_remote(c).status())
+
+
+@task
+def run_phase0(
+    c: Connection,
+    config: str = "configs/phase0.example.yaml",
+    output: str | None = None,
+    curve: bool = False,
+    models: str = "",
+) -> None:
+    print(
+        _remote(c).run_phase0(
+            config,
+            output=output,
+            include_curve=curve,
+            models=models.split() or None,
+        )
+    )
+
+
+@task
+def run_phase1a(
+    c: Connection,
+    config: str = "configs/worker03.example.yaml",
+    phase0_report: str = "evidence/phase0/metrics.json",
+    output: str | None = None,
+) -> None:
+    print(_remote(c).run_phase1a(config, phase0_report, output=output))
 
 
 @task
@@ -67,6 +95,51 @@ def reboot(c: Connection) -> None:
     print(_remote(c).reboot())
 
 
+@task
+def reboot_acceptance(c: Connection, cycles: int = 3, timeout: int = 180) -> None:
+    print(_remote(c).reboot_acceptance(cycles=cycles, timeout_seconds=timeout))
+
+
+@task
+def boot_profile(c: Connection) -> None:
+    print(_remote(c).boot_profile())
+
+
+@task
+def services(c: Connection) -> None:
+    print(_remote(c).services())
+
+
+@task
+def noise_baseline(c: Connection) -> None:
+    print(_remote(c).noise_baseline())
+
+
+@task
+def cpu_profile(c: Connection) -> None:
+    print(_remote(c).cpu_profile())
+
+
+@task
+def verify_boot(c: Connection) -> None:
+    print(_remote(c).verify_boot())
+
+
+@task
+def headless(c: Connection) -> None:
+    print(_remote(c).set_headless())
+
+
+@task
+def isolate_target(c: Connection) -> None:
+    print(_remote(c).isolate_sensetrace_target())
+
+
+@task
+def set_target(c: Connection) -> None:
+    print(_remote(c).set_sensetrace_default())
+
+
 worker03 = Collection("worker03")
 for _name in [
     "inventory",
@@ -74,12 +147,23 @@ for _name in [
     "bootstrap",
     "deploy",
     "status",
+    "run_phase0",
+    "run_phase1a",
     "start",
     "stop",
     "restart",
     "logs",
     "verify_recovery",
     "reboot",
+    "reboot_acceptance",
+    "boot_profile",
+    "services",
+    "noise_baseline",
+    "cpu_profile",
+    "verify_boot",
+    "headless",
+    "isolate_target",
+    "set_target",
 ]:
     worker03.add_task(globals()[_name], name=_name)
 namespace = Collection(worker03)

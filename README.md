@@ -160,7 +160,12 @@ The purpose of the project is to characterize physical information channels in m
 - [Model strategy](docs/MODELS.md)
 - [Validation and anti-leakage rules](docs/VALIDATION.md)
 - [worker-03 experiment host](docs/WORKER03.md)
+- [Controller and worker operations](docs/OPERATIONS.md)
+- [worker-03 Phase 0 evidence](docs/evidence/worker03-phase0-2026-09-01.md)
+- [Architecture decisions](docs/ADR-001-storage-and-journal.md)
 
-## Status
+## Implemented status
 
-**Experiment definition / scaffold.** No claim of DRAM-state inference has been established yet. The first objective is to build a measurement and validation pipeline capable of proving both positive and negative results cleanly.
+The initial infrastructure milestone is implemented: an installable Python package and CLI; crash-safe NPZ shards; an append-only recovery journal; dataset/split fingerprints; default-deny identity-feature enforcement; logistic regression, boosted-tree, tiny MLP, and tiny 1D CNN baselines; Fabric-backed controller operations; root-capable Fedora systemd assets; an unprivileged user-service fallback; and Phase 0 null, injected-signal, and shuffled-label controls.
+
+The current evidence claim is deliberately narrow: **the injected-signal Phase 0 classifier recovered a known synthetic perturbation under grouped holdout**. No physical DRAM-state inference claim has been established.

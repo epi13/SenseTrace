@@ -60,7 +60,14 @@ def _calibration_config(config: dict[str, Any], mode: str, seeds: dict[str, int]
     if calibration.get("samples") is not None:
         value.setdefault("data", {})["samples"] = int(calibration["samples"])
     if calibration.get("trace_length") is not None:
-        value.setdefault("data", {})["trace_length"] = int(calibration["trace_length"])
+        trace_length = int(calibration["trace_length"])
+        value.setdefault("data", {})["trace_length"] = trace_length
+        injection = value.setdefault("controls", {}).setdefault("injected_weak_signal", {})
+        start_index = int(injection.get("start_index", trace_length // 3))
+        width = int(injection.get("width", max(4, trace_length // 16)))
+        if start_index + width > trace_length:
+            injection["start_index"] = trace_length // 3
+            injection["width"] = max(4, trace_length // 16)
     value["experiment"] = {
         **value.get("experiment", {}),
         "acquisition_seed": seeds["acquisition_seed"],

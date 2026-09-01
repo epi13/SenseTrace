@@ -17,6 +17,7 @@ controls:
   injected_weak_signal:
     enabled: true
     amplitude_sigma: 0.10
+    levels: [0.0, 0.01, 0.025, 0.05, 0.10, 0.20]
     start_index: 800
     width: 32
   shuffled_labels:
@@ -51,7 +52,7 @@ models:
 training:
   objective: binary_cross_entropy
   batch_size: 256
-  epochs: 50
+  epochs: 30
   early_stopping_patience: 5
   seeds: [11, 23, 37, 53, 71]
 

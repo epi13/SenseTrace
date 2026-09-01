@@ -4,12 +4,20 @@
 
 `worker-03` is the intended dedicated SenseTrace acquisition and training host for early experiments. It can run long-duration experiments without interfering with the primary workstation and can be treated as disposable/recoverable research infrastructure when more aggressive DRAM tests are introduced.
 
-Current known host profile:
+Inventory observed from the controller on 2026-08-31:
 
-- 32 GB system RAM
-- 2 GB VRAM
-- HDD-backed storage
-- otherwise closely matched to the primary workstation
+- Fedora Linux 43 KDE Desktop, kernel `6.17.1-300.fc43.x86_64`;
+- Dell Precision Tower 3431, board `01TN68`, BIOS `1.24.0`;
+- Intel Core i7-9700, 8 cores, 32 GiB installed RAM, 8 GiB zram swap;
+- NVIDIA Quadro P620 plus Intel UHD Graphics 630;
+- WDC WD2500BEKT 232.9G disk, Btrfs root/home with approximately 215G free at inventory time;
+- `eno1` at `192.168.1.113`, SSH active and enabled;
+- DIMM/SPD, memory frequency/timings, voltage sensors, and Linux `sensors` unavailable from the unprivileged session;
+- `/dev/watchdog`, `/dev/watchdog0`, and `/dev/watchdog1` exist, but the provider was not identified and systemd watchdog use is not enabled;
+- `kernel.panic=0`, `kernel.panic_on_oops=0`, `graphical.target`, and `powersave` CPU governors;
+- `sudo -n` requires a password, so the live deployment is currently user-scoped.
+
+The monitor is not part of the tested workflow. The SSH alias in the controller's `~/.ssh/config` is the normal management path.
 
 The experiment should not depend on the GPU. The initial model ladder is deliberately small enough to run on CPU, while the GPU may be used opportunistically where supported.
 
@@ -38,7 +46,7 @@ A reboot, kernel panic, power interruption, or intentionally destabilizing DRAM 
 
 ## Runner responsibilities
 
-A future `sensetrace-runner` should coordinate:
+The implemented `sensetrace-runner` coordinates the safe synthetic path through:
 
 - experiment configuration loading;
 - cryptographically random balanced target generation;
@@ -172,9 +180,13 @@ The worker-03 harness should therefore keep acquisition interfaces modular so th
 
 ## Initial implementation milestones
 
-1. Implement a host inventory command that records the reproducibility ledger.
-2. Implement a synthetic acquisition backend to exercise buffering, shard finalization, journaling, and resume behavior.
-3. Add crash/restart integration tests around temporary and finalized shards.
-4. Implement Phase 0 model baselines against generated datasets.
-5. Add a commodity-DRAM acquisition backend only after the storage and validation pipeline is trustworthy.
-6. Run unattended Phase 0 campaigns on `worker-03` before interpreting any physical-memory result.
+1. Host inventory records the reproducibility ledger with explicit `unavailable` values.
+2. The synthetic backend exercises buffering, shard finalization, journaling, and deterministic resume.
+3. Tests cover temporary and invalid finalized shards, checksums, split fingerprints, and identity rejection.
+4. Phase 0 implements null, injected-signal, shuffled-label, grouped-split, repeated-seed, and baseline model controls.
+5. `CommodityDramBackend` is an explicit safe placeholder; no disturbance, refresh disabling, voltage, or firmware manipulation is exposed.
+6. The live worker user service and remote process-restart acceptance have been exercised. Kernel panic, watchdog, firmware power-loss, and reboot persistence remain privileged-host work.
+
+## Evidence boundary
+
+The worker campaign is synthetic. Its result can support the claim that a known synthetic perturbation is recovered under the recorded grouped split. It cannot support a claim about physical DRAM-state inference, commodity DRAM topology, or cross-machine transfer.

@@ -6,6 +6,7 @@ venv/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+*.egg-info/
 
 # Notebooks / local analysis
 .ipynb_checkpoints/
@@ -22,6 +23,7 @@ Thumbs.db
 /data/manifests/*.parquet
 /data/manifests/*.csv
 /data/splits/*.json
+/data/journals/
 
 # Model artifacts
 /checkpoints/

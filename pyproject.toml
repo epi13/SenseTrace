@@ -1,0 +1,49 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sensetrace"
+version = "0.1.0"
+description = "Evidence-first experimental infrastructure for SenseTrace"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "fabric>=3.2,<4",
+  "numpy>=1.26",
+  "PyYAML>=6.0",
+  "scikit-learn>=1.5",
+]
+
+[project.optional-dependencies]
+ml = ["torch>=2.2"]
+dev = [
+  "mypy>=1.10",
+  "pytest>=8.0",
+  "ruff>=0.6",
+]
+
+[project.scripts]
+sensetrace = "sensetrace.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+ignore = ["E501"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.mypy]
+python_version = "3.11"
+check_untyped_defs = true
+disallow_untyped_defs = false
+ignore_missing_imports = true
+warn_unused_ignores = true

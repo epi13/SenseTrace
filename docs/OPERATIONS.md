@@ -65,6 +65,22 @@ balance variants; counts are configurable for unattended worker runs:
 sensetrace calibrate phase0 --config configs/phase0.example.yaml --output runs
 ```
 
+When a frozen protocol is underpowered for its declared injected effect, run a
+development-only v2 power study over a predeclared sample-count grid:
+
+```bash
+sensetrace calibrate phase0-power \
+  --config configs/phase0-v2.example.yaml \
+  --sample-counts 1000 2000 4000 \
+  --replicates 20 \
+  --output runs
+```
+
+Freeze the selected design and protocol hash in a v2 config, then run one
+separately seeded `sensetrace calibrate phase0` for the final gate. Candidate
+power-study reports are not gate evidence and must not be reused as the final
+fresh validation ensemble.
+
 Only the returned report's `acceptance.phase1_gate` may open Phase 1A. A normal
 single `run phase0` is useful for a quick pipeline check but is marked
 `UNCALIBRATED` and cannot open the physical gate.
@@ -137,3 +153,17 @@ sensetrace host run-phase1a worker-03 \
 ```
 
 The safe backend uses an anonymous page-aligned buffer, records whether `mlock` actually succeeded, performs ordinary user-space writes and reads, and records raw native TSC-cycle timing traces when the native kernel is built. The ordinary digital read is audit-only and is not in the feature matrix. `CLFLUSH` is an explicit cache-line control; it does not prove a DRAM access. No physical address, row/bank identity, refresh disabling, voltage change, or disturbance loop is exposed. Phase 1A uses repeated paired locations: each location receives both target labels, and each pair shares all non-target bits.
+
+`phase1a.session_count` controls the number of independently started source
+sessions per acquired condition. It no longer divides one continuous stream
+into logical sessions. Use at least three sessions for D/E partitioning to have
+train, validation, and test groups; if there are too few independent sessions,
+the report marks those levels unavailable. Each condition contains
+`sessions/<acquisition-session-id>/session.json`, `dataset.json`, and its
+journal, plus a combined manifest and `source-manifests.json` at the condition
+root. The report evaluates all available A–E split records independently.
+
+The pair-order construction requires `trials_per_location` to be a multiple of
+four. Within each virtual location, exactly half of the matched pairs are
+`label_0_first` and half are `label_1_first`; those pair types are randomized in
+acquisition order. The report and audit output expose the counts and exactness.

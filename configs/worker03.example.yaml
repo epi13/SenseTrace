@@ -53,6 +53,7 @@ phase1a:
   ci_unit: acquisition_block
   use_native_kernel: true
   require_native_kernel: true
+  session_count: 4
 
 storage:
   raw_dir: /var/lib/sensetrace/data/raw
@@ -101,3 +102,4 @@ training:
 reporting:
   ci_unit: session_id
   bootstrap_repetitions: 400
+  paired_repetitions: 2000

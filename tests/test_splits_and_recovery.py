@@ -5,11 +5,13 @@ import pytest
 
 from sensetrace.acquisition.commodity import CommodityDramBackend
 from sensetrace.acquisition.synthetic import SyntheticBackend
-from sensetrace.datasets import build_feature_matrix
+from sensetrace.config import validate_config
+from sensetrace.datasets import build_feature_matrix, combine_datasets, write_dataset_manifest
 from sensetrace.errors import JournalCorruptionError
 from sensetrace.journal import Journal
 from sensetrace.recovery import recovery_test
 from sensetrace.splits import grouped_split, partition_indices, read_split, write_split
+from sensetrace.storage import ShardWriter, validate_all_shards
 
 
 def test_grouped_split_keeps_groups_together(tmp_path):
@@ -145,3 +147,67 @@ def test_commodity_backend_is_safe_and_keeps_digital_value_out_of_features():
     }
     features = build_feature_matrix(traces, metadata)
     assert features.shape == (4, 69)
+
+
+def test_campaign_combination_preserves_source_manifests_and_sample_identity(tmp_path):
+    config = validate_config(
+        {
+            "experiment": {"name": "combine-test", "seed": 1},
+            "data": {"target_balance": 0.5, "samples": 4, "trace_length": 32},
+            "acquisition": {"shard_target_mb": 1, "max_samples_per_shard": 4},
+        }
+    )
+    sources = []
+    for session in ["session-a", "session-b"]:
+        source = tmp_path / session
+        writer = ShardWriter(source, max_samples_per_shard=4)
+        for index, label in enumerate([0, 1]):
+            writer.add(
+                np.full(32, index + 1, dtype=np.float32),
+                label,
+                {
+                    "sample_id": f"{session}:sample-{index:012d}",
+                    "session_id": session,
+                    "device_id": "device-unknown",
+                    "bank_id": "bank-unknown",
+                    "row_id": "row-unknown",
+                    "cell_or_offset_id": f"{session}:offset-{index}",
+                    "trial_index": index,
+                },
+            )
+        writer.finalize()
+        manifest = write_dataset_manifest(
+            source,
+            config=config,
+            condition="paired_single_bit",
+            shard_infos=validate_all_shards(source),
+            label_stream_fingerprint="label-fingerprint-" + session,
+            class_balance={"0": 1, "1": 1},
+            acquisition_sessions=[{"acquisition_session_id": session}],
+        )
+        assert manifest["rows"] == 2
+        sources.append(source)
+    combined = combine_datasets(
+        sources,
+        tmp_path / "combined",
+        config=config,
+        condition="paired_single_bit",
+        campaign_id="campaign-test",
+    )
+    assert combined["rows"] == 4
+    assert combined["campaign_id"] == "campaign-test"
+    assert {item["acquisition_session_id"] for item in combined["acquisition_sessions"]} == {
+        "session-a",
+        "session-b",
+    }
+    source_record = (tmp_path / "combined" / "source-manifests.json").read_text()
+    assert "label-fingerprint-session-a" in source_record
+    assert "label-fingerprint-session-b" in source_record
+    combined_again = combine_datasets(
+        sources,
+        tmp_path / "combined",
+        config=config,
+        condition="paired_single_bit",
+        campaign_id="campaign-test",
+    )
+    assert combined_again["rows"] == 4

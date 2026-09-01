@@ -65,6 +65,12 @@ persist sample + experiment metadata
 
 The exact operation and available observations depend on the experimental phase.
 
+For Phase 1A, matched pairs are constructed within each controlled virtual
+buffer location. Each pair shares one random base word and differs only in the
+target bit. Pair order is exactly counterbalanced within every location and the
+order of pair types is randomized. `virtual_location_id` means a controlled
+buffer location, not a known DRAM cell or row.
+
 ## 5. Candidate observation channels
 
 SenseTrace may investigate, where experimentally accessible:
@@ -101,6 +107,12 @@ Phase 0 is complete only when the pipeline passes all three controls.
 Use non-invasive measurements and controllable DRAM conditions on owned research hardware. Establish whether timing, refresh, power, temperature, or other accessible channels contain detectable state information.
 
 The priority is clean methodology rather than maximizing measurement depth.
+
+Phase 1A campaigns are composed of independently started acquisition sessions.
+An acquisition session has its own UUID, fresh controlled allocation, boot and
+host snapshot, timestamps, journal boundaries, label fingerprint, kernel/cache
+provenance, and configuration/code hashes. A combined campaign manifest keeps
+all source session manifests available for audit and restart recovery.
 
 ### Phase 2 — controlled memory interface
 

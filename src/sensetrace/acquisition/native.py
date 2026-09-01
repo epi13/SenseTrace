@@ -108,9 +108,23 @@ class NativeMeasurementKernel:
             "library": str(self.path),
             "library_sha256": hashlib.sha256(self.path.read_bytes()).hexdigest(),
             "timer_source": "RDTSC start with LFENCE; RDTSCP end with LFENCE",
-            "cache_control": "CLFLUSH plus MFENCE",
+            "cached_measurement_primitive": "warm-line load timed with LFENCE/RDTSC and RDTSCP/LFENCE",
+            "clflush_measurement_primitive": (
+                "_mm_clflush(address), _mm_mfence(), then load timed with "
+                "LFENCE/RDTSC and RDTSCP/LFENCE"
+            ),
+            "cache_control": "CLFLUSH plus MFENCE for the flushed control path",
             "clflush_supported": self.supports_clflush,
             "raw_units": "TSC cycles",
+            "guarantees": [
+                "the native kernel reports CPU support before exposing the CLFLUSH path",
+                "the measured load follows the CLFLUSH and MFENCE sequence on that path",
+            ],
+            "limitations": [
+                "CLFLUSH does not prove that the load reached DRAM",
+                "no physical address, row, bank, subarray, chip, or DIMM identity is exposed",
+                "cache coherence, prefetch, replacement, and memory-controller behavior remain uncontrolled",
+            ],
         }
 
 

@@ -9,7 +9,8 @@ from sensetrace.acquisition.native import NativeMeasurementKernel
 from sensetrace.acquisition.synthetic import SyntheticBackend
 from sensetrace.calibration import run_phase0_calibration
 from sensetrace.config import validate_config
-from sensetrace.metrics import max_statistic, monte_carlo_permutation_test
+from sensetrace.metrics import max_statistic, monte_carlo_permutation_test, paired_delta_analysis
+from sensetrace.protocol import phase0_protocol, phase0_protocol_hash
 from sensetrace.splits import phase1a_split_hierarchy
 
 
@@ -71,6 +72,18 @@ def test_calibration_materializes_independent_ensembles_and_freezes_gate(tmp_pat
     assert len(set(report["fresh_gate_validation"]["fresh_dataset_fingerprints"])) == 4
     assert report["empirical_null"]["max_statistic_distribution"]
     assert report["permutation_tests"][0]["strata_keys"] == ["synthetic_dataset_id"]
+
+
+def test_phase0_v2_protocol_hash_is_frozen_and_power_study_is_development_only():
+    config = _calibration_config()
+    config["calibration"]["protocol_version"] = "phase0-protocol-v2"
+    config["calibration"]["power_study"] = {"sample_counts": [1000, 2000], "replicates": 20}
+    protocol = phase0_protocol(config)
+    assert protocol["version"] == "phase0-protocol-v2"
+    assert protocol["power_design"]["development_ensemble_is_separate"] is True
+    assert phase0_protocol_hash(config) == phase0_protocol_hash(config)
+    changed = {**config, "calibration": {**config["calibration"], "samples": 2000}}
+    assert phase0_protocol_hash(changed) != phase0_protocol_hash(config)
 
 
 def test_synthetic_group_balance_and_seed_provenance():
@@ -155,6 +168,58 @@ def test_paired_backend_balances_each_location_and_exposes_native_provenance():
     assert hierarchy["A_repeated_trial_holdout"]["status"] == "available"
     assert hierarchy["B_unseen_location"]["status"] == "available"
     assert samples[0].metadata["label_semantics"] == "target bit equals label"
+    assert (
+        samples[0].metadata["acquisition_session_id"]
+        == samples[-1].metadata["acquisition_session_id"]
+    )
+    assert len({sample.metadata["sample_id"] for sample in samples}) == len(samples)
+    for start in range(0, 48, 16):
+        orders = [samples[index].metadata["pair_order"] for index in range(start, start + 16, 2)]
+        assert Counter(orders) == {"label_0_first": 4, "label_1_first": 4}
+        assert [samples[index].metadata["pair_position"] for index in range(start, start + 16)] == [
+            value for _ in range(8) for value in [0, 1]
+        ]
+
+
+def test_clflush_has_explicit_primitive_provenance():
+    kernel = NativeMeasurementKernel.load()
+    if kernel is None or not kernel.supports_clflush:
+        return
+    backend = CommodityDramBackend(
+        count=4,
+        trace_length=4,
+        word_count=8,
+        lock_memory=False,
+        cache_control="clflush",
+        use_native_kernel=True,
+    )
+    try:
+        sample = next(backend.samples())
+        provenance = str(sample.metadata["cache_control_provenance"])
+        assert "_mm_clflush" in provenance
+        assert "_mm_mfence" in provenance
+        assert "cache-hit control" not in provenance
+        assert "does not prove that the load reached DRAM" in provenance
+    finally:
+        backend.close()
+
+
+def test_paired_delta_analysis_uses_pair_sign_flips_and_cluster_ci():
+    traces = np.asarray([[10, 10, 10], [12, 12, 12], [20, 20, 20], [23, 23, 23]], dtype=np.float32)
+    labels = np.asarray([0, 1, 0, 1], dtype=np.uint8)
+    metadata = {
+        "trial_pair_id": np.asarray(["pair-a", "pair-a", "pair-b", "pair-b"]),
+        "acquisition_session_id": np.asarray(["session-a"] * 4),
+        "acquisition_block": np.asarray(["block-a", "block-a", "block-b", "block-b"]),
+        "pair_order": np.asarray(
+            ["label_0_first", "label_0_first", "label_1_first", "label_1_first"]
+        ),
+    }
+    result = paired_delta_analysis(traces, labels, metadata, repetitions=50, seed=4)
+    assert result["status"] == "available"
+    assert result["primary_statistic"] == "sample_median_latency"
+    assert result["pair_count"] == 2
+    assert result["confidence_interval_unit"] == "acquisition_session_id x acquisition_block"
 
 
 def test_native_kernel_is_optional_but_has_serialized_contract():

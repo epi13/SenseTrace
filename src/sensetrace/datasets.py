@@ -12,7 +12,7 @@ import numpy as np
 
 from .config import config_fingerprint
 from .errors import IntegrityError, SchemaError
-from .hashing import sha256_json, sha256_text
+from .hashing import sha256_bytes, sha256_json, sha256_text
 from .schema import SCHEMA_VERSION, FeaturePolicy
 from .storage import ShardInfo, dataset_fingerprint, load_shards
 
@@ -26,6 +26,8 @@ def write_dataset_manifest(
     label_stream_fingerprint: str,
     class_balance: dict[str, int | str] | None = None,
     provenance: dict[str, Any] | None = None,
+    acquisition_sessions: list[dict[str, Any]] | None = None,
+    campaign_id: str | None = None,
 ) -> dict[str, Any]:
     root = Path(run_dir)
     config_hash = config_fingerprint(config)
@@ -44,6 +46,10 @@ def write_dataset_manifest(
     }
     if provenance:
         manifest["provenance"] = provenance
+    if acquisition_sessions is not None:
+        manifest["acquisition_sessions"] = acquisition_sessions
+    if campaign_id is not None:
+        manifest["campaign_id"] = campaign_id
     path = root / "dataset.json"
     path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return manifest
@@ -132,3 +138,97 @@ def fingerprint_split(split: dict[str, Any]) -> str:
     material = dict(split)
     material.pop("split_fingerprint", None)
     return sha256_json(material)
+
+
+def combine_datasets(
+    source_dirs: Iterable[str | Path],
+    target_dir: str | Path,
+    *,
+    config: dict[str, Any],
+    condition: str,
+    campaign_id: str,
+    source_manifest_paths: list[str] | None = None,
+) -> dict[str, Any]:
+    """Combine finalized session datasets without discarding source provenance.
+
+    Source session manifests remain embedded in ``source_manifests.json`` and
+    referenced from the combined manifest. Existing finalized rows are keyed
+    by globally unique sample_id, so a crash/restart during combination can
+    safely resume without duplicating samples.
+    """
+
+    from .storage import ShardWriter, validate_all_shards
+
+    target = Path(target_dir)
+    target.mkdir(parents=True, exist_ok=True)
+    sources = [Path(path) for path in source_dirs]
+    if not sources:
+        raise IntegrityError("cannot combine an empty source dataset list")
+    loaded = [load_dataset(path) for path in sources]
+    source_manifests = [item[4] for item in loaded]
+    source_manifest_paths = source_manifest_paths or [
+        str(path / "dataset.json") for path in sources
+    ]
+
+    existing_ids: set[str] = set()
+    if sorted(target.glob("shard-*.npz")):
+        _existing_traces, _existing_labels, existing_metadata, _existing_shards = load_shards(
+            target
+        )
+        existing_ids.update(ensure_sample_ids(existing_metadata))
+    writer = ShardWriter(
+        target,
+        shard_target_mb=float(config.get("acquisition", {}).get("shard_target_mb", 512)),
+        max_samples_per_shard=config.get("acquisition", {}).get("max_samples_per_shard"),
+    )
+    for traces, labels, metadata, _shards, _manifest in loaded:
+        ids = ensure_sample_ids(metadata)
+        for index, sample_id in enumerate(ids):
+            if sample_id in existing_ids:
+                continue
+            row_metadata = {key: values[index] for key, values in metadata.items()}
+            info = writer.add(traces[index], int(labels[index]), row_metadata)
+            existing_ids.add(sample_id)
+            if info is not None:
+                pass
+    writer.finalize()
+    shards = validate_all_shards(target)
+    _combined_traces, combined_labels, _combined_metadata, _combined_shards = load_shards(target)
+    sessions: list[dict[str, Any]] = []
+    for manifest in source_manifests:
+        sessions.extend(manifest.get("acquisition_sessions", []))
+    combined = write_dataset_manifest(
+        target,
+        config=config,
+        condition=condition,
+        shard_infos=shards,
+        label_stream_fingerprint=sha256_bytes(combined_labels.tobytes()),
+        class_balance={
+            "0": int(np.sum(combined_labels == 0)),
+            "1": int(np.sum(combined_labels == 1)),
+        },
+        provenance={
+            "campaign_combination": "finalized source session datasets combined by globally unique sample_id",
+            "source_manifest_paths": source_manifest_paths,
+            "source_dataset_fingerprints": [
+                manifest.get("dataset_fingerprint", "unavailable") for manifest in source_manifests
+            ],
+        },
+        acquisition_sessions=sessions,
+        campaign_id=campaign_id,
+    )
+    (target / "source-manifests.json").write_text(
+        json.dumps(
+            {
+                "schema": "sensetrace.campaign-source-manifests.v1",
+                "campaign_id": campaign_id,
+                "source_manifest_paths": source_manifest_paths,
+                "source_manifests": source_manifests,
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    return combined

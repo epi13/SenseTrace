@@ -10,12 +10,15 @@ from __future__ import annotations
 
 import ctypes
 import hashlib
+import json
 import mmap
 import os
 import platform
 import time
+import uuid
 from collections.abc import Iterator
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -127,6 +130,16 @@ class CommodityDramBackend(AcquisitionBackend):
     labels_per_location: int | None = None
     session_count: int = 1
     use_native_kernel: bool = True
+    acquisition_session_id: str | None = None
+    # Kept as an input alias so older callers can supply session_id while the
+    # emitted contract uses acquisition_session_id explicitly.
+    session_id: str | None = None
+    session_index: int = 0
+    campaign_id: str | None = None
+    session_started_at: str | None = None
+    host_inventory_snapshot: dict[str, Any] | None = None
+    code_commit: str | None = None
+    configuration_hash: str | None = None
     _buffer: ControlledMemoryBuffer = field(init=False, repr=False)
 
     name = "commodity-dram"
@@ -147,10 +160,12 @@ class CommodityDramBackend(AcquisitionBackend):
         if self.location_count is None:
             self.location_count = 1
             self.trials_per_location = self.count
-        if self.location_count < 1 or self.trials_per_location < 2:
+        if self.location_count < 1 or self.trials_per_location < 4:
             raise ValueError("location_count and trials_per_location must be positive")
-        if self.trials_per_location % 2:
-            raise ValueError("trials_per_location must be even for paired labels")
+        if self.trials_per_location % 4:
+            raise ValueError(
+                "trials_per_location must be a multiple of four for exact pair-order balance"
+            )
         if (
             self.labels_per_location is not None
             and self.labels_per_location != self.trials_per_location // 2
@@ -163,14 +178,32 @@ class CommodityDramBackend(AcquisitionBackend):
         self.labels_per_location = self.trials_per_location // 2
         if self.session_count < 1:
             raise ValueError("session_count must be positive")
+        if self.session_index < 0:
+            raise ValueError("session_index must be non-negative")
+        self.acquisition_session_id = (
+            self.acquisition_session_id or self.session_id or f"session-{uuid.uuid4().hex}"
+        )
+        self.session_id = self.acquisition_session_id
+        self.session_started_at = self.session_started_at or datetime.now(UTC).isoformat()
+        self._boot_id_value = self._boot_id()
+        self._host_inventory_snapshot = dict(self.host_inventory_snapshot or {})
         self._buffer = ControlledMemoryBuffer(self.word_count, lock_memory=self.lock_memory)
-        self._labels = self._make_labels()
+        self._allocation_id = f"buffer-{uuid.uuid4().hex}"
+        self._labels, self._pair_order = self._make_labels()
         self._word_rng = np.random.default_rng(self.seed + 1)
         self._eviction = bytearray(self.eviction_bytes)
         self._native_kernel = NativeMeasurementKernel.load() if self.use_native_kernel else None
         self._native_provenance: dict[str, Any] = (
             self._native_kernel.provenance() if self._native_kernel is not None else None
         ) or {}
+        if self.cache_control == "clflush" and (
+            self._native_kernel is None or not self._native_kernel.supports_clflush
+        ):
+            self._buffer.close()
+            raise RuntimeError(
+                "cache_control=clflush requires a native x86 kernel with CLFLUSH support; "
+                "the fallback timing path cannot claim or perform CLFLUSH"
+            )
         self._affinity_before: list[int] | None = None
         self._affinity_applied: list[int] | None = None
         if self.cpu_affinity is not None:
@@ -183,29 +216,75 @@ class CommodityDramBackend(AcquisitionBackend):
                 os.sched_setaffinity(0, requested)
                 self._affinity_applied = sorted(requested)
         self._timer_overhead_ns = self._calibrate_timer()
-        self._cache_provenance = {
-            "method": self.cache_control,
-            "eviction_bytes": self.eviction_bytes if self.cache_control == "eviction_buffer" else 0,
-            "guarantee": (
-                "best-effort cache eviction; does not prove DRAM access"
-                if self.cache_control == "eviction_buffer"
-                else "no cache eviction; cache-hit control"
-            ),
-        }
+        self._cache_provenance = self._describe_cache_control()
         self._frequency_regime = _cpu_frequency_regime()
 
-    def _make_labels(self) -> np.ndarray:
+    def _make_labels(self) -> tuple[np.ndarray, np.ndarray]:
         labels = np.empty(self.count, dtype=np.uint8)
+        pair_order = np.empty(self.count // 2, dtype=np.uint8)
         rng = np.random.default_rng(self.seed)
         for location in range(int(self.location_count or 1)):
             start = location * self.trials_per_location
-            local = np.empty(self.trials_per_location, dtype=np.uint8)
-            for pair in range(self.trials_per_location // 2):
-                pair_labels = np.asarray([0, 1], dtype=np.uint8)
-                rng.shuffle(pair_labels)
-                local[pair * 2 : pair * 2 + 2] = pair_labels
-            labels[start : start + self.trials_per_location] = local
-        return labels
+            pair_count = self.trials_per_location // 2
+            # Exactly half of the pairs use each temporal order.  Only the
+            # order of these pair types is randomized, so pair position cannot
+            # become an accidental proxy for the hidden label.
+            local_order = np.concatenate(
+                [
+                    np.zeros(pair_count // 2, dtype=np.uint8),
+                    np.ones(pair_count // 2, dtype=np.uint8),
+                ]
+            )
+            rng.shuffle(local_order)
+            for pair in range(pair_count):
+                order = int(local_order[pair])
+                pair_order[(start // 2) + pair] = order
+                labels[start + pair * 2 : start + pair * 2 + 2] = (
+                    np.asarray([0, 1], dtype=np.uint8)
+                    if order == 0
+                    else np.asarray([1, 0], dtype=np.uint8)
+                )
+        return labels, pair_order
+
+    def _describe_cache_control(self) -> dict[str, Any]:
+        if self.cache_control == "clflush":
+            return {
+                "method": "clflush",
+                "primitive": "_mm_clflush(address) followed by _mm_mfence() before each timed load",
+                "fences": [
+                    "LFENCE before RDTSC",
+                    "RDTSCP then LFENCE after load",
+                    "MFENCE after CLFLUSH",
+                ],
+                "guarantee": (
+                    "CLFLUSH is supported by the native x86 kernel and requests invalidation "
+                    "of the addressed cache line before the timed load"
+                ),
+                "limitations": [
+                    "does not prove that the load reached DRAM",
+                    "does not reveal a physical address, row, bank, subarray, chip, or DIMM",
+                    "does not guarantee absence of all coherence or prefetch effects",
+                    "valid only on the native kernel path when CPU support is reported",
+                ],
+                "eviction_bytes": 0,
+            }
+        if self.cache_control == "eviction_buffer":
+            return {
+                "method": "eviction_buffer",
+                "primitive": "best-effort sweep of a user-space eviction buffer",
+                "fences": [],
+                "guarantee": "best-effort cache eviction; does not prove DRAM access",
+                "limitations": ["cache hierarchy and replacement behavior are not controlled"],
+                "eviction_bytes": self.eviction_bytes,
+            }
+        return {
+            "method": "none",
+            "primitive": "no cache eviction before the timed load",
+            "fences": [],
+            "guarantee": "cache-hit control; no cache eviction is requested",
+            "limitations": ["the load may be satisfied by any level of the cache hierarchy"],
+            "eviction_bytes": 0,
+        }
 
     def _base_word(self, location: int, pair_index: int) -> int:
         rng = np.random.default_rng(
@@ -244,7 +323,7 @@ class CommodityDramBackend(AcquisitionBackend):
     def samples(self, start_index: int = 0) -> Iterator[Sample]:
         if start_index < 0 or start_index > self.count:
             raise ValueError("start_index outside commodity dataset")
-        for index in range(self.count):
+        for index in range(start_index, self.count):
             label = int(self._labels[index])
             location = index // self.trials_per_location
             within_location = index % self.trials_per_location
@@ -281,18 +360,30 @@ class CommodityDramBackend(AcquisitionBackend):
                 trace=np.asarray(observed, dtype=np.float32),
                 label=label,
                 metadata={
-                    "sample_id": f"sample-{index:012d}",
-                    "session_id": f"session-{location // max(1, (self.location_count or 1) // self.session_count):04d}",
-                    "boot_id": self._boot_id(),
-                    "acquisition_block": f"block-{location // 16:04d}",
-                    "location_id": f"location-{location:08d}",
-                    "pair_id": pair_id,
-                    "trial_pair_id": trial_pair_id,
+                    "sample_id": (
+                        f"session-{self.session_index:06d}-{self.acquisition_session_id}:sample-{index:012d}"
+                    ),
+                    "session_id": self.acquisition_session_id,
+                    "acquisition_session_id": self.acquisition_session_id,
+                    "boot_id": self._boot_id_value,
+                    "acquisition_block": f"{self.acquisition_session_id}:block-{location // 16:04d}",
+                    "location_id": f"{self.acquisition_session_id}:location-{location:08d}",
+                    "virtual_location_id": f"{self.acquisition_session_id}:virtual-location-{location:08d}",
+                    "pair_id": f"{self.acquisition_session_id}:{pair_id}",
+                    "trial_pair_id": f"{self.acquisition_session_id}:{trial_pair_id}",
+                    "pair_order": (
+                        "label_0_first"
+                        if self._pair_order[(location * self.trials_per_location // 2) + pair_index]
+                        == 0
+                        else "label_1_first"
+                    ),
+                    "pair_position": within_location % 2,
                     "trial_within_location": within_location,
                     "device_id": "device-unknown",
                     "bank_id": "bank-unknown",
                     "row_id": "row-unknown",
-                    "cell_or_offset_id": f"buffer-word-{buffer_index:08d}",
+                    "cell_or_offset_id": f"{self.acquisition_session_id}:buffer-word-{buffer_index:08d}",
+                    "buffer_offset_id": f"{self.acquisition_session_id}:buffer-offset-{buffer_index:08d}",
                     "trial_index": index,
                     "physical_operation": (
                         "ordinary_user_space_write_then_read"
@@ -309,7 +400,7 @@ class CommodityDramBackend(AcquisitionBackend):
                     ),
                     "target_bit": self.target_bit,
                     "cache_control_method": self._cache_provenance["method"],
-                    "cache_control_provenance": str(self._cache_provenance),
+                    "cache_control_provenance": json.dumps(self._cache_provenance, sort_keys=True),
                     "timer_source": (
                         self._native_provenance["timer_source"]
                         if self._native_kernel is not None
@@ -340,9 +431,7 @@ class CommodityDramBackend(AcquisitionBackend):
                         if self._native_kernel is not None
                         else "unavailable"
                     ),
-                    "cache_control_primitive": (
-                        "CLFLUSH+MFENCE" if self.cache_control == "clflush" else self.cache_control
-                    ),
+                    "cache_control_primitive": self._cache_provenance["primitive"],
                     "clflush_supported": (
                         self._native_kernel.supports_clflush
                         if self._native_kernel is not None
@@ -350,8 +439,67 @@ class CommodityDramBackend(AcquisitionBackend):
                     ),
                     "seed_id": f"commodity:{self.seed}",
                     "label_stream_fingerprint": hashlib.sha256(self._labels.tobytes()).hexdigest(),
+                    "session_manifest_ref": f"sessions/{self.acquisition_session_id}/session.json",
                 },
             )
+
+    def session_provenance(self) -> dict[str, Any]:
+        """Return the immutable acquisition-session ledger for this backend."""
+
+        return {
+            "schema": "sensetrace.acquisition-session.v1",
+            "acquisition_session_id": self.acquisition_session_id,
+            "session_id": self.acquisition_session_id,
+            "campaign_id": self.campaign_id or "unavailable",
+            "session_index": self.session_index,
+            "started_at": self.session_started_at,
+            "boot_id": self._boot_id_value,
+            "host_inventory_snapshot": self._host_inventory_snapshot or {"value": "unavailable"},
+            "controlled_memory_region": {
+                "allocation": "fresh page-aligned anonymous mmap allocated for this session",
+                "allocation_id": self._allocation_id,
+                "word_count": self.word_count,
+                "memory_lock_requested": self._buffer.lock_requested,
+                "memory_lock_actual": self._buffer.locked,
+                "memory_lock_error": self._buffer.lock_error or "none",
+                "physical_topology": "unknown; virtual buffer location only",
+            },
+            "label_stream_fingerprint": hashlib.sha256(self._labels.tobytes()).hexdigest(),
+            "pair_order_balance": self.pair_order_balance(),
+            "measurement_kernel_provenance": self._native_provenance
+            or {
+                "implementation": "python fallback timing control",
+                "limitations": "not a native timing kernel",
+            },
+            "cache_control_provenance": self._cache_provenance,
+            "cpu_frequency_regime": self._frequency_regime,
+            "configuration_hash": self.configuration_hash or "unavailable",
+            "code_commit": self.code_commit or "unavailable",
+        }
+
+    def pair_order_balance(self) -> dict[str, Any]:
+        values = self._pair_order
+        zero_first = int(np.sum(values == 0))
+        one_first = int(np.sum(values == 1))
+        per_location = []
+        pair_count = self.trials_per_location // 2
+        for location in range(int(self.location_count or 1)):
+            local = values[location * pair_count : (location + 1) * pair_count]
+            per_location.append(
+                {
+                    "virtual_location_index": location,
+                    "label_0_first": int(np.sum(local == 0)),
+                    "label_1_first": int(np.sum(local == 1)),
+                    "exact": bool(np.sum(local == 0) == np.sum(local == 1)),
+                }
+            )
+        return {
+            "pair_count": int(len(values)),
+            "label_0_first": zero_first,
+            "label_1_first": one_first,
+            "exact": zero_first == one_first and all(item["exact"] for item in per_location),
+            "per_location": per_location,
+        }
 
     def close(self) -> None:
         self._buffer.close()

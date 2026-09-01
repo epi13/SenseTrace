@@ -83,22 +83,40 @@ def phase1a_split_hierarchy(
     """Materialize the progressively stricter repeated-location split hierarchy."""
 
     specifications = {
-        "A_repeated_trial_holdout": ["location_id", "trial_pair_id"],
-        "B_unseen_location": ["location_id"],
+        "A_repeated_trial_holdout": ["virtual_location_id", "trial_pair_id"],
+        "B_unseen_location": ["virtual_location_id"],
         "C_unseen_acquisition_block": ["acquisition_block"],
-        "D_unseen_acquisition_session": ["session_id"],
-        "E_unseen_boot_session": ["boot_id", "session_id"],
+        "D_unseen_acquisition_session": ["acquisition_session_id"],
+        "E_unseen_boot_session": ["boot_id", "acquisition_session_id"],
+    }
+    aliases = {
+        "virtual_location_id": "location_id",
+        "acquisition_session_id": "session_id",
     }
     results: dict[str, dict[str, Any]] = {}
     for offset, (name, keys) in enumerate(specifications.items()):
+        resolved_keys = [
+            key if key in metadata else aliases[key]
+            for key in keys
+            if key in metadata or key in aliases
+        ]
+        if len(resolved_keys) != len(keys) or any(key not in metadata for key in resolved_keys):
+            results[name] = {
+                "status": "unavailable",
+                "grouping_keys": keys,
+                "reason": "required explicit acquisition metadata is unavailable",
+                "claim_boundary": "not enough provenance fields in this dataset",
+            }
+            continue
         try:
             split = grouped_split(
                 metadata,
                 dataset_fingerprint=dataset_fingerprint,
-                group_keys=keys,
+                group_keys=resolved_keys,
                 seed=seed + offset,
             )
             split["split_name"] = name
+            split["declared_grouping_keys"] = keys
             split["split_fingerprint"] = fingerprint_split(split)
             results[name] = {"status": "available", "split": split}
         except SchemaError as exc:
@@ -109,6 +127,42 @@ def phase1a_split_hierarchy(
                 "claim_boundary": "not enough independent groups in this acquisition",
             }
     return results
+
+
+def split_composition(
+    metadata: dict[str, np.ndarray], split: dict[str, Any], labels: np.ndarray | None = None
+) -> dict[str, Any]:
+    """Summarize sample, class, and grouping composition for every partition."""
+
+    result: dict[str, Any] = {
+        "grouping_keys": split.get("declared_grouping_keys", split.get("grouping_keys", [])),
+        "partitions": {},
+    }
+    for name, indices in partition_indices(metadata, split).items():
+        values: dict[str, Any] = {
+            "sample_count": int(len(indices)),
+            "class_balance": {
+                "0": int(np.sum(np.asarray(labels)[indices] == 0))
+                if labels is not None
+                else "unavailable",
+                "1": int(np.sum(np.asarray(labels)[indices] == 1))
+                if labels is not None
+                else "unavailable",
+            },
+            "group_counts": {},
+        }
+        for field in result["grouping_keys"]:
+            resolved = field
+            if resolved not in metadata and field == "virtual_location_id":
+                resolved = "location_id"
+            if resolved not in metadata and field == "acquisition_session_id":
+                resolved = "session_id"
+            if resolved in metadata:
+                values["group_counts"][field] = int(len(np.unique(metadata[resolved][indices])))
+            else:
+                values["group_counts"][field] = "unavailable"
+        result["partitions"][name] = values
+    return result
 
 
 def write_split(path: str | Path, split: dict[str, Any]) -> None:

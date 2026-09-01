@@ -42,7 +42,7 @@
   During isolation, fresh SSH and Fabric worked and `sensetrace.target`,
   `sshd.service`, and `sensetrace.service` were all active.
 
-## Dedicated-target failure and current boundary
+## Dedicated-target delayed return and final acceptance
 
 `sensetrace.target` was then made the default and a controlled reboot was
 requested.  The controller observed the expected SSH disappearance, but the
@@ -51,12 +51,23 @@ an ARP/host scan found no replacement address with an SSH service.  A standard
 Wake-on-LAN packet was sent to the previously observed wired MAC
 `e4:54:e8:68:93:39` without recovery.
 
-Therefore the dedicated-target reboot acceptance is **failed/unproven**.  No
-claim is made that worker-03 is currently remotely recoverable or that the
-dedicated target is safe as a default boot target.  No watchdog was enabled:
+The worker subsequently returned and its journal showed that `sensetrace.target`
+had been reached in about 24 seconds, with `sshd` listening at about 22 seconds.
+Three further dedicated-target acceptance cycles then passed with changed boot
+IDs, fresh SSH, Fabric, an inactive display manager, the authoritative system
+service, and exactly one runner.  The appliance is therefore accepted as a
+headless `sensetrace.target` host, while the initial delayed network return is
+retained as operational evidence.
+
+No watchdog was enabled:
 `intel_oc_wdt` (60 s) and `iTCO_wdt` (30 s) were only inventoried, and no
 hard-hang recovery was tested.
 
-No Phase 0 or Phase 1A campaign was started after this failure.  The required
-measurement-stability baseline and a fresh Phase 0 gate cannot be established
-while the worker is unreachable.
+The post-acceptance timing baseline kept the existing `powersave` governor and
+active turbo: timer/cached medians were 22 TSC cycles and the CLFLUSH-control
+median was 182 cycles; reported core temperature was 33–35°C.  A 4 KiB mlock
+probe initially failed with `ENOMEM`, so the system runner was given a bounded
+64 MiB `LimitMEMLOCK` allowance (verified active).
+
+No Phase 0 or Phase 1A campaign has yet been started.  Phase 1A remains closed
+until a fresh calibrated Phase 0 report returns its code-level gate as true.

@@ -1,0 +1,64 @@
+host:
+  name: worker-03
+  role: dedicated_experiment_host
+  memory_gb: 32
+  vram_gb: 2
+  storage: hdd
+
+runner:
+  unattended: true
+  resume_on_boot: true
+  journal_enabled: true
+  verify_last_finalized_shard_on_startup: true
+  quarantine_incomplete_shards: true
+
+acquisition:
+  backend: synthetic
+  target_source: cryptographic_random
+  target_balance: 0.50
+  buffer_samples: 8192
+  shard_target_mb: 512
+  temporary_suffix: .tmp
+  finalize_atomically: true
+  checksum: sha256
+
+storage:
+  raw_dir: data/raw
+  manifest_dir: data/manifests
+  run_dir_template: "run-{run_id}"
+  one_file_per_trace: false
+  preserve_raw_traces: true
+
+telemetry:
+  record_host_inventory: true
+  record_kernel: true
+  record_bios: true
+  record_cpu: true
+  record_dimm_spd: true
+  record_memory_frequency: true
+  record_memory_timings_when_available: true
+  record_temperature: true
+  record_voltage_when_available: true
+  record_reboot_and_crash_events: true
+
+feature_policy:
+  prohibit_identity_features: true
+  grouping_only_fields:
+    - host_id
+    - device_id
+    - bank_id
+    - row_id
+    - cell_or_offset_id
+    - session_id
+    - trial_index
+
+training:
+  enabled_during_acquisition: false
+  device_preference: cpu
+  allow_gpu_if_available: true
+
+safety:
+  use_controlled_memory_region: true
+  document_actual_isolation_guarantee: true
+  use_generated_random_patterns_only: true
+  no_sensitive_memory_contents: true

@@ -187,6 +187,42 @@ The worker-03 harness should therefore keep acquisition interfaces modular so th
 5. `CommodityDramBackend` provides safe ordinary user-space write/read timing observables with explicit buffer, cache-control, CPU-affinity, frequency-regime, and digital-verification provenance; no disturbance, refresh disabling, voltage, or firmware manipulation is exposed.
 6. The live worker user service and remote process-restart acceptance have been exercised. Kernel panic, watchdog, firmware power-loss, headless boot, dedicated-target boot, and reboot persistence remain privileged-host work until the operator authorizes the transition.
 
+## Current milestone additions
+
+The Phase 0 calibration command is the only route to a statistical Phase 1
+gate. It runs independent materialized null, shuffled, and injected ensembles,
+reports the empirical false-positive rate, and evaluates fresh gate-validation
+datasets under a frozen `phase0-protocol-v1` maximum-statistic rule. A normal
+single dataset run remains useful for debugging but is explicitly uncalibrated.
+
+The safe timing path has an optional native component in
+`native/measurement_kernel.c`. On x86 it uses an LFENCE/RDTSC start and
+RDTSCP/LFENCE end sequence and CLFLUSH/MFENCE for the flushed control. It
+returns raw TSC-cycle counts. The wrapper falls back to the Python control path
+when the shared library is unavailable, while Phase 1A's default configuration
+requires the native build. A flushed observation is described as a deeper cache
+path control; it is not called a DRAM or row measurement.
+
+Phase 1A uses 128 controlled virtual locations with 64 repeated trials per
+location by default. Each location receives 32 labels of each class. Paired
+single-bit words share one random base word and differ only in the target bit;
+pair order is randomized. The report materializes repeated-trial, unseen-
+location, unseen-block, unseen-session, and unseen-boot/session split records,
+marking hierarchy levels unavailable when the acquisition lacks enough
+independent groups.
+
+The supported boot transition remains staged:
+
+```text
+graphical.target + user fallback
+        -> multi-user.target + system service
+        -> sensetrace.target (only after SSH/Fabric isolation validation)
+```
+
+`authorize-sudo` is an explicit terminal-prompt operation. No password is
+stored by SenseTrace. Watchdog drivers are inventory-only until one driver is
+selected and its reset behavior is validated on this host.
+
 ## Evidence boundary
 
 The worker campaign is synthetic. Its result can support the claim that a known synthetic perturbation is recovered under the recorded grouped split. It cannot support a claim about physical DRAM-state inference, commodity DRAM topology, or cross-machine transfer.

@@ -40,8 +40,8 @@ def validate_config(config: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(experiment, dict) or not experiment.get("name"):
         raise ConfigError("experiment.name is required")
     samples = _get(config, "data.samples")
-    if samples is not None and (not isinstance(samples, int) or samples <= 0):
-        raise ConfigError("data.samples must be a positive integer")
+    if samples is not None and (not isinstance(samples, int) or samples <= 0 or samples % 2):
+        raise ConfigError("data.samples must be a positive even integer")
     fractions = [
         _get(config, "splits.primary.train_fraction", 0.7),
         _get(config, "splits.primary.validation_fraction", 0.15),
@@ -66,6 +66,56 @@ def validate_config(config: dict[str, Any]) -> dict[str, Any]:
     seeds = _get(config, "training.seeds", [11, 23, 37])
     if not isinstance(seeds, list) or not seeds or not all(isinstance(seed, int) for seed in seeds):
         raise ConfigError("training.seeds must be a non-empty list of integers")
+    calibration = config.get("calibration", {})
+    if not isinstance(calibration, dict):
+        raise ConfigError("calibration must be a mapping")
+    alpha = calibration.get("alpha", 0.05)
+    if not isinstance(alpha, (int, float)) or not 0 < alpha < 1:
+        raise ConfigError("calibration.alpha must be between 0 and 1")
+    for name in [
+        "samples",
+        "trace_length",
+        "null_replicates",
+        "shuffled_replicates",
+        "injected_replicates",
+        "gate_validation_replicates",
+        "permutation_repetitions",
+    ]:
+        value = calibration.get(name)
+        if value is not None and (not isinstance(value, int) or value < 1):
+            raise ConfigError(f"calibration.{name} must be a positive integer")
+    modes = calibration.get("balance_modes", ["global_balance_only", "group_stratified_balance"])
+    if (
+        not isinstance(modes, list)
+        or not modes
+        or any(mode not in {"global_balance_only", "group_stratified_balance"} for mode in modes)
+    ):
+        raise ConfigError("calibration.balance_modes must name supported balance variants")
+    permutation_strata = calibration.get("permutation_strata", ["synthetic_location_id"])
+    if (
+        not isinstance(permutation_strata, list)
+        or not permutation_strata
+        or not all(isinstance(key, str) for key in permutation_strata)
+    ):
+        raise ConfigError("calibration.permutation_strata must be a non-empty list of strings")
+    by_mode = calibration.get("permutation_strata_by_balance_mode", {})
+    if not isinstance(by_mode, dict) or any(
+        mode not in {"global_balance_only", "group_stratified_balance"}
+        or not isinstance(fields, list)
+        or not fields
+        or not all(isinstance(field, str) for field in fields)
+        for mode, fields in by_mode.items()
+    ):
+        raise ConfigError("calibration.permutation_strata_by_balance_mode is invalid")
+    injected_levels = calibration.get("injected_levels")
+    if injected_levels is not None and (
+        not isinstance(injected_levels, list)
+        or not injected_levels
+        or any(not isinstance(level, (int, float)) or level < 0 for level in injected_levels)
+    ):
+        raise ConfigError(
+            "calibration.injected_levels must be a non-empty list of non-negative numbers"
+        )
     backend = _get(config, "acquisition.backend", "synthetic")
     if backend not in {"synthetic", "commodity"}:
         raise ConfigError("acquisition.backend must be synthetic or commodity")
@@ -77,11 +127,26 @@ def validate_config(config: dict[str, Any]) -> dict[str, Any]:
         if pattern not in {"all_zero_one", "single_bit", "random_word"}:
             raise ConfigError("phase1a.pattern is not a supported safe memory pattern")
         cache_control = _get(config, "phase1a.cache_control", "eviction_buffer")
-        if cache_control not in {"none", "eviction_buffer"}:
-            raise ConfigError("phase1a.cache_control must be none or eviction_buffer")
+        if cache_control not in {"none", "eviction_buffer", "clflush"}:
+            raise ConfigError("phase1a.cache_control must be none, eviction_buffer, or clflush")
         operation = _get(config, "phase1a.operation", "memory_read")
         if operation not in {"memory_read", "idle"}:
             raise ConfigError("phase1a.operation must be memory_read or idle")
+        location_count = _get(config, "phase1a.location_count")
+        trials_per_location = _get(config, "phase1a.trials_per_location", 64)
+        if location_count is not None and (
+            not isinstance(location_count, int) or location_count < 1
+        ):
+            raise ConfigError("phase1a.location_count must be a positive integer")
+        if (
+            not isinstance(trials_per_location, int)
+            or trials_per_location < 2
+            or trials_per_location % 2
+        ):
+            raise ConfigError("phase1a.trials_per_location must be a positive even integer")
+        labels_per_location = _get(config, "phase1a.labels_per_location", trials_per_location // 2)
+        if labels_per_location != trials_per_location // 2:
+            raise ConfigError("phase1a.labels_per_location must equal half of trials_per_location")
     return config
 
 

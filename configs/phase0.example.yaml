@@ -28,10 +28,9 @@ splits:
   primary:
     strategy: grouped
     group_keys:
-      - session_id
-      - device_id
-      - row_id
-      - cell_or_offset_id
+      - synthetic_dataset_id
+      - synthetic_session_id
+      - synthetic_location_id
     train_fraction: 0.70
     validation_fraction: 0.15
     test_fraction: 0.15
@@ -70,3 +69,29 @@ reporting:
   report_confidence_interval: true
   report_repeated_run_variance: true
   require_negative_controls: true
+
+acquisition:
+  backend: synthetic
+  synthetic_balance_mode: group_stratified_balance
+  observations_per_location: 4
+  session_count: 4
+  device_count: 2
+  shard_target_mb: 512
+
+calibration:
+  protocol_version: phase0-protocol-v1
+  samples: 1000
+  trace_length: 128
+  injected_levels: [0.05, 0.10, 0.20]
+  alpha: 0.05
+  null_replicates: 50
+  shuffled_replicates: 50
+  injected_replicates: 50
+  gate_validation_replicates: 50
+  minimum_injected_detection_rate: 0.80
+  permutation_repetitions: 100
+  permutation_model: logistic_regression
+  permutation_strata_by_balance_mode:
+    global_balance_only: [synthetic_dataset_id]
+    group_stratified_balance: [synthetic_location_id]
+  balance_modes: [global_balance_only, group_stratified_balance]

@@ -20,6 +20,7 @@ The sklearn baselines are the default CPU-only path. Install the optional `ml` e
 
 ```bash
 sensetrace host doctor worker-03
+sensetrace host authorize-sudo worker-03  # optional terminal prompt
 sensetrace host inventory worker-03
 sensetrace host bootstrap worker-03
 sensetrace host deploy worker-03
@@ -30,11 +31,17 @@ sensetrace host logs worker-03 --lines 100
 sensetrace host boot-profile worker-03
 sensetrace host services worker-03
 sensetrace host noise-baseline worker-03
+sensetrace host watchdog-profile worker-03
 sensetrace host verify-boot worker-03
 sensetrace host reboot-acceptance worker-03 --cycles 3
 ```
 
-`deploy` is repeatable. It initializes a missing live configuration from the example, then preserves it on normal deployments. `--reset-config` is the deliberate replacement operation. The result records configuration hashes before and after deployment. With noninteractive sudo it first stops and disables the user fallback, installs `/opt/sensetrace`, `/etc/sensetrace`, `/var/lib/sensetrace`, the system unit, the candidate `sensetrace.target`, tmpfiles policy, and the documented kernel recovery sysctls. Without it, deployment uses `~/.local/share/sensetrace`, a user systemd unit, and records that reboot persistence is not proven until user-manager linger or a system unit is configured.
+`deploy` is repeatable. It initializes a missing live configuration from the example, then preserves it on normal deployments. `--reset-config` is the deliberate replacement operation. The result records configuration hashes before and after deployment. With noninteractive sudo it first stops and disables the user fallback, installs `/opt/sensetrace`, `/etc/sensetrace`, `/var/lib/sensetrace`, the system unit, the candidate `sensetrace.target`, tmpfiles policy, the documented kernel recovery sysctls, and the native timing library when a compiler is available. Without it, deployment uses `~/.local/share/sensetrace`, a user systemd unit, and records that reboot persistence is not proven until user-manager linger or a system unit is configured.
+
+`authorize-sudo` is the only controller operation that may prompt. It runs
+`sudo -v` through the controlling terminal and never captures or stores the
+password. Once authorized, normal deployment and appliance operations use
+noninteractive `sudo -n` and do not require local interaction.
 
 The controller reports exactly one management mode: `system`, `user-fallback`, `invalid-dual-service`, or `not-installed`. Service actions refuse `invalid-dual-service` and operate only on the authoritative scope.
 
@@ -49,6 +56,18 @@ sudo bash /opt/sensetrace/source/infra/worker03/install-root.sh /opt/sensetrace/
 It sets `kernel.panic=10` and `kernel.panic_on_oops=1`. This addresses kernel panic/oops reboot behavior only; it does not prove recovery from a hard hang, power interruption, or firmware power-loss policy.
 
 ## Run and inspect Phase 0
+
+For a scientifically defensible gate, calibrate first. The default example is
+configured for 50 independent replicates per condition and two explicit label
+balance variants; counts are configurable for unattended worker runs:
+
+```bash
+sensetrace calibrate phase0 --config configs/phase0.example.yaml --output runs
+```
+
+Only the returned report's `acceptance.phase1_gate` may open Phase 1A. A normal
+single `run phase0` is useful for a quick pipeline check but is marked
+`UNCALIBRATED` and cannot open the physical gate.
 
 Run a compact campaign remotely while retaining raw data on `worker-03`:
 
@@ -96,7 +115,14 @@ The configured acquisition guard records a `storage_guard_stop` event and stops 
 
 `sensetrace host reboot worker-03` requires noninteractive sudo and is intentionally refused when that authorization is unavailable. A controlled reboot acceptance test must verify a new SSH connection, a changed boot ID, automatic service start, journal recovery, and resumed samples. `sensetrace host headless` changes the default to `multi-user.target` only after that authorization is available; `sensetrace host isolate-target` and `sensetrace host set-target` are separate explicit operations for the candidate target. The current worker has `graphical.target` as its default and `user manager linger=no`; therefore the user fallback is not an automatic-after-reboot appliance.
 
-The worker exposes `/dev/watchdog`, `/dev/watchdog0`, and `/dev/watchdog1`. The current unprivileged inventory identifies `intel_oc_wdt` and `iTCO_wdt` with inactive 60-second and 30-second sysfs timeouts, respectively; systemd watchdog use remains disabled. SenseTrace does not enable a watchdog speculatively. The inventory also records RAPL domain names without pretending that unavailable energy reads are measurements.
+The worker exposes `/dev/watchdog`, `/dev/watchdog0`, and `/dev/watchdog1`. Use
+`watchdog-profile` to record driver, timeout, nowayout, loaded-module, and
+systemd integration evidence. The current unprivileged inventory identifies
+`intel_oc_wdt` and `iTCO_wdt` with inactive 60-second and 30-second sysfs
+timeouts, respectively; systemd watchdog use remains disabled. SenseTrace does
+not enable both drivers speculatively. A watchdog decision must identify the
+active driver and validate reset behavior separately from process or kernel-panic
+recovery.
 
 ## Phase 1A gate and safe observables
 
@@ -110,4 +136,4 @@ sensetrace host run-phase1a worker-03 \
   --phase0-report evidence/phase0/metrics.json
 ```
 
-The safe backend uses an anonymous page-aligned buffer, records whether `mlock` actually succeeded, performs ordinary user-space writes and reads, and records `perf_counter_ns` timing traces. The ordinary digital read is audit-only and is not in the feature matrix. `eviction_buffer` is explicitly best-effort cache eviction and does not prove a DRAM access. No physical address, row/bank identity, refresh disabling, voltage change, or disturbance loop is exposed.
+The safe backend uses an anonymous page-aligned buffer, records whether `mlock` actually succeeded, performs ordinary user-space writes and reads, and records raw native TSC-cycle timing traces when the native kernel is built. The ordinary digital read is audit-only and is not in the feature matrix. `CLFLUSH` is an explicit cache-line control; it does not prove a DRAM access. No physical address, row/bank identity, refresh disabling, voltage change, or disturbance loop is exposed. Phase 1A uses repeated paired locations: each location receives both target labels, and each pair shares all non-target bits.

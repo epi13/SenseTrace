@@ -129,6 +129,26 @@ Treat exploratory analysis and confirmatory testing separately:
 
 For stronger claims, repeat confirmation on a newly collected dataset.
 
+Phase 0 now freezes this policy as `phase0-protocol-v1`. The calibration command
+materializes independent null, shuffled, and injected datasets, records separate
+acquisition/label/trace/split/model/permutation seeds, and estimates the
+complete pipeline false-positive rate. It uses the empirical maximum statistic
+across enabled model/metric combinations to control family-wise error at the
+configured alpha (0.05 by default). The fresh gate-validation ensemble is not
+the calibration ensemble. See [the frozen protocol](PHASE0-PROTOCOL-V1.md).
+
+Use:
+
+```bash
+sensetrace calibrate phase0 --config configs/phase0.example.yaml --output runs
+```
+
+The report exposes observed statistics, empirical null percentiles, raw and
+family-wise adjusted empirical p-values, the null maximum-statistic distribution,
+the Wilson interval for the false-positive rate, and a within-stratum Monte Carlo
+permutation test. A score above 0.5 is expected under a true null and is not by
+itself a gate failure.
+
 ## Model-capacity audit
 
 Track accuracy as capacity increases.

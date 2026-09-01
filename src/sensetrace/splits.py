@@ -77,6 +77,40 @@ def grouped_split(
     return split
 
 
+def phase1a_split_hierarchy(
+    metadata: dict[str, np.ndarray], *, dataset_fingerprint: str, seed: int
+) -> dict[str, dict[str, Any]]:
+    """Materialize the progressively stricter repeated-location split hierarchy."""
+
+    specifications = {
+        "A_repeated_trial_holdout": ["location_id", "trial_pair_id"],
+        "B_unseen_location": ["location_id"],
+        "C_unseen_acquisition_block": ["acquisition_block"],
+        "D_unseen_acquisition_session": ["session_id"],
+        "E_unseen_boot_session": ["boot_id", "session_id"],
+    }
+    results: dict[str, dict[str, Any]] = {}
+    for offset, (name, keys) in enumerate(specifications.items()):
+        try:
+            split = grouped_split(
+                metadata,
+                dataset_fingerprint=dataset_fingerprint,
+                group_keys=keys,
+                seed=seed + offset,
+            )
+            split["split_name"] = name
+            split["split_fingerprint"] = fingerprint_split(split)
+            results[name] = {"status": "available", "split": split}
+        except SchemaError as exc:
+            results[name] = {
+                "status": "unavailable",
+                "grouping_keys": keys,
+                "reason": str(exc),
+                "claim_boundary": "not enough independent groups in this acquisition",
+            }
+    return results
+
+
 def write_split(path: str | Path, split: dict[str, Any]) -> None:
     Path(path).write_text(json.dumps(split, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 

@@ -2,10 +2,167 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable, Mapping
 from typing import Any
 
 import numpy as np
 from sklearn.metrics import confusion_matrix, roc_auc_score
+
+CHANCE_LEVEL = 0.5
+SUPPORTED_METRICS = ("balanced_accuracy", "auroc")
+
+
+def metric_value(
+    labels: np.ndarray, probabilities: np.ndarray, metric: str = "balanced_accuracy"
+) -> float:
+    """Return one transparent binary classification statistic."""
+
+    if metric not in SUPPORTED_METRICS:
+        raise ValueError(f"unsupported metric: {metric}")
+    labels = np.asarray(labels, dtype=np.uint8)
+    probabilities = np.asarray(probabilities, dtype=np.float64)
+    if metric == "balanced_accuracy":
+        return _balanced_accuracy(labels, (probabilities >= 0.5).astype(np.uint8))
+    return _auroc(labels, probabilities)
+
+
+def excess_over_chance(value: float, *, chance: float = CHANCE_LEVEL) -> float:
+    """Convert a directional score into the calibrated excess statistic."""
+
+    return float(value - chance)
+
+
+def max_statistic(
+    values: Mapping[str, float], *, chance: float = CHANCE_LEVEL
+) -> tuple[float, str | None]:
+    """Return the largest tested excess and its named component."""
+
+    finite = {name: float(value) for name, value in values.items() if np.isfinite(value)}
+    if not finite:
+        return float("nan"), None
+    name = max(finite, key=lambda item: finite[item])
+    return excess_over_chance(finite[name], chance=chance), name
+
+
+def empirical_p_value(
+    observed: float,
+    null_distribution: np.ndarray | list[float],
+    *,
+    alternative: str = "greater",
+    plus_one: bool = True,
+) -> float:
+    """Calculate a finite-sample Monte Carlo/randomization p-value."""
+
+    if alternative not in {"greater", "less", "two-sided"}:
+        raise ValueError(f"unsupported alternative: {alternative}")
+    null = np.asarray(null_distribution, dtype=np.float64)
+    null = null[np.isfinite(null)]
+    if len(null) == 0 or not np.isfinite(observed):
+        return float("nan")
+    if alternative == "greater":
+        extreme = int(np.sum(null >= observed))
+    elif alternative == "less":
+        extreme = int(np.sum(null <= observed))
+    else:
+        centered = np.abs(null - CHANCE_LEVEL)
+        extreme = int(np.sum(centered >= abs(observed - CHANCE_LEVEL)))
+    denominator = len(null) + 1 if plus_one else len(null)
+    numerator = extreme + 1 if plus_one else extreme
+    return float(numerator / denominator)
+
+
+def empirical_percentile(observed: float, null_distribution: np.ndarray | list[float]) -> float:
+    """Return the fraction of the empirical null at or below an observation."""
+
+    null = np.asarray(null_distribution, dtype=np.float64)
+    null = null[np.isfinite(null)]
+    if len(null) == 0 or not np.isfinite(observed):
+        return float("nan")
+    return float(np.mean(null <= observed))
+
+
+def wilson_interval(successes: int, trials: int, *, z: float = 1.959963984540054) -> list[float]:
+    """Wilson interval for an empirically estimated proportion."""
+
+    if trials <= 0 or successes < 0 or successes > trials:
+        raise ValueError("successes must be in [0, trials] and trials must be positive")
+    proportion = successes / trials
+    denominator = 1.0 + z**2 / trials
+    center = (proportion + z**2 / (2.0 * trials)) / denominator
+    half_width = (
+        z
+        * np.sqrt(proportion * (1.0 - proportion) / trials + z**2 / (4.0 * trials**2))
+        / denominator
+    )
+    return [float(max(0.0, center - half_width)), float(min(1.0, center + half_width))]
+
+
+def monte_carlo_permutation_test(
+    labels: np.ndarray,
+    metadata: Mapping[str, np.ndarray],
+    *,
+    strata_keys: list[str],
+    observed_statistic: float,
+    evaluator: Callable[[np.ndarray], float],
+    repetitions: int,
+    seed: int,
+) -> dict[str, Any]:
+    """Run a label randomization test within declared exchangeability strata."""
+
+    if repetitions < 1:
+        raise ValueError("permutation repetitions must be positive")
+    labels = np.asarray(labels, dtype=np.uint8)
+    if not strata_keys:
+        raise ValueError("permutation strata must be explicit")
+    for field in strata_keys:
+        if field not in metadata:
+            raise ValueError(f"permutation stratum is missing from metadata: {field}")
+    groups: dict[tuple[str, ...], list[int]] = {}
+    keys = list(zip(*(np.asarray(metadata[key]).astype(str) for key in strata_keys), strict=True))
+    for index, group_key in enumerate(keys):
+        groups.setdefault(group_key, []).append(index)
+    indexed_groups = {key: np.asarray(indices, dtype=np.int64) for key, indices in groups.items()}
+    rng = np.random.default_rng(seed)
+    null_statistics: list[float] = []
+    for _ in range(repetitions):
+        permuted = labels.copy()
+        for indices in indexed_groups.values():
+            permuted[indices] = permuted[rng.permutation(indices)]
+        null_statistics.append(float(evaluator(permuted)))
+    null = np.asarray(null_statistics, dtype=np.float64)
+    return {
+        "test": "monte_carlo_label_permutation",
+        "repetitions": repetitions,
+        "seed": seed,
+        "strata_keys": strata_keys,
+        "strata_count": len(indexed_groups),
+        "scheme": "permute labels within each exchangeability stratum; preserve row count and split",
+        "observed_statistic": float(observed_statistic),
+        "null_distribution": null.tolist(),
+        "empirical_p_value": empirical_p_value(observed_statistic, null),
+    }
+
+
+def permute_labels_within_strata(
+    labels: np.ndarray,
+    metadata: Mapping[str, np.ndarray],
+    strata_keys: list[str],
+    rng: np.random.Generator,
+) -> np.ndarray:
+    """Return labels permuted only within explicitly declared strata."""
+
+    if not strata_keys:
+        raise ValueError("permutation strata must be explicit")
+    labels = np.asarray(labels, dtype=np.uint8)
+    keys = list(zip(*(np.asarray(metadata[key]).astype(str) for key in strata_keys), strict=True))
+    groups: dict[tuple[str, ...], list[int]] = {}
+    for index, key in enumerate(keys):
+        groups.setdefault(key, []).append(index)
+    permuted = labels.copy()
+    for indices in groups.values():
+        indexes = np.asarray(indices, dtype=np.int64)
+        permuted[indexes] = labels[rng.permutation(indexes)]
+    return permuted
 
 
 def _balanced_accuracy(labels: np.ndarray, predictions: np.ndarray) -> float:
@@ -32,7 +189,7 @@ def bootstrap_interval(
 ) -> list[float]:
     if ci_unit != "sample" and groups is None:
         raise ValueError("groups are required for a non-sample confidence-interval unit")
-    if metric not in {"balanced_accuracy", "auroc"}:
+    if metric not in SUPPORTED_METRICS:
         raise ValueError(f"unsupported bootstrap metric: {metric}")
     rng = np.random.default_rng(seed)
     values: list[float] = []
@@ -52,9 +209,7 @@ def bootstrap_interval(
         if len(np.unique(sampled_labels)) < 2:
             continue
         if metric == "balanced_accuracy":
-            values.append(
-                _balanced_accuracy(sampled_labels, (sampled_probabilities >= 0.5).astype(np.uint8))
-            )
+            values.append(metric_value(sampled_labels, sampled_probabilities, metric))
         else:
             values.append(_auroc(sampled_labels, sampled_probabilities))
     if not values:
@@ -84,8 +239,8 @@ def evaluate_predictions(
         "parameter_count": int(parameter_count),
         "sample_count": int(len(labels)),
         "class_balance": {"0": int(np.sum(labels == 0)), "1": int(np.sum(labels == 1))},
-        "balanced_accuracy": _balanced_accuracy(labels, predictions),
-        "auroc": _auroc(labels, probabilities),
+        "balanced_accuracy": metric_value(labels, probabilities, "balanced_accuracy"),
+        "auroc": metric_value(labels, probabilities, "auroc"),
         "confusion_matrix": matrix,
         "confidence_interval_95": bootstrap_interval(
             labels,

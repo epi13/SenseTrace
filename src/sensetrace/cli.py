@@ -7,6 +7,7 @@ import json
 import sys
 from pathlib import Path
 
+from .calibration import run_native_calibration, run_phase0_calibration
 from .config import load_config, validate_config
 from .datasets import load_dataset
 from .host.client import RemoteHost
@@ -69,6 +70,23 @@ def build_parser() -> argparse.ArgumentParser:
     phase1a.add_argument("--output")
     phase1a.add_argument("--host")
 
+    calibrate = sub.add_parser("calibrate", help="calibrate an analysis pipeline")
+    calibrate_sub = calibrate.add_subparsers(dest="calibrate_command", required=True)
+    phase0_calibration = calibrate_sub.add_parser(
+        "phase0", help="materialize independent null, shuffled, and injected replicates"
+    )
+    phase0_calibration.add_argument("--config", default="configs/phase0.example.yaml")
+    phase0_calibration.add_argument("--output", default="runs")
+    phase0_calibration.add_argument("--null-replicates", type=int)
+    phase0_calibration.add_argument("--shuffled-replicates", type=int)
+    phase0_calibration.add_argument("--injected-replicates", type=int)
+    phase0_calibration.add_argument("--gate-validation-replicates", type=int)
+    native_calibration = calibrate_sub.add_parser(
+        "native", help="calibrate native timer and cache-control distributions"
+    )
+    native_calibration.add_argument("--output", default="runs/native-calibration")
+    native_calibration.add_argument("--repetitions", type=int, default=200)
+
     validate = sub.add_parser("validate", help="validate a dataset run directory")
     validate.add_argument("dataset")
     status = sub.add_parser("status", help="show local run status or remote host status")
@@ -89,6 +107,7 @@ def build_parser() -> argparse.ArgumentParser:
         "inventory",
         "doctor",
         "bootstrap",
+        "authorize-sudo",
         "deploy",
         "status",
         "start",
@@ -105,6 +124,7 @@ def build_parser() -> argparse.ArgumentParser:
         "headless",
         "isolate-target",
         "set-target",
+        "watchdog-profile",
     ]:
         command = host_sub.add_parser(name)
         command.add_argument("host", nargs="?", default="worker-03")
@@ -135,6 +155,14 @@ def build_parser() -> argparse.ArgumentParser:
     remote_phase1a.add_argument("--config", default="configs/worker03.example.yaml")
     remote_phase1a.add_argument("--phase0-report", required=True)
     remote_phase1a.add_argument("--output")
+    remote_calibration = host_sub.add_parser("calibrate-phase0")
+    remote_calibration.add_argument("host", nargs="?", default="worker-03")
+    remote_calibration.add_argument("--config", default="configs/phase0.example.yaml")
+    remote_calibration.add_argument("--output")
+    remote_calibration.add_argument("--null-replicates", type=int)
+    remote_calibration.add_argument("--shuffled-replicates", type=int)
+    remote_calibration.add_argument("--injected-replicates", type=int)
+    remote_calibration.add_argument("--gate-validation-replicates", type=int)
     results = sub.add_parser("results", help="retrieve result artifacts")
     results_sub = results.add_subparsers(dest="results_command", required=True)
     latest = results_sub.add_parser("latest")
@@ -192,6 +220,22 @@ def main(argv: list[str] | None = None) -> int:
                 )
             )
         return 0
+    if args.command == "calibrate" and args.calibrate_command == "phase0":
+        config = validate_config(load_config(args.config))
+        _json(
+            run_phase0_calibration(
+                config,
+                args.output,
+                null_replicates=args.null_replicates,
+                shuffled_replicates=args.shuffled_replicates,
+                injected_replicates=args.injected_replicates,
+                gate_validation_replicates=args.gate_validation_replicates,
+            )
+        )
+        return 0
+    if args.command == "calibrate" and args.calibrate_command == "native":
+        _json(run_native_calibration(args.output, repetitions=args.repetitions))
+        return 0
     if args.command == "validate":
         traces, labels, metadata, shards, manifest = load_dataset(args.dataset)
         _json(
@@ -235,6 +279,8 @@ def main(argv: list[str] | None = None) -> int:
             _json(remote.doctor())
         elif args.host_command == "bootstrap":
             _json(remote.bootstrap())
+        elif args.host_command == "authorize-sudo":
+            _json(remote.authorize_sudo())
         elif args.host_command == "deploy":
             _json(remote.deploy(reset_config=args.reset_config))
         elif args.host_command == "status":
@@ -275,9 +321,23 @@ def main(argv: list[str] | None = None) -> int:
             _json(remote.isolate_sensetrace_target())
         elif args.host_command == "set-target":
             _json(remote.set_sensetrace_default())
+        elif args.host_command == "watchdog-profile":
+            _json(remote.watchdog_profile())
         elif args.host_command == "run-phase1a":
             print(
                 remote.run_phase1a(args.config, args.phase0_report, output=args.output),
+                end="",
+            )
+        elif args.host_command == "calibrate-phase0":
+            print(
+                remote.run_phase0_calibration(
+                    args.config,
+                    output=args.output,
+                    null_replicates=args.null_replicates,
+                    shuffled_replicates=args.shuffled_replicates,
+                    injected_replicates=args.injected_replicates,
+                    gate_validation_replicates=args.gate_validation_replicates,
+                ),
                 end="",
             )
         return 0

@@ -12,15 +12,17 @@ import ctypes
 import hashlib
 import mmap
 import os
+import platform
 import time
 from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 
 from .base import AcquisitionBackend, Sample
-from .synthetic import balanced_labels
+from .native import NativeMeasurementKernel
 
 
 def _cpu_frequency_regime() -> dict[str, object]:
@@ -100,6 +102,10 @@ class ControlledMemoryBuffer:
         del self._words
         self._mapping.close()
 
+    @property
+    def address(self) -> int:
+        return self._address
+
 
 @dataclass
 class CommodityDramBackend(AcquisitionBackend):
@@ -116,6 +122,11 @@ class CommodityDramBackend(AcquisitionBackend):
     operation: str = "memory_read"
     eviction_bytes: int = 4 * 1024 * 1024
     cpu_affinity: list[int] | None = None
+    location_count: int | None = None
+    trials_per_location: int = 64
+    labels_per_location: int | None = None
+    session_count: int = 1
+    use_native_kernel: bool = True
     _buffer: ControlledMemoryBuffer = field(init=False, repr=False)
 
     name = "commodity-dram"
@@ -125,7 +136,7 @@ class CommodityDramBackend(AcquisitionBackend):
             raise ValueError("count must be >= 2 and trace_length must be positive")
         if self.pattern not in {"all_zero_one", "single_bit", "random_word"}:
             raise ValueError(f"unsupported safe memory pattern: {self.pattern}")
-        if self.cache_control not in {"none", "eviction_buffer"}:
+        if self.cache_control not in {"none", "eviction_buffer", "clflush"}:
             raise ValueError(f"unsupported cache-control method: {self.cache_control}")
         if self.operation not in {"memory_read", "idle"}:
             raise ValueError(f"unsupported safe memory operation: {self.operation}")
@@ -133,10 +144,33 @@ class CommodityDramBackend(AcquisitionBackend):
             raise ValueError("target_bit must be in [0, 63]")
         if self.eviction_bytes < 64:
             raise ValueError("eviction_bytes must be at least one cache line")
+        if self.location_count is None:
+            self.location_count = 1
+            self.trials_per_location = self.count
+        if self.location_count < 1 or self.trials_per_location < 2:
+            raise ValueError("location_count and trials_per_location must be positive")
+        if self.trials_per_location % 2:
+            raise ValueError("trials_per_location must be even for paired labels")
+        if (
+            self.labels_per_location is not None
+            and self.labels_per_location != self.trials_per_location // 2
+        ):
+            raise ValueError("labels_per_location must equal half of trials_per_location")
+        expected_count = self.location_count * self.trials_per_location
+        if self.location_count != 1 and self.count != expected_count:
+            raise ValueError("count must equal location_count * trials_per_location")
+        self.count = expected_count
+        self.labels_per_location = self.trials_per_location // 2
+        if self.session_count < 1:
+            raise ValueError("session_count must be positive")
         self._buffer = ControlledMemoryBuffer(self.word_count, lock_memory=self.lock_memory)
-        self._labels = balanced_labels(self.count, self.seed)
+        self._labels = self._make_labels()
         self._word_rng = np.random.default_rng(self.seed + 1)
         self._eviction = bytearray(self.eviction_bytes)
+        self._native_kernel = NativeMeasurementKernel.load() if self.use_native_kernel else None
+        self._native_provenance: dict[str, Any] = (
+            self._native_kernel.provenance() if self._native_kernel is not None else None
+        ) or {}
         self._affinity_before: list[int] | None = None
         self._affinity_applied: list[int] | None = None
         if self.cpu_affinity is not None:
@@ -160,6 +194,25 @@ class CommodityDramBackend(AcquisitionBackend):
         }
         self._frequency_regime = _cpu_frequency_regime()
 
+    def _make_labels(self) -> np.ndarray:
+        labels = np.empty(self.count, dtype=np.uint8)
+        rng = np.random.default_rng(self.seed)
+        for location in range(int(self.location_count or 1)):
+            start = location * self.trials_per_location
+            local = np.empty(self.trials_per_location, dtype=np.uint8)
+            for pair in range(self.trials_per_location // 2):
+                pair_labels = np.asarray([0, 1], dtype=np.uint8)
+                rng.shuffle(pair_labels)
+                local[pair * 2 : pair * 2 + 2] = pair_labels
+            labels[start : start + self.trials_per_location] = local
+        return labels
+
+    def _base_word(self, location: int, pair_index: int) -> int:
+        rng = np.random.default_rng(
+            self.seed + 0x10000 + location * (self.trials_per_location // 2) + pair_index
+        )
+        return int(rng.integers(0, 2**64, dtype=np.uint64)) & ~(1 << self.target_bit)
+
     @staticmethod
     def _calibrate_timer() -> float:
         samples = []
@@ -179,9 +232,13 @@ class CommodityDramBackend(AcquisitionBackend):
         if self.pattern == "all_zero_one":
             return 0 if label == 0 else 0xFFFFFFFFFFFFFFFF
         if self.pattern == "single_bit":
-            surrounding = int(self._word_rng.integers(0, 2**64, dtype=np.uint64))
+            location = index // self.trials_per_location
+            pair_index = (index % self.trials_per_location) // 2
+            surrounding = self._base_word(location, pair_index)
             mask = 1 << self.target_bit
             return (surrounding & ~mask) | (label * mask)
+        # random_word is an explicit physical/random-word null control: labels
+        # are balanced, but the generated word is independent of the label.
         return int(self._word_rng.integers(0, 2**64, dtype=np.uint64))
 
     def samples(self, start_index: int = 0) -> Iterator[Sample]:
@@ -189,7 +246,12 @@ class CommodityDramBackend(AcquisitionBackend):
             raise ValueError("start_index outside commodity dataset")
         for index in range(self.count):
             label = int(self._labels[index])
-            buffer_index = index % self.word_count
+            location = index // self.trials_per_location
+            within_location = index % self.trials_per_location
+            pair_index = within_location // 2
+            pair_id = f"pair-{location:08d}-{pair_index:08d}"
+            trial_pair_id = f"trial-pair-{location:08d}-{pair_index:08d}"
+            buffer_index = location % self.word_count
             observed: list[float] = []
             word: int | None = None
             digital_value: int | None = None
@@ -200,10 +262,19 @@ class CommodityDramBackend(AcquisitionBackend):
             for _ in range(self.trace_length):
                 if self.operation == "memory_read" and self.cache_control == "eviction_buffer":
                     self._evict_cache()
-                started = time.perf_counter_ns()
-                if self.operation == "memory_read":
-                    self._buffer.read(buffer_index)
-                observed.append(float(time.perf_counter_ns() - started))
+                address = self._buffer.address + buffer_index * ctypes.sizeof(ctypes.c_uint64)
+                if self._native_kernel is not None:
+                    if self.operation == "idle":
+                        observed.append(float(self._native_kernel.idle_calibration(1)[0]))
+                    elif self.cache_control == "clflush":
+                        observed.append(float(self._native_kernel.measure_flushed(address, 1)[0]))
+                    else:
+                        observed.append(float(self._native_kernel.measure_cached(address, 1)[0]))
+                else:
+                    started = time.perf_counter_ns()
+                    if self.operation == "memory_read":
+                        self._buffer.read(buffer_index)
+                    observed.append(float(time.perf_counter_ns() - started))
             if index < start_index:
                 continue
             yield Sample(
@@ -211,8 +282,13 @@ class CommodityDramBackend(AcquisitionBackend):
                 label=label,
                 metadata={
                     "sample_id": f"sample-{index:012d}",
-                    "session_id": "session-0000",
-                    "acquisition_block": f"block-{index // 64:04d}",
+                    "session_id": f"session-{location // max(1, (self.location_count or 1) // self.session_count):04d}",
+                    "boot_id": self._boot_id(),
+                    "acquisition_block": f"block-{location // 16:04d}",
+                    "location_id": f"location-{location:08d}",
+                    "pair_id": pair_id,
+                    "trial_pair_id": trial_pair_id,
+                    "trial_within_location": within_location,
                     "device_id": "device-unknown",
                     "bank_id": "bank-unknown",
                     "row_id": "row-unknown",
@@ -224,10 +300,21 @@ class CommodityDramBackend(AcquisitionBackend):
                         else "idle_timer_control_without_memory_operation"
                     ),
                     "pattern": self.pattern,
+                    "label_semantics": (
+                        "target bit equals label"
+                        if self.pattern == "single_bit"
+                        else "all-zero versus all-one word"
+                        if self.pattern == "all_zero_one"
+                        else "balanced labels independent of random word"
+                    ),
                     "target_bit": self.target_bit,
                     "cache_control_method": self._cache_provenance["method"],
                     "cache_control_provenance": str(self._cache_provenance),
-                    "timer_source": "time.perf_counter_ns",
+                    "timer_source": (
+                        self._native_provenance["timer_source"]
+                        if self._native_kernel is not None
+                        else "time.perf_counter_ns"
+                    ),
                     "timer_overhead_ns": self._timer_overhead_ns,
                     "digital_verification_value": (
                         str(digital_value) if digital_value is not None else "not_applicable"
@@ -242,6 +329,25 @@ class CommodityDramBackend(AcquisitionBackend):
                     "cpu_affinity_actual": str(self._affinity_applied or "unchanged"),
                     "cpu_frequency_regime": str(self._frequency_regime),
                     "numa_topology": _numa_topology(),
+                    "cpu_id": self._cpu_id(),
+                    "measurement_kernel_version": (
+                        self._native_provenance["version"]
+                        if self._native_kernel is not None
+                        else "python-control-v1"
+                    ),
+                    "measurement_kernel_hash": (
+                        self._native_provenance["library_sha256"]
+                        if self._native_kernel is not None
+                        else "unavailable"
+                    ),
+                    "cache_control_primitive": (
+                        "CLFLUSH+MFENCE" if self.cache_control == "clflush" else self.cache_control
+                    ),
+                    "clflush_supported": (
+                        self._native_kernel.supports_clflush
+                        if self._native_kernel is not None
+                        else False
+                    ),
                     "seed_id": f"commodity:{self.seed}",
                     "label_stream_fingerprint": hashlib.sha256(self._labels.tobytes()).hexdigest(),
                 },
@@ -251,3 +357,17 @@ class CommodityDramBackend(AcquisitionBackend):
         self._buffer.close()
         if self._affinity_before is not None and hasattr(os, "sched_setaffinity"):
             os.sched_setaffinity(0, set(self._affinity_before))
+
+    @staticmethod
+    def _boot_id() -> str:
+        try:
+            return Path("/proc/sys/kernel/random/boot_id").read_text(encoding="utf-8").strip()
+        except OSError:
+            return "unavailable"
+
+    @staticmethod
+    def _cpu_id() -> int | str:
+        get_cpu = getattr(os, "sched_getcpu", None)
+        if get_cpu is not None:
+            return int(get_cpu())
+        return platform.processor() or "unavailable"

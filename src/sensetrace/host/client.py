@@ -531,8 +531,14 @@ class RemoteHost:
         }
         return result
 
-    def reboot_acceptance(self, *, cycles: int = 3, timeout_seconds: int = 180) -> dict[str, Any]:
-        """Perform repeated fresh-SSH reboot checks once sudo authorization exists."""
+    def reboot_acceptance(
+        self,
+        *,
+        cycles: int = 3,
+        timeout_seconds: int = 180,
+        require_appliance: bool = False,
+    ) -> dict[str, Any]:
+        """Perform repeated fresh-SSH reboot checks for the selected boot stage."""
 
         if cycles < 1:
             raise ValueError("cycles must be positive")
@@ -552,7 +558,7 @@ class RemoteHost:
                 try:
                     candidate = RemoteHost(self.alias, project_root=self.project_root)
                     verification = candidate.verify_boot(
-                        expected_boot_id=old_boot_id, require_appliance=True
+                        expected_boot_id=old_boot_id, require_appliance=require_appliance
                     )
                     if verification["passed"] and verification["boot_id_changed"]:
                         fresh = candidate
@@ -579,6 +585,7 @@ class RemoteHost:
             "host": self.alias,
             "cycles_requested": cycles,
             "cycles_completed": len(records),
+            "require_appliance": require_appliance,
             "records": records,
             "passed": len(records) == cycles and all(record["passed"] for record in records),
         }

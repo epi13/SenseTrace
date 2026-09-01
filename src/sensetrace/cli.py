@@ -137,6 +137,11 @@ def build_parser() -> argparse.ArgumentParser:
         if name == "reboot-acceptance":
             command.add_argument("--cycles", type=int, default=3)
             command.add_argument("--timeout", type=int, default=180)
+            command.add_argument(
+                "--require-appliance",
+                action="store_true",
+                help="require sensetrace.target as the active default target",
+            )
     logs = host_sub.add_parser("logs")
     logs.add_argument("host", nargs="?", default="worker-03")
     logs.add_argument("--lines", type=int, default=100)
@@ -304,7 +309,13 @@ def main(argv: list[str] | None = None) -> int:
         elif args.host_command == "reboot":
             print(remote.reboot())
         elif args.host_command == "reboot-acceptance":
-            _json(remote.reboot_acceptance(cycles=args.cycles, timeout_seconds=args.timeout))
+            _json(
+                remote.reboot_acceptance(
+                    cycles=args.cycles,
+                    timeout_seconds=args.timeout,
+                    require_appliance=args.require_appliance,
+                )
+            )
         elif args.host_command == "boot-profile":
             _json(remote.boot_profile())
         elif args.host_command == "services":

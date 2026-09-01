@@ -20,13 +20,13 @@ The controller re-inspected the live host before making changes.
 - `sudo -n true`: not authorized; an interactive sudo password was not
   available to the controller session.
 - Final unprivileged deployment source marker: commit
-  `0aa130fd761d92781125028b5158363840fbdd90`.
+  `f0d8d6da355844d155e45ff3396c25a10afefd3d`.
 - The live operator config remained unchanged across deployment:
   `fd04b5ed629f96c44e5bb7049e1466a9494b9b8584e0ba3568c26f7d1114e569`.
 - The deployment attempted the native build, but worker-03 has no `make`; the
   build therefore did not install the native timing library. The user service
   nevertheless restarted with exactly one runner (current observed PID
-  `192955`).
+  `195707`).
 - A remote Phase 0 smoke run materialized two replicates per condition across
   both balance modes and wrote run
   `phase0-calibration-20260901T050827Z-c30294d1`. Its frozen protocol hash was

@@ -89,20 +89,46 @@ Every reported result should include:
 - channel ablations;
 - negative controls.
 
+## Dedicated experiment host
+
+Early unattended experiments are intended to run on `worker-03`, a dedicated 32 GB RAM / 2 GB VRAM system with HDD-backed storage and otherwise closely matched hardware to the primary workstation.
+
+The runner should be designed as a resumable experiment appliance rather than an interactive script:
+
+```text
+boot
+  -> start runner
+  -> recover experiment journal
+  -> validate last completed shard
+  -> resume acquisition
+  -> train/evaluate configured baselines when requested
+  -> continue until experiment completion or explicit stop
+```
+
+The HDD is not expected to be a limiting factor if traces are buffered and written as large sequential shards rather than one file per sample. Future timing, refresh, or disturbance experiments should assume the host may crash and must preserve already completed acquisition work through temporary files, checksums, atomic shard finalization, and recovery journaling.
+
+The small initial models are CPU-capable, so the 2 GB GPU is optional rather than a requirement. Acquisition integrity and validation take priority over training throughput.
+
+Because the primary workstation is closely matched to `worker-03`, it may later provide a useful small cross-machine holdout dataset to test whether a learned signal transfers beyond a specific DIMM or host. Prolonged or intentionally destabilizing tests should remain on dedicated research hardware.
+
+See [worker-03 experiment host](docs/WORKER03.md) for the runner, storage, crash-recovery, reproducibility, and cross-machine validation plan.
+
 ## Repository layout
 
 ```text
 SenseTrace/
 ├── README.md
 ├── configs/
-│   └── phase0.example.yaml
+│   ├── phase0.example.yaml
+│   └── worker03.example.yaml
 ├── data/
 │   └── README.md
 └── docs/
     ├── DATASET.md
     ├── EXPERIMENT.md
     ├── MODELS.md
-    └── VALIDATION.md
+    ├── VALIDATION.md
+    └── WORKER03.md
 ```
 
 ## Experimental phases
@@ -133,6 +159,7 @@ The purpose of the project is to characterize physical information channels in m
 - [Dataset contract](docs/DATASET.md)
 - [Model strategy](docs/MODELS.md)
 - [Validation and anti-leakage rules](docs/VALIDATION.md)
+- [worker-03 experiment host](docs/WORKER03.md)
 
 ## Status
 

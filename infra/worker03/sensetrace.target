@@ -1,0 +1,8 @@
+[Unit]
+Description=SenseTrace dedicated experiment boot profile
+Documentation=https://github.com/epi13/SenseTrace/blob/main/docs/WORKER03.md
+Requires=multi-user.target sensetrace.service sshd.service
+After=multi-user.target network-online.target sshd.service sensetrace.service
+Wants=network-online.target
+Conflicts=graphical.target
+AllowIsolate=yes

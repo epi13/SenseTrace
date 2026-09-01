@@ -36,6 +36,19 @@ acquisition:
   finalize_atomically: true
   checksum: sha256
 
+phase1a:
+  status: exploratory
+  samples: 256
+  trace_length: 32
+  pattern: single_bit
+  target_bit: 0
+  word_count: 1024
+  lock_memory: true
+  cache_control: eviction_buffer
+  eviction_bytes: 4194304
+  cpu_affinity: null
+  ci_unit: acquisition_block
+
 storage:
   raw_dir: /var/lib/sensetrace/data/raw
   manifest_dir: /var/lib/sensetrace/data/manifests
@@ -79,3 +92,7 @@ training:
   device_preference: cpu
   allow_gpu_if_available: true
   seeds: [11, 23, 37]
+
+reporting:
+  ci_unit: session_id
+  bootstrap_repetitions: 400

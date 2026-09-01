@@ -12,6 +12,7 @@ from .datasets import load_dataset
 from .host.client import RemoteHost
 from .inventory import collect_inventory
 from .phase0 import run_phase0
+from .phase1a import run_phase1a
 from .recovery import recovery_test
 from .runner import daemon
 
@@ -62,6 +63,11 @@ def build_parser() -> argparse.ArgumentParser:
         nargs="+",
         choices=["logistic_regression", "boosted_trees", "tiny_mlp", "tiny_cnn"],
     )
+    phase1a = run_sub.add_parser("phase1a", help="run gated safe commodity-memory observables")
+    phase1a.add_argument("--config", default="configs/worker03.example.yaml")
+    phase1a.add_argument("--phase0-report", required=True)
+    phase1a.add_argument("--output")
+    phase1a.add_argument("--host")
 
     validate = sub.add_parser("validate", help="validate a dataset run directory")
     validate.add_argument("dataset")
@@ -90,9 +96,22 @@ def build_parser() -> argparse.ArgumentParser:
         "restart",
         "verify-recovery",
         "reboot",
+        "boot-profile",
+        "services",
+        "noise-baseline",
+        "verify-boot",
+        "headless",
+        "isolate-target",
+        "set-target",
     ]:
         command = host_sub.add_parser(name)
         command.add_argument("host", nargs="?", default="worker-03")
+        if name == "deploy":
+            command.add_argument(
+                "--reset-config",
+                action="store_true",
+                help="deliberately replace the live operator config with the example template",
+            )
     logs = host_sub.add_parser("logs")
     logs.add_argument("host", nargs="?", default="worker-03")
     logs.add_argument("--lines", type=int, default=100)
@@ -106,6 +125,11 @@ def build_parser() -> argparse.ArgumentParser:
         nargs="+",
         choices=["logistic_regression", "boosted_trees", "tiny_mlp", "tiny_cnn"],
     )
+    remote_phase1a = host_sub.add_parser("run-phase1a")
+    remote_phase1a.add_argument("host", nargs="?", default="worker-03")
+    remote_phase1a.add_argument("--config", default="configs/worker03.example.yaml")
+    remote_phase1a.add_argument("--phase0-report", required=True)
+    remote_phase1a.add_argument("--output")
     results = sub.add_parser("results", help="retrieve result artifacts")
     results_sub = results.add_subparsers(dest="results_command", required=True)
     latest = results_sub.add_parser("latest")
@@ -143,6 +167,23 @@ def main(argv: list[str] | None = None) -> int:
                     args.output or "runs",
                     include_curve=args.curve,
                     conditions=args.conditions,
+                )
+            )
+        return 0
+    if args.command == "run" and args.run_command == "phase1a":
+        config = load_config(args.config)
+        if args.host:
+            print(
+                RemoteHost(args.host).run_phase1a(
+                    args.config, args.phase0_report, output=args.output
+                )
+            )
+        else:
+            _json(
+                run_phase1a(
+                    config,
+                    args.output or "runs",
+                    phase0_report=args.phase0_report,
                 )
             )
         return 0
@@ -190,7 +231,7 @@ def main(argv: list[str] | None = None) -> int:
         elif args.host_command == "bootstrap":
             _json(remote.bootstrap())
         elif args.host_command == "deploy":
-            _json(remote.deploy())
+            _json(remote.deploy(reset_config=args.reset_config))
         elif args.host_command == "status":
             _json(remote.status())
         elif args.host_command in {"start", "stop", "restart"}:
@@ -211,6 +252,25 @@ def main(argv: list[str] | None = None) -> int:
             _json(remote.verify_recovery())
         elif args.host_command == "reboot":
             print(remote.reboot())
+        elif args.host_command == "boot-profile":
+            _json(remote.boot_profile())
+        elif args.host_command == "services":
+            _json(remote.services())
+        elif args.host_command == "noise-baseline":
+            _json(remote.noise_baseline())
+        elif args.host_command == "verify-boot":
+            _json(remote.verify_boot())
+        elif args.host_command == "headless":
+            _json(remote.set_headless())
+        elif args.host_command == "isolate-target":
+            _json(remote.isolate_sensetrace_target())
+        elif args.host_command == "set-target":
+            _json(remote.set_sensetrace_default())
+        elif args.host_command == "run-phase1a":
+            print(
+                remote.run_phase1a(args.config, args.phase0_report, output=args.output),
+                end="",
+            )
         return 0
     if args.command == "results":
         remote = RemoteHost(args.host)

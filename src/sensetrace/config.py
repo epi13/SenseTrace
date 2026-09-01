@@ -66,6 +66,22 @@ def validate_config(config: dict[str, Any]) -> dict[str, Any]:
     seeds = _get(config, "training.seeds", [11, 23, 37])
     if not isinstance(seeds, list) or not seeds or not all(isinstance(seed, int) for seed in seeds):
         raise ConfigError("training.seeds must be a non-empty list of integers")
+    backend = _get(config, "acquisition.backend", "synthetic")
+    if backend not in {"synthetic", "commodity"}:
+        raise ConfigError("acquisition.backend must be synthetic or commodity")
+    ci_unit = _get(config, "reporting.ci_unit", "session_id")
+    if not isinstance(ci_unit, str) or (ci_unit != "sample" and not ci_unit):
+        raise ConfigError("reporting.ci_unit must be sample or a metadata grouping field")
+    if backend == "commodity":
+        pattern = _get(config, "phase1a.pattern", "single_bit")
+        if pattern not in {"all_zero_one", "single_bit", "random_word"}:
+            raise ConfigError("phase1a.pattern is not a supported safe memory pattern")
+        cache_control = _get(config, "phase1a.cache_control", "eviction_buffer")
+        if cache_control not in {"none", "eviction_buffer"}:
+            raise ConfigError("phase1a.cache_control must be none or eviction_buffer")
+        operation = _get(config, "phase1a.operation", "memory_read")
+        if operation not in {"memory_read", "idle"}:
+            raise ConfigError("phase1a.operation must be memory_read or idle")
     return config
 
 

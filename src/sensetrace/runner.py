@@ -12,6 +12,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from .acquisition.commodity import CommodityDramBackend
 from .acquisition.synthetic import SyntheticBackend
 from .config import config_fingerprint
 from .inventory import collect_inventory
@@ -67,10 +68,27 @@ class AcquisitionRunner:
 
     def _backend(
         self, *, start_index: int = 0, condition: str = "null", amplitude: float | None = None
-    ) -> SyntheticBackend:
+    ) -> SyntheticBackend | CommodityDramBackend:
         data = self.config.get("data", {})
         controls = self.config.get("controls", {}).get("injected_weak_signal", {})
         acquisition = self.config.get("acquisition", {})
+        if str(acquisition.get("backend", "synthetic")) == "commodity":
+            physical = self.config.get("phase1a", {})
+            return CommodityDramBackend(
+                count=int(physical.get("samples", min(int(data.get("samples", 128)), 256))),
+                trace_length=int(
+                    physical.get("trace_length", min(int(data.get("trace_length", 32)), 64))
+                ),
+                seed=int(self.config.get("experiment", {}).get("seed", 1337)),
+                pattern=str(physical.get("pattern", "single_bit")),
+                target_bit=int(physical.get("target_bit", 0)),
+                word_count=int(physical.get("word_count", 1024)),
+                lock_memory=bool(physical.get("lock_memory", True)),
+                cache_control=str(physical.get("cache_control", "eviction_buffer")),
+                operation=str(physical.get("operation", "memory_read")),
+                eviction_bytes=int(physical.get("eviction_bytes", 4 * 1024 * 1024)),
+                cpu_affinity=physical.get("cpu_affinity"),
+            )
         return SyntheticBackend(
             count=int(data.get("samples", 1000)),
             trace_length=int(data.get("trace_length", 128)),
@@ -201,6 +219,9 @@ class AcquisitionRunner:
             )
             _write_json(run_path, run_record)
         finally:
+            close = getattr(backend, "close", None)
+            if close is not None:
+                close()
             for signum, handler in old_handlers.items():
                 signal.signal(signum, handler)
         return {

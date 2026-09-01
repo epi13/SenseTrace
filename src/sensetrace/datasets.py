@@ -25,6 +25,7 @@ def write_dataset_manifest(
     shard_infos: list[ShardInfo],
     label_stream_fingerprint: str,
     class_balance: dict[str, int | str] | None = None,
+    provenance: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     root = Path(run_dir)
     config_hash = config_fingerprint(config)
@@ -41,6 +42,8 @@ def write_dataset_manifest(
         "rows": sum(info.rows for info in shard_infos),
         "shards": [info.as_dict() for info in shard_infos],
     }
+    if provenance:
+        manifest["provenance"] = provenance
     path = root / "dataset.json"
     path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return manifest

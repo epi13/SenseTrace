@@ -48,6 +48,36 @@ def _value(value: str | None, reason: str) -> dict[str, str]:
     return {"value": value if value is not None else "unavailable", "provenance": reason}
 
 
+def _rapl_domains() -> list[dict[str, str]]:
+    domains: list[dict[str, str]] = []
+    for path in sorted(Path("/sys/class/powercap").glob("intel-rapl:*")):
+        domains.append(
+            {
+                "path": str(path),
+                "name": _read(str(path / "name")) or "unavailable",
+                "energy_uj": _read(str(path / "energy_uj")) or "unavailable",
+                "max_energy_range_uj": _read(str(path / "max_energy_range_uj")) or "unavailable",
+            }
+        )
+    return domains
+
+
+def _watchdog_inventory() -> list[dict[str, str]]:
+    devices: list[dict[str, str]] = []
+    for path in sorted(Path("/sys/class/watchdog").glob("watchdog*")):
+        devices.append(
+            {
+                "name": path.name,
+                "identity": _read(str(path / "identity")) or "unavailable",
+                "state": _read(str(path / "state")) or "unavailable",
+                "timeout": _read(str(path / "timeout")) or "unavailable",
+                "timeleft": _read(str(path / "timeleft")) or "unavailable",
+                "driver": _read(str(path / "device/driver/module")) or "unavailable",
+            }
+        )
+    return devices
+
+
 def collect_inventory() -> dict[str, Any]:
     machine_id = _read("/etc/machine-id")
     boot_id = _read("/proc/sys/kernel/random/boot_id")
@@ -96,6 +126,43 @@ def collect_inventory() -> dict[str, Any]:
             _command(["systemctl", "is-enabled", "display-manager.service"]),
             "systemctl is-enabled display-manager.service",
         ),
+        "running_services": _value(
+            _command(
+                [
+                    "systemctl",
+                    "list-units",
+                    "--type=service",
+                    "--state=running",
+                    "--no-legend",
+                    "--no-pager",
+                ]
+            ),
+            "systemctl list-units --type=service --state=running",
+        ),
+        "sensetrace_system": {
+            "load_state": _value(
+                _command(["systemctl", "show", "sensetrace.service", "-p", "LoadState", "--value"]),
+                "systemctl show sensetrace.service LoadState",
+            ),
+            "active": _value(
+                _command(["systemctl", "is-active", "sensetrace.service"]),
+                "systemctl is-active sensetrace.service",
+            ),
+            "enabled": _value(
+                _command(["systemctl", "is-enabled", "sensetrace.service"]),
+                "systemctl is-enabled sensetrace.service",
+            ),
+        },
+        "sensetrace_user": {
+            "active": _value(
+                _command(["systemctl", "--user", "is-active", "sensetrace.service"]),
+                "systemctl --user is-active sensetrace.service",
+            ),
+            "enabled": _value(
+                _command(["systemctl", "--user", "is-enabled", "sensetrace.service"]),
+                "systemctl --user is-enabled sensetrace.service",
+            ),
+        },
     }
     sysctl = {
         key: _value(_command(["sysctl", "-n", key]), f"sysctl {key}")
@@ -108,6 +175,7 @@ def collect_inventory() -> dict[str, Any]:
     }
     watchdog = {
         "devices": [str(path) for path in Path("/dev").glob("watchdog*")],
+        "sysfs": _watchdog_inventory(),
         "systemd": _value(
             _command(
                 [
@@ -153,6 +221,15 @@ def collect_inventory() -> dict[str, Any]:
         "systemd": systemd,
         "sysctl": sysctl,
         "watchdog": watchdog,
+        "power_energy": {
+            "rapl_domains": _rapl_domains(),
+            "scope": "domain-specific; interpret only using the domain name",
+            "provenance": "/sys/class/powercap/intel-rapl:*",
+        },
+        "performance_counters": {
+            "perf_path": shutil.which("perf") or "unavailable",
+            "provenance": "perf executable presence only; no event was interpreted as bit-state",
+        },
         "packages": packages,
         "sudo_noninteractive": os.geteuid() == 0 or _command_ok(["sudo", "-n", "true"]),
         "reboot_history": _value(_command(["last", "-x", "-n", "20"]), "last -x -n 20"),

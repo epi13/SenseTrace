@@ -227,6 +227,9 @@ def train_and_evaluate(
     epochs: int,
     patience: int,
     batch_size: int,
+    groups: np.ndarray | None = None,
+    ci_unit: str = "sample",
+    bootstrap_repetitions: int = 400,
 ) -> dict[str, Any]:
     results = []
     for seed in seeds:
@@ -255,6 +258,9 @@ def train_and_evaluate(
                 model_name=name,
                 dataset_fingerprint=dataset_fingerprint,
                 split_fingerprint=split_fingerprint,
+                groups=None if groups is None else groups[test_indices],
+                ci_unit=ci_unit,
+                bootstrap_repetitions=bootstrap_repetitions,
             )
         )
         results[-1]["model_hash"] = fitted.model_hash

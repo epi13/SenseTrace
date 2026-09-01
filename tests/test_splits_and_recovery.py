@@ -30,7 +30,7 @@ def test_grouped_split_keeps_groups_together(tmp_path):
     write_split(path, split)
     loaded = read_split(path, expected_dataset_fingerprint="dataset-hash")
     partitions = partition_indices(metadata, loaded)
-    membership = {}
+    membership: dict[tuple[str, str, str], str] = {}
     for part, indices in partitions.items():
         for index in indices:
             group = (

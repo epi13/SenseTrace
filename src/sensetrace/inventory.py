@@ -88,8 +88,12 @@ def collect_inventory() -> dict[str, Any]:
     hostname = socket.gethostname()
     governor_paths = list(Path("/sys/devices/system/cpu").glob("cpu*/cpufreq/scaling_governor"))
     governors = {}
+    current_frequencies = {}
     for path in governor_paths:
         governors[path.parent.parent.name] = _read(str(path)) or "unavailable"
+        current_frequencies[path.parent.parent.name] = (
+            _read(str(path.parent / "scaling_cur_freq")) or "unavailable"
+        )
     dmi = {}
     for key in [
         "sys_vendor",
@@ -222,6 +226,18 @@ def collect_inventory() -> dict[str, Any]:
         },
         "cpu_governor": governors
         or {"value": "unavailable", "provenance": "cpufreq sysfs unavailable"},
+        "cpu_frequency": {
+            "current_khz": current_frequencies
+            or {"value": "unavailable", "provenance": "cpufreq sysfs unavailable"},
+            "driver": _value(
+                _read("/sys/devices/system/cpu/cpu0/cpufreq/scaling_driver"),
+                "cpufreq scaling_driver",
+            ),
+            "turbo_no_turbo": _value(
+                _read("/sys/devices/system/cpu/intel_pstate/no_turbo"),
+                "intel_pstate no_turbo",
+            ),
+        },
         "systemd": systemd,
         "sysctl": sysctl,
         "watchdog": watchdog,

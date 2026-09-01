@@ -28,13 +28,41 @@ def bootstrap(c: Connection) -> None:
 
 
 @task
-def deploy(c: Connection) -> None:
-    print(_remote(c).deploy())
+def deploy(c: Connection, reset_config: bool = False) -> None:
+    print(_remote(c).deploy(reset_config=reset_config))
 
 
 @task
 def status(c: Connection) -> None:
     print(_remote(c).status())
+
+
+@task
+def run_phase0(
+    c: Connection,
+    config: str = "configs/phase0.example.yaml",
+    output: str | None = None,
+    curve: bool = False,
+    models: str = "",
+) -> None:
+    print(
+        _remote(c).run_phase0(
+            config,
+            output=output,
+            include_curve=curve,
+            models=models.split() or None,
+        )
+    )
+
+
+@task
+def run_phase1a(
+    c: Connection,
+    config: str = "configs/worker03.example.yaml",
+    phase0_report: str = "evidence/phase0/metrics.json",
+    output: str | None = None,
+) -> None:
+    print(_remote(c).run_phase1a(config, phase0_report, output=output))
 
 
 @task
@@ -119,6 +147,8 @@ for _name in [
     "bootstrap",
     "deploy",
     "status",
+    "run_phase0",
+    "run_phase1a",
     "start",
     "stop",
     "restart",

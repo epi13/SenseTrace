@@ -65,7 +65,7 @@ def test_identity_feature_policy_fails_loudly(tmp_path):
         build_feature_matrix(traces, metadata, feature_fields=["filename"])
     encoded = build_feature_matrix(traces, metadata, feature_fields=["row_id"], allow_identity=True)
     assert encoded.shape[0] == traces.shape[0]
-    assert FeaturePolicy().validate([]) is None
+    FeaturePolicy().validate([])
 
 
 def test_overlapping_finalized_ranges_are_rejected(tmp_path):

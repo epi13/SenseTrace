@@ -12,7 +12,6 @@ import ctypes
 import hashlib
 import mmap
 import os
-import platform
 import time
 from collections.abc import Iterator
 from dataclasses import dataclass, field
@@ -46,6 +45,14 @@ def _cpu_frequency_regime() -> dict[str, object]:
         "turbo_state": "unavailable: inspect actual CPU/kernel interface",
         "provenance": "local cpufreq sysfs",
     }
+
+
+def _numa_topology() -> str:
+    try:
+        nodes = sorted(path.name for path in Path("/sys/devices/system/node").glob("node[0-9]*"))
+    except OSError:
+        nodes = []
+    return ",".join(nodes) if nodes else "unavailable"
 
 
 class ControlledMemoryBuffer:
@@ -234,7 +241,7 @@ class CommodityDramBackend(AcquisitionBackend):
                     "buffer_guarantee": "virtual anonymous allocation; physical topology unknown",
                     "cpu_affinity_actual": str(self._affinity_applied or "unchanged"),
                     "cpu_frequency_regime": str(self._frequency_regime),
-                    "numa_topology": platform.node(),
+                    "numa_topology": _numa_topology(),
                     "seed_id": f"commodity:{self.seed}",
                     "label_stream_fingerprint": hashlib.sha256(self._labels.tobytes()).hexdigest(),
                 },

@@ -1,4 +1,5 @@
 CC ?= cc
+PYTHON ?= python3
 CFLAGS ?= -O3 -std=c11 -Wall -Wextra -fPIC
 LDFLAGS ?= -shared
 
@@ -8,7 +9,7 @@ libsensetrace_measurement.so: measurement_kernel.c
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $<
 
 test: libsensetrace_measurement.so
-	python -c "from sensetrace.acquisition.native import NativeMeasurementKernel; k=NativeMeasurementKernel.load(); assert k is not None and k.supports_clflush; print(k.provenance())"
+	$(PYTHON) -c "import ctypes; lib = ctypes.CDLL('./libsensetrace_measurement.so'); lib.st_cpu_supports_clflush.restype = ctypes.c_int; lib.st_kernel_version.restype = ctypes.c_char_p; assert lib.st_cpu_supports_clflush(); print(lib.st_kernel_version().decode('ascii'))"
 
 clean:
 	rm -f libsensetrace_measurement.so

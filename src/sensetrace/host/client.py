@@ -240,7 +240,12 @@ class RemoteHost:
                         "user fallback remained active/enabled before system migration"
                     )
                 live_config = "/etc/sensetrace/worker03.yaml"
-                before = self._remote_hash(live_config)
+                fallback_config = f"{home}/.config/sensetrace/worker03.yaml"
+                config_migration = self._preserve_fallback_config(
+                    fallback_config=fallback_config,
+                    system_config=live_config,
+                    reset_config=reset_config,
+                )
                 reset = "1" if reset_config else "0"
                 self.run(
                     "sudo -n bash /opt/sensetrace/source/infra/worker03/install-root.sh "
@@ -262,9 +267,14 @@ class RemoteHost:
                     "service_management": management,
                     "runner_process_count": process_count,
                     "config_path": live_config,
-                    "config_sha256_before": before,
+                    "config_sha256_before": config_migration["before"],
                     "config_sha256_after": after,
-                    "config_preserved": before != "missing" and before == after,
+                    "config_preserved": (
+                        config_migration["before"] != "missing"
+                        and config_migration["before"] == after
+                    ),
+                    "config_source_before_migration": config_migration["source"],
+                    "system_config_sha256_before": config_migration["system_before"],
                     "config_reset_requested": reset_config,
                     "native_kernel_build": native_build.ok,
                     "native_kernel_build_error": native_build.stderr.strip()
@@ -311,6 +321,33 @@ class RemoteHost:
         if not result.ok:
             return "missing"
         return result.stdout.split()[0]
+
+    def _preserve_fallback_config(
+        self,
+        *,
+        fallback_config: str,
+        system_config: str,
+        reset_config: bool,
+    ) -> dict[str, str]:
+        """Carry the live user config into a first system installation."""
+
+        system_before = self._remote_hash(system_config)
+        fallback_before = self._remote_hash(fallback_config)
+        if not reset_config and system_before == "missing" and fallback_before != "missing":
+            self.run(
+                "sudo -n install -m 0640 -o worker-03 -g worker-03 "
+                f"{quote(fallback_config)} {quote(system_config)}"
+            )
+            return {
+                "before": fallback_before,
+                "source": "user-fallback",
+                "system_before": system_before,
+            }
+        return {
+            "before": system_before,
+            "source": "system" if system_before != "missing" else "missing",
+            "system_before": system_before,
+        }
 
     def _runner_process_count(self) -> int:
         result = self.run("pgrep -f '[s]ensetrace runner' | wc -l", warn=True, hide=True)

@@ -886,13 +886,14 @@ class RemoteHost:
         return str(local_dir)
 
     def reboot(self) -> str:
-        # Schedule the reboot after this SSH command returns so the controller
-        # receives an unambiguous request record instead of a transport error.
+        # A transient systemd timer detaches reboot scheduling from the SSH
+        # channel.  Shell-backgrounding a one-second delay can still reset the
+        # transport before Fabric receives the request result.
         result = self.run(
             "boot_id=$(cat /proc/sys/kernel/random/boot_id); "
             "sudo -n true && "
-            "(nohup sh -c 'sleep 1; exec sudo -n systemctl reboot' "
-            ">/dev/null 2>&1 </dev/null &) && "
+            "sudo -n systemd-run --quiet --collect --on-active=5s "
+            "/usr/bin/systemctl reboot && "
             'printf \'{"old_boot_id":"%s","request_epoch":%.6f}\n\' '
             '"$boot_id" "$(date +%s.%N)"',
             warn=True,

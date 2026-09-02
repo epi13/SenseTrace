@@ -66,4 +66,3 @@ def primitive_contract(
             "model_eligible_features": "trace-derived features only by default",
         },
     }
-

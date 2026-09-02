@@ -132,9 +132,7 @@ def phase1a_commodity_baseline_protocol(config: dict[str, Any]) -> dict[str, Any
     model_config = normalized.get("models", {})
     operation = str(physical.get("operation", "memory_read"))
     cache_control = str(physical.get("cache_control", "eviction_buffer"))
-    capabilities = commodity_timing_capabilities(
-        operation=operation, cache_control=cache_control
-    )
+    capabilities = commodity_timing_capabilities(operation=operation, cache_control=cache_control)
     oracle = commodity_timing_oracle(operation=operation, cache_control=cache_control)
     version = str(physical.get("protocol_version", PHASE1A_COMMODITY_BASELINE_VERSION))
     if version != PHASE1A_COMMODITY_BASELINE_VERSION:
@@ -157,7 +155,9 @@ def phase1a_commodity_baseline_protocol(config: dict[str, Any]) -> dict[str, Any
             "cache_control": cache_control,
             "word_count": physical.get("word_count", 1024),
             "eviction_bytes": physical.get("eviction_bytes", 4 * 1024 * 1024),
-            "trace_length": physical.get("trace_length", normalized.get("data", {}).get("trace_length", 32)),
+            "trace_length": physical.get(
+                "trace_length", normalized.get("data", {}).get("trace_length", 32)
+            ),
             "native_kernel_required": bool(physical.get("require_native_kernel", True)),
             "native_timing": "LFENCE/RDTSC start and RDTSCP/LFENCE end; raw TSC cycles",
         },
@@ -194,12 +194,15 @@ def phase1a_commodity_baseline_protocol(config: dict[str, Any]) -> dict[str, Any
                 "D_unseen_acquisition_session",
                 "E_unseen_boot",
             ],
-            "group_keys": splits.get("group_keys", [
-                "virtual_location_id",
-                "acquisition_block",
-                "acquisition_session_id",
-                "boot_id",
-            ]),
+            "group_keys": splits.get(
+                "group_keys",
+                [
+                    "virtual_location_id",
+                    "acquisition_block",
+                    "acquisition_session_id",
+                    "boot_id",
+                ],
+            ),
             "level_grouping": {
                 "A_repeated_trial_holdout": ["virtual_location_id", "trial_pair_id"],
                 "B_unseen_location": ["virtual_location_id"],
@@ -222,9 +225,7 @@ def phase1a_commodity_baseline_protocol(config: dict[str, Any]) -> dict[str, Any
                     ]
                 )
             ),
-            "identity_features_prohibited": feature_policy.get(
-                "prohibit_identity_features", True
-            ),
+            "identity_features_prohibited": feature_policy.get("prohibit_identity_features", True),
         },
         "controls": {
             "conditions": [
@@ -239,13 +240,21 @@ def phase1a_commodity_baseline_protocol(config: dict[str, Any]) -> dict[str, Any
             "pair_order_counterbalanced": True,
             "raw_traces_retained": True,
         },
+        "artificial_timing_perturbation": {
+            "allowed": False,
+            "timing_perturbation_cycles": 0,
+            "label_correlated": False,
+            "calibration_namespace": "forbidden",
+            "enforcement": (
+                "physical Phase 1A rejects nonzero artificial timing cycles, non-default "
+                "perturbation labels, and calibration namespaces before acquisition"
+            ),
+        },
         "statistics": {
             "metrics": ["balanced_accuracy", "auroc"],
             "paired_statistic": "sample median timing delta, label_1 minus label_0",
             "paired_sign_flip": True,
-            "confidence_interval_unit": reporting.get(
-                "ci_unit", physical.get("ci_unit", "sample")
-            ),
+            "confidence_interval_unit": reporting.get("ci_unit", physical.get("ci_unit", "sample")),
             "model_set": (
                 ["logistic_regression", "boosted_trees"]
                 if not model_config

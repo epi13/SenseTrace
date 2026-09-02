@@ -14,9 +14,12 @@ import numpy as np
 
 from .acquisition.commodity import CommodityDramBackend
 from .acquisition.native import NativeMeasurementKernel
+from .acquisition.primitive import TimingPerturbationCalibration
 from .audits import run_leakage_audits
 from .config import config_fingerprint, normalized_config
 from .datasets import build_feature_matrix, combine_datasets, load_dataset, write_dataset_manifest
+from .errors import ConfigError
+from .hashing import sha256_json
 from .inventory import collect_inventory
 from .journal import Journal
 from .metrics import paired_delta_analysis
@@ -61,6 +64,43 @@ def _session_count(config: dict[str, Any]) -> int:
     return int(physical.get("session_count", physical.get("acquisition_session_count", 1)))
 
 
+def _validate_physical_phase1a_config(config: dict[str, Any]) -> None:
+    """Reject calibration-only controls before a physical run can be created."""
+
+    physical = config.get("phase1a", {})
+    if physical.get("timing_perturbation_cycles", 0) != 0:
+        raise ConfigError(
+            "physical Phase 1A forbids artificial timing perturbation; use the explicit "
+            "native sensitivity calibration path"
+        )
+    if physical.get("timing_perturbation_label", 1) != 1:
+        raise ConfigError(
+            "physical Phase 1A forbids non-default artificial perturbation-label configuration"
+        )
+    if "calibration_namespace" in physical:
+        raise ConfigError(
+            "physical Phase 1A forbids calibration_namespace; use the explicit calibration path"
+        )
+
+
+def _acquisition_protocol(
+    config: dict[str, Any], calibration_context: TimingPerturbationCalibration | None
+) -> tuple[str, str]:
+    if calibration_context is None:
+        return (
+            phase1a_commodity_baseline_protocol(config)["version"],
+            phase1a_commodity_baseline_protocol_hash(config),
+        )
+    identity = "native-sensitivity-calibration-v2"
+    return identity, sha256_json(
+        {
+            "version": identity,
+            "configuration_hash": config_fingerprint(config),
+            "calibration_context": calibration_context.as_dict(),
+        }
+    )
+
+
 def _backend_from_config(
     config: dict[str, Any],
     *,
@@ -72,9 +112,12 @@ def _backend_from_config(
     session_started_at: str | None = None,
     parent_session_id: str | None = None,
     recovery_reason: str | None = None,
+    calibration_context: TimingPerturbationCalibration | None = None,
 ) -> CommodityDramBackend:
     data = config.get("data", {})
     physical = config.get("phase1a", {})
+    if calibration_context is None:
+        _validate_physical_phase1a_config(config)
     return CommodityDramBackend(
         count=int(physical.get("samples", min(int(data.get("samples", 128)), 256))),
         trace_length=int(physical.get("trace_length", min(int(data.get("trace_length", 32)), 64))),
@@ -105,9 +148,7 @@ def _backend_from_config(
         # only for source compatibility and no longer partitions one stream.
         session_count=1,
         use_native_kernel=bool(physical.get("use_native_kernel", True)),
-        timing_perturbation_cycles=int(physical.get("timing_perturbation_cycles", 0)),
-        timing_perturbation_label=int(physical.get("timing_perturbation_label", 1)),
-        calibration_namespace=physical.get("calibration_namespace"),
+        calibration_context=calibration_context,
         acquisition_session_id=session_id,
         session_index=session_index,
         campaign_id=campaign_id,
@@ -137,6 +178,7 @@ def _materialize_session(
     host_inventory_snapshot: dict[str, Any],
     parent_session_id: str | None = None,
     recovery_reason: str | None = None,
+    calibration_context: TimingPerturbationCalibration | None = None,
 ) -> dict[str, Any]:
     """Acquire one genuine session into its own crash-safe source directory."""
 
@@ -203,6 +245,7 @@ def _materialize_session(
             host_inventory_snapshot=replacement_snapshot,
             parent_session_id=old_session_id,
             recovery_reason="replacement for interrupted physical acquisition session",
+            calibration_context=calibration_context,
         )
         replacement["_materialized_source_dir"] = str(replacement_dir)
         return replacement
@@ -217,12 +260,19 @@ def _materialize_session(
         campaign_id=campaign_id,
         host_inventory_snapshot=host_inventory_snapshot,
         session_started_at=session_started_at,
+        calibration_context=calibration_context,
     )
     session_record = backend.session_provenance()
+    protocol_identity, protocol_hash = _acquisition_protocol(config, calibration_context)
     session_record.update(
         {
-            "protocol_identity": phase1a_commodity_baseline_protocol(config)["version"],
-            "protocol_hash": phase1a_commodity_baseline_protocol_hash(config),
+            "protocol_identity": protocol_identity,
+            "protocol_hash": protocol_hash,
+            "acquisition_scope": (
+                "explicit native timing calibration"
+                if calibration_context is not None
+                else "physical Phase 1A commodity baseline"
+            ),
         }
     )
     if existing_record:
@@ -298,8 +348,32 @@ def _materialize_session(
             "backend": "CommodityDramBackend",
             "session_scope": "one independently started backend and newly allocated controlled buffer",
             "physical_topology": "unknown; virtual buffer locations only",
-            "protocol_identity": phase1a_commodity_baseline_protocol(config)["version"],
-            "protocol_hash": phase1a_commodity_baseline_protocol_hash(config),
+            "protocol_identity": protocol_identity,
+            "protocol_hash": protocol_hash,
+            "artificial_timing_perturbation": {
+                "allowed": calibration_context is not None,
+                "timing_perturbation_cycles": (
+                    calibration_context.cycles if calibration_context is not None else 0
+                ),
+                "timing_perturbation_label": (
+                    calibration_context.label if calibration_context is not None else 1
+                ),
+                "label_correlated": bool(
+                    calibration_context is not None and calibration_context.cycles > 0
+                ),
+                "applied": bool(calibration_context is not None and calibration_context.cycles > 0),
+                "physical_phase1a_forbidden": True,
+                "calibration_namespace": (
+                    calibration_context.namespace
+                    if calibration_context is not None
+                    else "forbidden"
+                ),
+                "scope": (
+                    "explicit calibration only"
+                    if calibration_context is not None
+                    else "forbidden and recorded as zero"
+                ),
+            },
         },
         acquisition_sessions=[session_record],
         campaign_id=campaign_id,
@@ -338,8 +412,32 @@ def _materialize_session(
             "backend": "CommodityDramBackend",
             "session_scope": "one independently started backend and newly allocated controlled buffer",
             "physical_topology": "unknown; virtual buffer locations only",
-            "protocol_identity": phase1a_commodity_baseline_protocol(config)["version"],
-            "protocol_hash": phase1a_commodity_baseline_protocol_hash(config),
+            "protocol_identity": protocol_identity,
+            "protocol_hash": protocol_hash,
+            "artificial_timing_perturbation": {
+                "allowed": calibration_context is not None,
+                "timing_perturbation_cycles": (
+                    calibration_context.cycles if calibration_context is not None else 0
+                ),
+                "timing_perturbation_label": (
+                    calibration_context.label if calibration_context is not None else 1
+                ),
+                "label_correlated": bool(
+                    calibration_context is not None and calibration_context.cycles > 0
+                ),
+                "applied": bool(calibration_context is not None and calibration_context.cycles > 0),
+                "physical_phase1a_forbidden": True,
+                "calibration_namespace": (
+                    calibration_context.namespace
+                    if calibration_context is not None
+                    else "forbidden"
+                ),
+                "scope": (
+                    "explicit calibration only"
+                    if calibration_context is not None
+                    else "forbidden and recorded as zero"
+                ),
+            },
         },
         acquisition_sessions=[session_record],
         campaign_id=campaign_id,
@@ -658,6 +756,7 @@ def run_phase1a_campaign(
 ) -> dict[str, Any]:
     """Run a multi-session Phase 1A campaign after the frozen Phase 0 gate."""
 
+    _validate_physical_phase1a_config(config)
     report = (
         json.loads(Path(phase0_report).read_text(encoding="utf-8"))
         if isinstance(phase0_report, (str, Path))
@@ -782,6 +881,16 @@ def run_phase1a_campaign(
             "protocol_hash": protocol_hash,
             "backend": "CommodityDramBackend",
             "ordinary_read_value": "ground-truth verification only",
+            "artificial_timing_perturbation_invariant": {
+                "allowed": False,
+                "timing_perturbation_cycles": 0,
+                "label_correlated": False,
+                "calibration_namespace": "forbidden",
+                "enforcement": (
+                    "ordinary Phase 1A rejects nonzero cycles, non-default labels, and any "
+                    "calibration namespace before creating a run"
+                ),
+            },
             "physical_address_or_row_claim": "not available",
             "virtual_location_definition": "controlled offset in a fresh anonymous virtual buffer; not a known DRAM row, cell, bank, subarray, chip, or DIMM location",
             "paired_target_construction": "one random base word per pair; target bit forced to 0/1; exact half of pairs use each label order, with pair types randomized",

@@ -481,9 +481,8 @@ class CommodityDramBackend(AcquisitionBackend):
                 "cycles": self.timing_perturbation_cycles,
                 "label": self.timing_perturbation_label,
                 "mechanism": (
-                    "native timed load includes a TSC-deadline delay after the load"
-                    if self.timing_perturbation_cycles
-                    else "none"
+                    "st_measure_flushed_control/st_measure_cached_control uses one delayed-capable "
+                    "timed-load path; delay_cycles is zero for the control"
                 ),
                 "namespace": self.calibration_namespace or "not_calibration",
             },

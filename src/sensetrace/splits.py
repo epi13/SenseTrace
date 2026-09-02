@@ -11,6 +11,108 @@ import numpy as np
 from .datasets import ensure_sample_ids, fingerprint_split
 from .errors import SchemaError
 
+# These values are emitted by inventories and importers when an OS boot
+# identity was not observed.  They are deliberately an allow-list boundary:
+# a value is a boot group only when it is explicit and not one of these
+# representations.  Keeping the normalization here makes the same rule
+# available to both split construction and audit code.
+_UNSUPPORTED_BOOT_ID_VALUES = frozenset(
+    {
+        "",
+        "unknown",
+        "unavailable",
+        "none",
+        "null",
+        "nan",
+        "<na>",
+        "nil",
+        "empty",
+        "n/a",
+        "na",
+        "not known",
+        "not available",
+        "not applicable",
+        "not set",
+        "not recorded",
+        "not collected",
+        "no boot id",
+        "no boot identity",
+        "missing",
+        "unset",
+        "unidentified",
+        "unassigned",
+        "invalid",
+        "unsupported",
+    }
+)
+
+
+def _normalized_boot_value(value: object) -> tuple[str, str]:
+    """Return the preserved text and a placeholder-comparison form."""
+
+    if value is None:
+        return "", "null"
+    text = str(value).strip()
+    normalized = " ".join(text.casefold().replace("_", " ").replace("-", " ").split())
+    return text, normalized
+
+
+def boot_provenance_audit(metadata: dict[str, np.ndarray]) -> dict[str, Any]:
+    """Count explicit and unusable boot provenance without manufacturing groups.
+
+    A missing field is represented as one invalid row for every dataset row so
+    that the report cannot be mistaken for an empty-but-valid provenance
+    stream.  Invalid rows are never removed here or by split construction.
+    """
+
+    row_count = 0
+    for values in metadata.values():
+        array = np.asarray(values)
+        if array.ndim > 0:
+            row_count = len(array)
+            break
+    if "boot_id" not in metadata:
+        return {
+            "field_present": False,
+            "total_rows": int(row_count),
+            "valid_rows": 0,
+            "invalid_rows": int(row_count),
+            "distinct_valid_boot_ids": [],
+            "invalid_value_counts": {"missing_field": int(row_count)},
+            "rows_excluded_from_e_analysis": 0,
+            "invalid_provenance_policy": "fail closed; no analysis-time row filtering",
+        }
+
+    values = np.asarray(metadata["boot_id"], dtype=object)
+    if values.ndim == 0:
+        values = np.repeat(values, row_count)
+    if row_count and len(values) != row_count:
+        raise SchemaError("boot_id metadata row count does not match the dataset")
+    if not row_count:
+        row_count = len(values)
+
+    valid_ids: set[str] = set()
+    invalid_counts: dict[str, int] = {}
+    valid_rows = 0
+    for value in values:
+        text, normalized = _normalized_boot_value(value)
+        if normalized in _UNSUPPORTED_BOOT_ID_VALUES:
+            invalid_key = normalized or "empty"
+            invalid_counts[invalid_key] = invalid_counts.get(invalid_key, 0) + 1
+            continue
+        valid_rows += 1
+        valid_ids.add(text)
+    return {
+        "field_present": True,
+        "total_rows": int(len(values)),
+        "valid_rows": int(valid_rows),
+        "invalid_rows": int(len(values) - valid_rows),
+        "distinct_valid_boot_ids": sorted(valid_ids),
+        "invalid_value_counts": dict(sorted(invalid_counts.items())),
+        "rows_excluded_from_e_analysis": 0,
+        "invalid_provenance_policy": "fail closed; no analysis-time row filtering",
+    }
+
 
 def _group_key(metadata: dict[str, np.ndarray], index: int, keys: list[str]) -> str:
     values = []
@@ -123,19 +225,31 @@ def phase1a_split_hierarchy(
     results: dict[str, dict[str, Any]] = {}
     for offset, (name, keys) in enumerate(specifications.items()):
         if name == "E_unseen_boot":
+            boot_audit = boot_provenance_audit(metadata)
             if "boot_id" not in metadata:
                 results[name] = {
                     "status": "unavailable",
                     "grouping_keys": keys,
                     "reason": "required explicit boot_id metadata is unavailable",
+                    "boot_provenance": boot_audit,
                     "claim_boundary": claim_boundaries[name],
                 }
                 continue
-            boot_ids = {
-                str(value)
-                for value in np.asarray(metadata["boot_id"]).astype(str)
-                if str(value).strip().lower() not in {"", "unknown", "unavailable", "none"}
-            }
+            boot_ids = set(boot_audit["distinct_valid_boot_ids"])
+            if boot_audit["invalid_rows"]:
+                results[name] = {
+                    "status": "unavailable",
+                    "grouping_keys": keys,
+                    "reason": (
+                        "invalid OS boot provenance is present; E_unseen_boot is unavailable; "
+                        f"{boot_audit['invalid_rows']} of {boot_audit['total_rows']} rows have "
+                        "unsupported or missing boot IDs"
+                    ),
+                    "independent_group_count": len(boot_ids),
+                    "boot_provenance": boot_audit,
+                    "claim_boundary": claim_boundaries[name],
+                }
+                continue
             if len(boot_ids) < 3:
                 results[name] = {
                     "status": "unavailable",
@@ -145,6 +259,7 @@ def phase1a_split_hierarchy(
                         f"need at least 3, found {len(boot_ids)}"
                     ),
                     "independent_group_count": len(boot_ids),
+                    "boot_provenance": boot_audit,
                     "claim_boundary": claim_boundaries[name],
                 }
                 continue
@@ -172,11 +287,14 @@ def phase1a_split_hierarchy(
             split["declared_grouping_keys"] = keys
             split["claim_boundary"] = claim_boundaries[name]
             split["split_fingerprint"] = fingerprint_split(split)
-            results[name] = {
+            result = {
                 "status": "available",
                 "split": split,
                 "claim_boundary": claim_boundaries[name],
             }
+            if name == "E_unseen_boot":
+                result["boot_provenance"] = boot_audit
+            results[name] = result
         except SchemaError as exc:
             results[name] = {
                 "status": "unavailable",
@@ -209,6 +327,8 @@ def validate_phase1a_split_hierarchy(
                 "status": "unavailable",
                 "reason": record.get("reason", "unavailable"),
             }
+            if name == "E_unseen_boot" and "boot_provenance" in record:
+                available[name]["boot_provenance"] = record["boot_provenance"]
             continue
         split = record["split"]
         partitions = partition_indices(metadata, split)
@@ -216,6 +336,13 @@ def validate_phase1a_split_hierarchy(
         for part, indices in partitions.items():
             membership[indices] = part
         resolved_keys = list(split.get("grouping_keys", []))
+        provenance_ok = True
+        provenance_audit: dict[str, Any] | None = None
+        if name == "E_unseen_boot":
+            provenance_audit = boot_provenance_audit(metadata)
+            provenance_ok = bool(
+                provenance_audit["field_present"] and not provenance_audit["invalid_rows"]
+            )
         group_to_partition: dict[tuple[str, ...], str] = {}
         crossing_groups: list[list[str]] = []
         for index in range(len(sample_ids)):
@@ -231,7 +358,7 @@ def validate_phase1a_split_hierarchy(
         grouping_signatures[name] = grouping_signature
         partition_signatures[name] = partition_signature
         available[name] = {
-            "status": "available",
+            "status": "available" if provenance_ok else "invalid_provenance",
             "coverage_exact": bool(
                 all(len(indices) > 0 for indices in partitions.values())
                 and sum(len(indices) for indices in partitions.values()) == len(sample_ids)
@@ -240,6 +367,13 @@ def validate_phase1a_split_hierarchy(
             "crossing_groups": crossing_groups,
             "independent_group_count": int(len(set(grouping_signature))),
         }
+        if provenance_audit is not None:
+            available[name]["boot_provenance"] = provenance_audit
+            available[name]["reason"] = (
+                "invalid OS boot provenance is present; E_unseen_boot cannot be audited"
+                if not provenance_ok
+                else "none"
+            )
 
     identical_partitions: list[list[str]] = []
     identical_groupings: list[list[str]] = []
@@ -254,9 +388,13 @@ def validate_phase1a_split_hierarchy(
         "status": "pass"
         if sample_id_unique
         and all(
-            item.get("coverage_exact") and item.get("partition_group_disjoint")
+            item.get("status") == "unavailable"
+            or (
+                item.get("status") == "available"
+                and item.get("coverage_exact")
+                and item.get("partition_group_disjoint")
+            )
             for item in available.values()
-            if item.get("status") == "available"
         )
         else "fail",
         "sample_id_unique": sample_id_unique,

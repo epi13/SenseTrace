@@ -9,6 +9,8 @@ from sensetrace.acquisition.commodity import CommodityDramBackend
 from sensetrace.acquisition.native import NativeMeasurementKernel
 from sensetrace.acquisition.synthetic import SyntheticBackend
 from sensetrace.calibration import (
+    _empirical_null_threshold,
+    _record_statistics,
     _replicate_quality,
     _shuffled_false_positive_summary,
     run_native_sensitivity_calibration,
@@ -126,12 +128,92 @@ def test_native_sensitivity_shuffled_statistics_keep_ensemble_provenance_distinc
     assert development_summary["source"] != fresh_summary["source"]
 
 
+def test_native_sensitivity_report_does_not_swap_development_and_fresh_shuffles(
+    tmp_path, monkeypatch
+):
+    class FakeKernel:
+        supports_clflush = True
+
+        @staticmethod
+        def provenance():
+            return {"version": "fake", "library_sha256": "fake", "clflush_supported": True}
+
+    def fake_manifest(_config, dataset_dir, *, condition, seed):
+        return {"dataset_fingerprint": f"manifest:{condition}:{seed}:{dataset_dir}"}
+
+    def fake_shuffle(_source_dir, target_dir, _config, seed):
+        return {"dataset_fingerprint": f"shuffled:{seed}:{target_dir}"}
+
+    def fake_evaluate(_config, dataset_dir, *, seed):
+        location = str(dataset_dir)
+        if "shuffled-" in location:
+            statistic = 0.9 if "development" in location else -0.1
+        elif "injected-00000001" in location:
+            statistic = 1.0
+        else:
+            statistic = 0.0
+        return {
+            "status": "available",
+            "dataset": {"dataset_fingerprint": f"evaluated:{seed}:{location}"},
+            "max_statistic": statistic,
+            "metric_values": {},
+        }
+
+    monkeypatch.setattr(
+        "sensetrace.acquisition.native.NativeMeasurementKernel.load",
+        staticmethod(lambda: FakeKernel()),
+    )
+    monkeypatch.setattr("sensetrace.calibration._materialize_native_sensitivity_dataset", fake_manifest)
+    monkeypatch.setattr("sensetrace.calibration._evaluate_native_sensitivity_dataset", fake_evaluate)
+    monkeypatch.setattr("sensetrace.phase1a._materialize_label_permutation", fake_shuffle)
+    report = run_native_sensitivity_calibration(
+        {"experiment": {"seed": 7}, "native_sensitivity": {"alpha": 0.05}},
+        tmp_path,
+        development_magnitudes=[0, 1],
+        development_replicates=2,
+        validation_replicates=2,
+    )
+    assert report["development"]["shuffled_false_positive_rate"]["rate"] == 1.0
+    assert (
+        report["fresh_frozen_validation"]["shuffled_control_false_positive_rate"]["rate"]
+        == 0.0
+    )
+    assert report["fresh_frozen_validation"]["threshold_reused_without_recalibration"] is True
+
+
 def test_sensitivity_replicate_quality_warns_for_six_replicates():
     quality = _replicate_quality(
         statistics=np.zeros(6, dtype=np.float64), alpha=0.05, minimum_recommended=20
     )
     assert quality["precision_warning"] is True
     assert quality["interpretation"].startswith("pipeline_sanity_check")
+
+
+def test_empirical_null_threshold_reports_when_alpha_is_not_resolvable():
+    small = _empirical_null_threshold(np.asarray([0.1, 0.2, 0.3, 0.4]), alpha=0.05)
+    assert small["alpha_supported"] is False
+    assert small["interpretation"] == "pilot threshold only"
+    assert small["minimum_resolvable_tail_probability"] == 0.2
+    assert small["method"].startswith("conservative empirical order statistic")
+
+    sufficiently_large = _empirical_null_threshold(np.arange(39, dtype=np.float64), alpha=0.05)
+    assert sufficiently_large["alpha_supported"] is True
+    assert sufficiently_large["minimum_resolvable_tail_probability"] == 1 / 40
+    assert sufficiently_large["allowed_null_exceedances"] == 1
+    assert sufficiently_large["critical_statistic"] > sufficiently_large["order_statistic"]
+
+
+def test_failed_or_missing_replicates_cannot_be_silently_dropped_from_an_ensemble():
+    with np.testing.assert_raises(RuntimeError):
+        _record_statistics(
+            [
+                {"status": "available", "max_statistic": 0.1},
+                {"status": "unavailable", "reason": "failed"},
+            ],
+            require_complete=True,
+            expected_count=2,
+            ensemble="development null",
+        )
 
 
 def test_phase1a_commodity_baseline_protocol_hash_captures_observable_semantics():
@@ -306,7 +388,11 @@ def test_native_kernel_is_optional_but_has_serialized_contract():
     assert len(cached) == 8
     if len(flushed):
         assert len(flushed) == 8
-    assert "RDTSC" in kernel.provenance()["timer_source"]
+    provenance = kernel.provenance()
+    assert "RDTSC" in provenance["timer_source"]
+    assert provenance["exported_measurement_entry_points"]["flushed_zero_and_nonzero_delay"] == (
+        "st_measure_flushed_control"
+    )
 
 
 def test_native_delayed_control_is_inside_the_timed_path():
@@ -317,6 +403,27 @@ def test_native_delayed_control_is_inside_the_timed_path():
     baseline = float(np.median(kernel.measure_flushed(address, 16)))
     delayed = float(np.median(kernel.measure_flushed(address, 16, extra_delay_cycles=256)))
     assert delayed > baseline
+    assert kernel.provenance()["delay_semantics"]["load_serialization"].startswith("LFENCE")
+
+
+def test_native_wrapper_uses_one_control_entry_point_for_zero_and_nonzero_delay():
+    kernel = NativeMeasurementKernel.load()
+    if kernel is None or not kernel.supports_clflush:
+        return
+    calls = []
+
+    def fake_measure(function_name, address, repetitions, extra_delay_cycles=0):
+        calls.append((function_name, extra_delay_cycles))
+        return np.zeros(repetitions, dtype=np.float64)
+
+    kernel._measure = fake_measure
+    address = kernel.calibration_address()
+    kernel.measure_flushed(address, 1, extra_delay_cycles=0)
+    kernel.measure_flushed(address, 1, extra_delay_cycles=256)
+    assert calls == [
+        ("st_measure_flushed_control", 0),
+        ("st_measure_flushed_control", 256),
+    ]
 
 
 def test_native_sensitivity_calibration_separates_development_and_fresh_validation(tmp_path):
@@ -373,3 +480,19 @@ def test_native_sensitivity_calibration_separates_development_and_fresh_validati
     assert report["frozen_selection"]["selection_uses_fresh_validation"] is False
     assert report["fresh_frozen_validation"]["datasets_are_fresh_and_separately_seeded"] is True
     assert report["fresh_frozen_validation"]["power_curve"]
+    assert report["threshold_calibration"]["alpha_supported"] is False
+    assert report["pilot_detection_floor"] == report["frozen_selection"]["pilot_detection_floor_cycles"]
+    assert report["empirically_alpha_calibrated_detection_floor"] is None
+    assert report["fresh_frozen_validation"]["threshold_reused_without_recalibration"] is True
+    assert report["ensemble_provenance"]["development_shuffled"]["ensemble"] == (
+        "development_shuffled"
+    )
+    assert report["ensemble_provenance"]["frozen_validation_shuffled"]["ensemble"] == (
+        "frozen_validation_shuffled"
+    )
+    for record in report["fresh_frozen_validation"]["power_curve"]["0.0"]["records"]:
+        assert record["timing_perturbation_observation"]["raw_measurements_retained"] is True
+    observed = report["timing_perturbation_observations"]["development_positive"]["256"][0]
+    assert observed["requested_delay_cycles"] == 256
+    assert observed["observed_added_latency_cycles"]["count"] > 0
+    assert observed["observed_minus_requested_latency_cycles"]["count"] > 0

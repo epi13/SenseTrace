@@ -63,10 +63,13 @@ reporting:
   paired_repetitions: 500
 
 native_sensitivity:
-  protocol_version: native-sensitivity-protocol-v1
+  protocol_version: native-sensitivity-protocol-v2
   session_count: 4
   development_magnitudes_cycles: [0, 32, 64, 128, 256, 512]
   development_replicates: 6
+  # Six nulls are intentionally exploratory: they cannot resolve alpha=0.05.
+  development_null_replicates: 6
+  development_shuffled_replicates: 6
   validation_replicates: 6
   alpha: 0.05
   target_power: 0.80

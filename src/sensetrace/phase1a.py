@@ -539,6 +539,11 @@ def _analyze_condition(
                 "grouping_keys": record.get("grouping_keys", []),
                 "reason": record.get("reason", "unavailable"),
                 "claim_allowed": record.get("claim_boundary", "no claim"),
+                **(
+                    {"boot_provenance": record["boot_provenance"]}
+                    if split_name == "E_unseen_boot" and "boot_provenance" in record
+                    else {}
+                ),
             }
             continue
         split = record["split"]

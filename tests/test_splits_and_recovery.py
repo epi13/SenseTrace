@@ -14,7 +14,14 @@ from sensetrace.errors import JournalCorruptionError
 from sensetrace.journal import Journal
 from sensetrace.phase1a import _materialize_session
 from sensetrace.recovery import recovery_test
-from sensetrace.splits import grouped_split, partition_indices, read_split, write_split
+from sensetrace.splits import (
+    boot_provenance_audit,
+    grouped_split,
+    partition_indices,
+    phase1a_split_hierarchy,
+    read_split,
+    write_split,
+)
 from sensetrace.storage import ShardWriter, load_shards, validate_all_shards
 
 
@@ -70,6 +77,95 @@ def test_grouped_split_keeps_groups_together(tmp_path):
             assert group not in membership or membership[group] == part
             membership[group] = part
     assert set(np.concatenate(list(partitions.values()))) == set(range(40))
+
+
+def _boot_metadata(boot_ids: list[object]) -> dict[str, np.ndarray]:
+    count = len(boot_ids)
+    values = np.asarray([f"sample-{index}" for index in range(count)], dtype=object)
+    return {
+        "sample_id": values,
+        "virtual_location_id": values,
+        "trial_pair_id": np.asarray([f"pair-{index // 2}" for index in range(count)]),
+        "acquisition_block": np.asarray([f"block-{index // 2}" for index in range(count)]),
+        "acquisition_session_id": np.asarray([f"session-{index // 2}" for index in range(count)]),
+        "boot_id": np.asarray(boot_ids, dtype=object),
+    }
+
+
+def test_e_unseen_boot_requires_explicit_complete_provenance_and_three_groups():
+    available = phase1a_split_hierarchy(
+        _boot_metadata(["boot-a"] * 4 + ["boot-b"] * 4 + ["boot-c"] * 4),
+        dataset_fingerprint="dataset",
+        seed=3,
+    )["E_unseen_boot"]
+    assert available["status"] == "available"
+    assert available["boot_provenance"] == {
+        "field_present": True,
+        "total_rows": 12,
+        "valid_rows": 12,
+        "invalid_rows": 0,
+        "distinct_valid_boot_ids": ["boot-a", "boot-b", "boot-c"],
+        "invalid_value_counts": {},
+        "rows_excluded_from_e_analysis": 0,
+        "invalid_provenance_policy": "fail closed; no analysis-time row filtering",
+    }
+    partitions = partition_indices(_boot_metadata(["boot-a"] * 4 + ["boot-b"] * 4 + ["boot-c"] * 4), available["split"])
+    assert all(len(indices) > 0 for indices in partitions.values())
+    for indices in partitions.values():
+        assert len(set(_boot_metadata(["boot-a"] * 4 + ["boot-b"] * 4 + ["boot-c"] * 4)["boot_id"][indices])) == 1
+
+    two_boots = phase1a_split_hierarchy(
+        _boot_metadata(["boot-a"] * 4 + ["boot-b"] * 4), dataset_fingerprint="dataset", seed=3
+    )["E_unseen_boot"]
+    assert two_boots["status"] == "unavailable"
+    assert "need at least 3" in two_boots["reason"]
+    assert two_boots["boot_provenance"]["valid_rows"] == 8
+
+
+def test_e_unseen_boot_rejects_any_invalid_rows_even_with_three_valid_boots():
+    cases = [
+        ["boot-a"] * 3 + ["boot-b"] * 3 + ["boot-c"] * 3 + ["unknown"],
+        ["boot-a"] * 3 + ["boot-b"] * 3 + ["boot-c"] * 3 + ["", None, "unavailable", "none", "null", "N/A", np.nan],
+        ["boot-a"] * 3 + ["boot-b"] * 3 + ["boot-c"] * 3 + ["unknown"] * 20,
+    ]
+    for boot_ids in cases:
+        metadata = _boot_metadata(boot_ids)
+        result = phase1a_split_hierarchy(
+            metadata, dataset_fingerprint="dataset", seed=3
+        )["E_unseen_boot"]
+        audit = result["boot_provenance"]
+        assert result["status"] == "unavailable"
+        assert audit["valid_rows"] == 9
+        assert audit["invalid_rows"] == len(boot_ids) - 9
+        assert audit["distinct_valid_boot_ids"] == ["boot-a", "boot-b", "boot-c"]
+        assert "invalid OS boot provenance" in result["reason"]
+
+
+def test_e_unseen_boot_requires_the_field_and_preserves_duplicate_genuine_ids():
+    metadata = _boot_metadata(["boot-a", "boot-a", "boot-b", "boot-b", "boot-c", "boot-c"])
+    audit = boot_provenance_audit(metadata)
+    assert audit["valid_rows"] == 6
+    assert audit["invalid_rows"] == 0
+    assert audit["distinct_valid_boot_ids"] == ["boot-a", "boot-b", "boot-c"]
+
+    del metadata["boot_id"]
+    result = phase1a_split_hierarchy(metadata, dataset_fingerprint="dataset", seed=3)[
+        "E_unseen_boot"
+    ]
+    assert result["status"] == "unavailable"
+    assert result["boot_provenance"]["field_present"] is False
+    assert result["boot_provenance"]["invalid_rows"] == 6
+
+
+def test_e_unseen_boot_reports_unpartitionable_boot_group_count():
+    result = phase1a_split_hierarchy(
+        _boot_metadata(["boot-a"] * 6 + ["boot-b"] * 6),
+        dataset_fingerprint="dataset",
+        seed=3,
+    )["E_unseen_boot"]
+    assert result["status"] == "unavailable"
+    assert result["independent_group_count"] == 2
+    assert result["boot_provenance"]["distinct_valid_boot_ids"] == ["boot-a", "boot-b"]
 
 
 def test_backend_resume_replays_identical_trace_stream():

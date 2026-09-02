@@ -24,11 +24,13 @@ class NativeMeasurementKernel:
             "st_measure_flushed",
             "st_measure_cached_delayed",
             "st_measure_flushed_delayed",
+            "st_measure_cached_control",
+            "st_measure_flushed_control",
             "st_timer_calibration",
             "st_idle_calibration",
         ]:
             function = getattr(self.library, name)
-            if name.endswith("_delayed"):
+            if name.endswith("_delayed") or name.endswith("_control"):
                 function.argtypes = [
                     ctypes.c_void_p,
                     ctypes.c_size_t,
@@ -77,7 +79,7 @@ class NativeMeasurementKernel:
             raise ValueError("repetitions must be positive")
         output = (ctypes.c_uint64 * repetitions)()
         function = getattr(self.library, function_name)
-        if function_name.endswith("_delayed"):
+        if function_name.endswith("_delayed") or function_name.endswith("_control"):
             result = function(
                 ctypes.c_void_p(address),
                 repetitions,
@@ -94,7 +96,7 @@ class NativeMeasurementKernel:
         self, address: int, repetitions: int, *, extra_delay_cycles: int = 0
     ) -> np.ndarray:
         return self._measure(
-            "st_measure_cached_delayed" if extra_delay_cycles else "st_measure_cached",
+            "st_measure_cached_control",
             address,
             repetitions,
             extra_delay_cycles,
@@ -104,7 +106,7 @@ class NativeMeasurementKernel:
         self, address: int, repetitions: int, *, extra_delay_cycles: int = 0
     ) -> np.ndarray:
         return self._measure(
-            "st_measure_flushed_delayed" if extra_delay_cycles else "st_measure_flushed",
+            "st_measure_flushed_control",
             address,
             repetitions,
             extra_delay_cycles,
@@ -147,20 +149,49 @@ class NativeMeasurementKernel:
                 "explicit compiler barrier; LFENCE; RDTSC start; RDTSCP end; "
                 "LFENCE; explicit compiler barrier"
             ),
-            "cached_measurement_primitive": "warm-line load timed with LFENCE/RDTSC and RDTSCP/LFENCE",
+            "cached_measurement_primitive": (
+                "st_measure_cached_control(address, repetitions, delay_cycles, output); "
+                "one delayed-capable exported primitive for zero and nonzero delay"
+            ),
             "clflush_measurement_primitive": (
-                "_mm_clflush(address), _mm_mfence(), then load timed with "
-                "LFENCE/RDTSC and RDTSCP/LFENCE"
+                "st_measure_flushed_control(address, repetitions, delay_cycles, output); "
+                "_mm_clflush(address), _mm_mfence(), then one delayed-capable timed-load "
+                "primitive for zero and nonzero delay"
             ),
             "cache_control": "CLFLUSH plus MFENCE for the flushed control path",
+            "exported_measurement_entry_points": {
+                "cached_zero_and_nonzero_delay": "st_measure_cached_control",
+                "flushed_zero_and_nonzero_delay": "st_measure_flushed_control",
+                "legacy_zero_delay_aliases": ["st_measure_cached", "st_measure_flushed"],
+            },
             "compiler_barriers": (
-                "explicit GCC/Clang memory barriers surround timing fences and the volatile load"
+                "explicit GCC/Clang memory barriers surround timing fences, the volatile load, "
+                "and the delay-clock boundary"
             ),
+            "delay_semantics": {
+                "requested_units": "TSC cycles",
+                "delay_starts": "after the volatile load and an LFENCE load-ordering fence",
+                "delay_deadline": "read with RDTSC inside the timed region",
+                "load_serialization": "LFENCE immediately after the volatile load on x86",
+                "delay_loop": "RDTSC deadline with PAUSE; zero and nonzero delay use the same branch structure",
+                "added_effect_includes": [
+                    "deadline RDTSC read",
+                    "conditional branch",
+                    "PAUSE loop when delay_cycles is nonzero",
+                    "normal timed-region end sequence",
+                ],
+                "observed_latency_warning": (
+                    "requested cycles are not asserted to equal added measured latency; "
+                    "report paired observed latency distributions"
+                ),
+            },
             "clflush_supported": self.supports_clflush,
             "raw_units": "TSC cycles",
             "guarantees": [
                 "the native kernel reports CPU support before exposing the CLFLUSH path",
                 "the measured load follows the CLFLUSH and MFENCE sequence on that path",
+                "zero and nonzero artificial delays use the same exported delayed-capable primitive",
+                "the artificial delay begins only after the load-ordering fence",
             ],
             "limitations": [
                 "CLFLUSH does not prove that the load reached DRAM",

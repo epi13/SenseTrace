@@ -182,9 +182,11 @@ class CommodityTimingPrimitive(MeasurementPrimitive):
                 "primitive": "_mm_clflush(address) followed by _mm_mfence() before each timed load",
                 "fences": [
                     "LFENCE before RDTSC",
-                    "RDTSCP then LFENCE after load",
+                    "LFENCE immediately after the volatile load before delay-clock start",
+                    "RDTSCP then LFENCE at timed-region end",
                     "MFENCE after CLFLUSH",
                 ],
+                "timing_entry_point": "st_measure_flushed_control",
                 "guarantee": (
                     "CLFLUSH is supported by the native x86 kernel and requests invalidation "
                     "of the addressed cache line before the timed load"
@@ -202,6 +204,7 @@ class CommodityTimingPrimitive(MeasurementPrimitive):
                 "method": "eviction_buffer",
                 "primitive": "best-effort sweep of a user-space eviction buffer",
                 "fences": [],
+                "timing_entry_point": "st_measure_cached_control",
                 "guarantee": "best-effort cache eviction; does not prove DRAM access",
                 "limitations": ["cache hierarchy and replacement behavior are not controlled"],
                 "eviction_bytes": len(self.eviction),
@@ -210,6 +213,7 @@ class CommodityTimingPrimitive(MeasurementPrimitive):
             "method": "none",
             "primitive": "no cache eviction before the timed load",
             "fences": [],
+            "timing_entry_point": "st_measure_cached_control",
             "guarantee": "cache-hit control; no cache eviction is requested",
             "limitations": ["the load may be satisfied by any level of the cache hierarchy"],
             "eviction_bytes": 0,
@@ -281,6 +285,13 @@ class CommodityTimingPrimitive(MeasurementPrimitive):
             "oracle_independent_of_latency": self.oracle.independent_of_latency,
             "perturbation_cycles": int(perturbation_cycles),
             "perturbation_applied": bool(perturbation_label_applied and perturbation_cycles > 0),
+            "timing_entry_point": (
+                "st_measure_flushed_control"
+                if self.cache_control == "clflush" and self.kernel is not None
+                else "st_measure_cached_control"
+                if self.kernel is not None
+                else "python_perf_counter_control"
+            ),
         }
         return PrimitiveObservation(
             trace=np.asarray(observed, dtype=np.float32),

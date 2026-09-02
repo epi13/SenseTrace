@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
 from datetime import UTC, datetime
 from pathlib import Path
@@ -361,11 +362,78 @@ def _false_positive_rate(
         "target_alpha": alpha,
         "positive_replicates": positives,
         "replicates": int(len(finite)),
+        "false_positive_denominator": int(len(finite)),
         "false_positive_rate": float(positives / len(finite)) if len(finite) else float("nan"),
         "wilson_interval_95": wilson_interval(positives, len(finite))
         if len(finite)
         else [float("nan"), float("nan")],
         "critical_max_statistic": float(critical_value),
+    }
+
+
+def _empirical_null_threshold(
+    statistics: np.ndarray | list[float], *, alpha: float
+) -> dict[str, Any]:
+    """Choose a conservative finite-sample threshold from an empirical null.
+
+    The threshold uses the plus-one Monte Carlo p-value convention used by
+    :func:`empirical_p_value`.  It is the next representable value above the
+    selected null order statistic, so a null value tied at the order statistic
+    is not silently counted as a rejection.  No interpolation or parametric
+    tail model is assumed.
+    """
+
+    if not 0.0 < alpha < 1.0:
+        raise ValueError("alpha must be strictly between zero and one")
+    values = np.asarray(statistics, dtype=np.float64)
+    if values.ndim != 1:
+        raise ValueError("null statistics must be one-dimensional")
+    if not np.all(np.isfinite(values)):
+        raise ValueError("null statistics contain missing or non-finite replicates")
+    count = int(len(values))
+    if count == 0:
+        return {
+            "requested_alpha": float(alpha),
+            "null_replicates": 0,
+            "minimum_resolvable_tail_probability": float("nan"),
+            "empirical_rate_resolution": float("nan"),
+            "method": "conservative empirical order statistic with plus-one p-values",
+            "alpha_supported": False,
+            "critical_statistic": float("nan"),
+            "order_statistic": float("nan"),
+            "order_statistic_rank": None,
+            "allowed_null_exceedances": None,
+            "interpretation": "pilot threshold unavailable: development null ensemble is empty",
+        }
+
+    # With p=(exceedances+1)/(N+1), the smallest non-zero p-value is 1/(N+1).
+    minimum_tail = 1.0 / (count + 1)
+    allowed_exceedances = max(
+        0,
+        min(count - 1, int(math.floor(alpha * (count + 1) - 1.0 + 1e-12))),
+    )
+    ordered = np.sort(values)
+    order_index = count - allowed_exceedances - 1
+    order_statistic = float(ordered[order_index])
+    critical = float(np.nextafter(order_statistic, np.inf))
+    alpha_supported = bool(minimum_tail <= alpha)
+    return {
+        "requested_alpha": float(alpha),
+        "null_replicates": count,
+        "minimum_resolvable_tail_probability": minimum_tail,
+        "empirical_rate_resolution": 1.0 / count,
+        "empirical_p_value_resolution": minimum_tail,
+        "method": "conservative empirical order statistic with plus-one p-values",
+        "alpha_supported": alpha_supported,
+        "critical_statistic": critical,
+        "order_statistic": order_statistic,
+        "order_statistic_rank": int(order_index + 1),
+        "allowed_null_exceedances": int(allowed_exceedances),
+        "interpretation": (
+            "empirically alpha-calibrated detection threshold"
+            if alpha_supported
+            else "pilot threshold only"
+        ),
     }
 
 
@@ -383,6 +451,9 @@ def _replicate_quality(
         "replicates": count,
         "target_alpha": alpha,
         "empirical_rate_resolution": resolution,
+        "empirical_p_value_resolution": (
+            float(1.0 / (count + 1)) if count else float("nan")
+        ),
         "minimum_recommended_replicates": minimum_recommended,
         "precision_warning": bool(poorly_resolved),
         "interpretation": (
@@ -395,16 +466,66 @@ def _replicate_quality(
 
 
 def _record_statistics(
-    records: list[dict[str, Any]], *, field: str = "max_statistic"
+    records: list[dict[str, Any]],
+    *,
+    field: str = "max_statistic",
+    require_complete: bool = False,
+    expected_count: int | None = None,
+    ensemble: str = "ensemble",
 ) -> np.ndarray:
+    def finite_record(record: dict[str, Any]) -> bool:
+        try:
+            return bool(np.isfinite(record.get(field, np.nan)))
+        except (TypeError, ValueError):
+            return False
+
+    if require_complete:
+        failures = [
+            {
+                "index": index,
+                "status": record.get("status"),
+                "statistic": record.get(field),
+            }
+            for index, record in enumerate(records)
+            if record.get("status") != "available"
+            or not finite_record(record)
+        ]
+        count_mismatch = expected_count is not None and len(records) != expected_count
+        if count_mismatch or failures:
+            expected = "unknown" if expected_count is None else str(expected_count)
+            raise RuntimeError(
+                f"{ensemble} is incomplete: expected {expected} records, found {len(records)}; "
+                f"failed records={failures}"
+            )
+        return np.asarray([record[field] for record in records], dtype=np.float64)
     return np.asarray(
         [
             record[field]
             for record in records
-            if record.get("status") == "available" and np.isfinite(record.get(field, np.nan))
+            if record.get("status") == "available" and finite_record(record)
         ],
         dtype=np.float64,
     )
+
+
+def _ensemble_provenance(
+    records: list[dict[str, Any]], *, ensemble: str, expected_count: int
+) -> dict[str, Any]:
+    """Make the source of a statistic auditable without relying on variable names."""
+
+    return {
+        "ensemble": ensemble,
+        "statistic_field": "max_statistic",
+        "expected_replicates": int(expected_count),
+        "record_count": int(len(records)),
+        "available_record_count": int(
+            sum(record.get("status") == "available" for record in records)
+        ),
+        "dataset_fingerprints": [
+            record.get("dataset", {}).get("dataset_fingerprint", "unavailable")
+            for record in records
+        ],
+    }
 
 
 def _shuffled_false_positive_summary(
@@ -415,10 +536,16 @@ def _shuffled_false_positive_summary(
     ensemble: str,
     alpha: float,
     minimum_recommended_null: int = 20,
+    expected_replicates: int | None = None,
 ) -> dict[str, Any]:
     """Summarize one explicitly named shuffled-control ensemble."""
 
-    statistics = _record_statistics(records)
+    statistics = _record_statistics(
+        records,
+        require_complete=expected_replicates is not None,
+        expected_count=expected_replicates,
+        ensemble=f"{ensemble} shuffled-label controls",
+    )
     positives = int(np.sum(statistics >= critical_max_statistic))
     return {
         "source": source,
@@ -426,6 +553,7 @@ def _shuffled_false_positive_summary(
         "condition": "same-observation label permutation",
         "rate": float(positives / len(statistics)) if len(statistics) else float("nan"),
         "replicates": int(len(statistics)),
+        "false_positive_denominator": int(len(statistics)),
         "positive_replicates": positives,
         "wilson_interval_95": wilson_interval(positives, len(statistics))
         if len(statistics)
@@ -686,6 +814,113 @@ def _session_dependence(
     return result
 
 
+def _timing_perturbation_observation(
+    traces: np.ndarray, labels: np.ndarray, metadata: dict[str, np.ndarray]
+) -> dict[str, Any]:
+    """Summarize the measured, paired effect of the artificial delay.
+
+    The requested TSC cycles are an input to the native primitive, not a
+    latency claim.  This summary is computed from the retained raw trace
+    rows, pairing the two observations that share a trial-pair identity.
+    Invalid or incomplete pairs are counted and reported; their raw rows are
+    not deleted or rewritten.
+    """
+
+    from .acquisition.native import summarize_measurements
+
+    pair_field = "trial_pair_id" if "trial_pair_id" in metadata else "pair_id"
+    if pair_field not in metadata:
+        return {
+            "status": "unavailable",
+            "reason": "timing perturbation pairing metadata is absent",
+            "raw_measurements_retained": True,
+            "raw_measurement_rows": int(len(traces)),
+        }
+    traces = np.asarray(traces, dtype=np.float64)
+    labels = np.asarray(labels, dtype=np.uint8)
+    pair_values = np.asarray(metadata[pair_field]).astype(str)
+    if len(traces) != len(labels) or len(pair_values) != len(labels):
+        raise ValueError("timing perturbation inputs must have matching rows")
+
+    requested_values = {
+        int(value)
+        for value in np.asarray(metadata.get("timing_perturbation_cycles", []), dtype=object)
+    }
+    perturbation_labels = {
+        int(value)
+        for value in np.asarray(metadata.get("timing_perturbation_label", []), dtype=object)
+    }
+    if not requested_values:
+        return {
+            "status": "unavailable",
+            "reason": "requested timing perturbation metadata is absent",
+            "raw_measurements_retained": True,
+            "raw_measurement_rows": int(len(traces)),
+        }
+    if len(requested_values) != 1 or len(perturbation_labels) > 1:
+        return {
+            "status": "unavailable",
+            "reason": "timing perturbation metadata is not constant within the dataset",
+            "requested_delay_cycles": sorted(requested_values),
+            "raw_measurements_retained": True,
+            "raw_measurement_rows": int(len(traces)),
+        }
+    requested_delay = next(iter(requested_values))
+    perturbation_label = next(iter(perturbation_labels), 1)
+    applied_values = np.asarray(metadata.get("timing_perturbation_applied", []), dtype=object)
+
+    def as_bool(value: object) -> bool:
+        if isinstance(value, (bool, np.bool_)):
+            return bool(value)
+        return str(value).strip().casefold() in {"true", "1", "yes"}
+
+    applied = np.asarray([as_bool(value) for value in applied_values], dtype=bool)
+    if len(applied) != len(labels):
+        applied = labels == perturbation_label if requested_delay else np.zeros(len(labels), dtype=bool)
+
+    rows_by_pair: dict[str, list[int]] = {}
+    for index, pair in enumerate(pair_values):
+        rows_by_pair.setdefault(pair, []).append(index)
+    deltas: list[float] = []
+    excluded_pairs = 0
+    for indices in rows_by_pair.values():
+        if len(indices) != 2 or set(labels[indices].tolist()) != {0, 1}:
+            excluded_pairs += 1
+            continue
+        applied_indices = [index for index in indices if applied[index]]
+        if len(applied_indices) == 1:
+            perturbed_index = applied_indices[0]
+            control_index = indices[0] if indices[1] == perturbed_index else indices[1]
+        else:
+            perturbed = [index for index in indices if labels[index] == perturbation_label]
+            if len(perturbed) != 1:
+                excluded_pairs += 1
+                continue
+            perturbed_index = perturbed[0]
+            control_index = indices[0] if indices[1] == perturbed_index else indices[1]
+        deltas.append(float(np.median(traces[perturbed_index]) - np.median(traces[control_index])))
+
+    delta_values = np.asarray(deltas, dtype=np.float64)
+    observed_summary = summarize_measurements(delta_values)
+    error_values = delta_values - requested_delay
+    error_summary = summarize_measurements(error_values)
+    return {
+        "status": "available" if len(delta_values) else "unavailable",
+        "pair_field": pair_field,
+        "requested_delay_cycles": requested_delay,
+        "perturbation_label": perturbation_label,
+        "pair_count": int(len(rows_by_pair)),
+        "paired_observation_count": int(len(delta_values)),
+        "excluded_pair_count": int(excluded_pairs),
+        "observed_added_latency_cycles": observed_summary,
+        "observed_added_latency_distribution": observed_summary,
+        "observed_minus_requested_latency_cycles": error_summary,
+        "raw_measurements_retained": True,
+        "raw_measurement_rows": int(len(traces)),
+        "outlier_filtering": "none; all raw trace rows remain in the dataset",
+    }
+
+
 def _evaluate_native_sensitivity_dataset(
     config: dict[str, Any], dataset_dir: Path, *, seed: int
 ) -> dict[str, Any]:
@@ -780,6 +1015,9 @@ def _evaluate_native_sensitivity_dataset(
             "paired_statistics": paired,
             "audits": audits,
             "session_dependence": _session_dependence(traces, labels, metadata, test_indices),
+            "timing_perturbation_observation": _timing_perturbation_observation(
+                traces, labels, metadata
+            ),
             "boot_dependence": {
                 "status": "reported_diagnostic" if len(set(boot_field)) > 1 else "unavailable",
                 "boot_count": len(set(boot_field)),
@@ -823,6 +1061,7 @@ def _sensitivity_curve(
         curve[str(magnitude)] = {
             "magnitude_cycles": magnitude,
             "replicates": int(len(finite)),
+            "power_denominator": int(len(finite)),
             "detected_replicates": positives,
             "empirical_power": float(positives / len(finite)) if len(finite) else float("nan"),
             "empirical_power_wilson_interval_95": wilson_interval(positives, len(finite))
@@ -868,26 +1107,37 @@ def run_native_sensitivity_calibration(
             int(value)
             for value in (
                 development_magnitudes
-                or sensitivity.get("development_magnitudes_cycles", [0, 32, 64, 128, 256, 512])
+                if development_magnitudes is not None
+                else sensitivity.get(
+                    "development_magnitudes_cycles", [0, 32, 64, 128, 256, 512]
+                )
             )
         )
     )
     if not magnitudes or magnitudes[0] != 0 or any(value < 0 for value in magnitudes):
         raise ValueError("native sensitivity magnitudes must include zero and be non-negative")
-    dev_replicates = int(development_replicates or sensitivity.get("development_replicates", 3))
+    dev_replicates = int(
+        development_replicates
+        if development_replicates is not None
+        else sensitivity.get("development_replicates", 3)
+    )
     dev_null_replicates = int(
         sensitivity.get("development_null_replicates", dev_replicates)
     )
     dev_shuffled_replicates = int(
         sensitivity.get("development_shuffled_replicates", dev_replicates)
     )
-    fresh_replicates = int(validation_replicates or sensitivity.get("validation_replicates", 5))
+    fresh_replicates = int(
+        validation_replicates
+        if validation_replicates is not None
+        else sensitivity.get("validation_replicates", 5)
+    )
     if min(dev_replicates, dev_null_replicates, dev_shuffled_replicates, fresh_replicates) < 2:
         raise ValueError("native sensitivity development and validation replicates must be >= 2")
     kernel = NativeMeasurementKernel.load()
     if kernel is None or not kernel.supports_clflush:
         return {
-            "schema": "sensetrace.native-sensitivity-report.v1",
+            "schema": "sensetrace.native-sensitivity-report.v3",
             "status": "unavailable",
             "reason": "native x86 CLFLUSH measurement path is unavailable",
         }
@@ -897,11 +1147,16 @@ def run_native_sensitivity_calibration(
     run_dir.mkdir(parents=True, exist_ok=False)
     base_seed = int(config.get("experiment", {}).get("seed", 1337))
     alpha = float(sensitivity.get("alpha", 0.05))
+    if not 0.0 < alpha < 1.0:
+        raise ValueError("native sensitivity alpha must be strictly between zero and one")
     target_power = float(sensitivity.get("target_power", 0.8))
     protocol = {
-        "version": "native-sensitivity-protocol-v1",
+        "version": "native-sensitivity-protocol-v2",
         "namespace": "native_path_sensitivity_calibration",
-        "mechanism": "native timed load includes a TSC-deadline delay after the volatile load for label=1",
+        "mechanism": (
+            "native timed load uses one delayed-capable primitive; an LFENCE follows the "
+            "volatile load before the TSC-deadline delay for label=1"
+        ),
         "cache_control": "CLFLUSH plus MFENCE, using the same worker acquisition path",
         "magnitudes_cycles": magnitudes,
         "null_magnitude_cycles": 0,
@@ -914,6 +1169,15 @@ def run_native_sensitivity_calibration(
         "alpha": alpha,
         "target_power": target_power,
         "selection_rule": "smallest positive development magnitude with empirical power >= target_power",
+        "threshold_method": "conservative empirical order statistic with plus-one p-values",
+        "threshold_alpha_support_rule": (
+            "alpha is supportable only when 1/(development_null_replicates + 1) <= alpha"
+        ),
+        "seed_streams": {
+            "null": "replicate_seed",
+            "positive": "replicate_seed + 1000003 + requested_magnitude_cycles",
+            "shuffled": "label permutation of its positive observation stream; evaluator seed is positive seed + 7919",
+        },
         "fresh_validation_is_frozen": True,
         "shuffled_labels": "same-observation label permutation control, never a model feature",
         "replicate_quality": "report empirical tail resolution and warn when null counts are coarse",
@@ -940,7 +1204,12 @@ def run_native_sensitivity_calibration(
     journal = Journal(run_dir / "events.jsonl")
     journal.append("native_sensitivity_calibration_started", protocol_hash=protocol_hash)
 
-    development: dict[str, Any] = {"null": [], "positive": {}, "shuffled": {}}
+    # Keep these ensembles separate by construction.  In particular, a
+    # shuffled-label statistic from frozen validation must never be able to
+    # populate a development report through a reused generic variable.
+    development_null_records: list[dict[str, Any]] = []
+    development_positive_records: dict[str, list[dict[str, Any]]] = {}
+    development_shuffled_records_by_magnitude: dict[str, list[dict[str, Any]]] = {}
     for replicate in range(max(dev_replicates, dev_null_replicates, dev_shuffled_replicates)):
         replicate_seed = base_seed + 100003 * (replicate + 1)
         if replicate < dev_null_replicates:
@@ -958,10 +1227,11 @@ def run_native_sensitivity_calibration(
                 null_config, null_dir, seed=replicate_seed
             )
             null_record["dataset"]["dataset_fingerprint"] = null_manifest["dataset_fingerprint"]
-            development["null"].append(null_record)
+            development_null_records.append(null_record)
         for magnitude in magnitudes:
             if replicate >= max(dev_replicates, dev_shuffled_replicates):
                 continue
+            positive_seed = replicate_seed + 1_000_003 + magnitude
             positive_dir = (
                 run_dir / "development" / f"injected-{magnitude:08d}" / f"replicate-{replicate:04d}"
             )
@@ -969,23 +1239,25 @@ def run_native_sensitivity_calibration(
                 config,
                 cycles=magnitude,
                 namespace=f"native-sensitivity:development:{magnitude}:{replicate:04d}",
-                seed=replicate_seed + magnitude,
+                seed=positive_seed,
             )
             positive_manifest = _materialize_native_sensitivity_dataset(
                 positive_config,
                 positive_dir,
                 condition=f"native_sensitivity_injected_{magnitude}",
-                seed=replicate_seed + magnitude,
+                seed=positive_seed,
             )
             if replicate < dev_replicates:
                 positive_record = _evaluate_native_sensitivity_dataset(
-                    positive_config, positive_dir, seed=replicate_seed + magnitude
+                    positive_config, positive_dir, seed=positive_seed
                 )
                 positive_record["dataset"]["dataset_fingerprint"] = positive_manifest[
                     "dataset_fingerprint"
                 ]
                 positive_record["perturbation_cycles"] = magnitude
-                development["positive"].setdefault(str(magnitude), []).append(positive_record)
+                development_positive_records.setdefault(str(magnitude), []).append(
+                    positive_record
+                )
             if replicate < dev_shuffled_replicates:
                 shuffled_dir = (
                     run_dir / "development" / f"shuffled-{magnitude:08d}" / f"replicate-{replicate:04d}"
@@ -994,29 +1266,54 @@ def run_native_sensitivity_calibration(
                     positive_dir,
                     shuffled_dir,
                     positive_config,
-                    replicate_seed + magnitude + 7919,
+                    positive_seed + 7919,
                 )
                 shuffled_record = _evaluate_native_sensitivity_dataset(
-                    positive_config, shuffled_dir, seed=replicate_seed + magnitude + 7919
+                    positive_config, shuffled_dir, seed=positive_seed + 7919
                 )
                 shuffled_record["dataset"]["dataset_fingerprint"] = shuffled_manifest[
                     "dataset_fingerprint"
                 ]
                 shuffled_record["perturbation_cycles"] = magnitude
-                development["shuffled"].setdefault(str(magnitude), []).append(shuffled_record)
+                development_shuffled_records_by_magnitude.setdefault(str(magnitude), []).append(
+                    shuffled_record
+                )
 
-    null_stats = _record_statistics(development["null"])
+    development_null_statistics = _record_statistics(
+        development_null_records,
+        require_complete=True,
+        expected_count=dev_null_replicates,
+        ensemble="development null",
+    )
+    development_positive_statistics: dict[float, np.ndarray] = {}
+    for magnitude in magnitudes:
+        development_positive_statistics[float(magnitude)] = _record_statistics(
+            development_positive_records.get(str(magnitude), []),
+            require_complete=True,
+            expected_count=dev_replicates,
+            ensemble=f"development positive magnitude {magnitude}",
+        )
     development_shuffled_records = [
         record
-        for records in development["shuffled"].values()
-        for record in records
+        for magnitude in magnitudes
+        for record in development_shuffled_records_by_magnitude.get(str(magnitude), [])
     ]
-    development_shuffled_stats = _record_statistics(development_shuffled_records)
-    critical = float(np.quantile(null_stats, 1.0 - alpha)) if len(null_stats) else float("nan")
+    development_shuffled_statistics = _record_statistics(
+        development_shuffled_records,
+        require_complete=True,
+        expected_count=len(magnitudes) * dev_shuffled_replicates,
+        ensemble="development shuffled-label controls",
+    )
+    threshold_calibration = _empirical_null_threshold(
+        development_null_statistics, alpha=alpha
+    )
+    critical = float(threshold_calibration["critical_statistic"])
     dev_positive = {
-        float(magnitude): records for magnitude, records in development["positive"].items()
+        float(magnitude): development_positive_records[str(magnitude)] for magnitude in magnitudes
     }
-    power_curve = _sensitivity_curve(dev_positive, critical_max_statistic=critical, alpha=alpha)
+    power_curve = _sensitivity_curve(
+        dev_positive, critical_max_statistic=critical, alpha=alpha
+    )
     selected = next(
         (
             magnitude
@@ -1034,7 +1331,16 @@ def run_native_sensitivity_calibration(
             + ([magnitudes[-1]] if magnitudes[-1] != selected else [])
         )
     )
-    fresh: dict[str, Any] = {"null": [], "positive": {}, "shuffled": {}}
+    # Materialize immutable local copies before entering fresh validation.  No
+    # fresh statistic can retune either the critical value or the selected
+    # perturbation magnitude.
+    frozen_validation_critical = critical
+    frozen_validation_magnitudes = tuple(frozen_levels)
+    frozen_validation_null_records: list[dict[str, Any]] = []
+    frozen_validation_positive_records: dict[str, list[dict[str, Any]]] = {}
+    frozen_validation_shuffled_records_by_magnitude: dict[
+        str, list[dict[str, Any]]
+    ] = {}
     for replicate in range(fresh_replicates):
         replicate_seed = base_seed + 9000001 + 100003 * replicate
         null_config = _native_sensitivity_config(
@@ -1051,13 +1357,14 @@ def run_native_sensitivity_calibration(
             null_config, null_dir, seed=replicate_seed
         )
         null_record["dataset"]["dataset_fingerprint"] = null_manifest["dataset_fingerprint"]
-        fresh["null"].append(null_record)
-        for magnitude in frozen_levels:
+        frozen_validation_null_records.append(null_record)
+        for magnitude in frozen_validation_magnitudes:
+            positive_seed = replicate_seed + 1_000_003 + magnitude
             positive_config = _native_sensitivity_config(
                 config,
                 cycles=magnitude,
                 namespace=f"native-sensitivity:frozen:{magnitude}:{replicate:04d}",
-                seed=replicate_seed + magnitude,
+                seed=positive_seed,
             )
             positive_dir = (
                 run_dir
@@ -1069,16 +1376,18 @@ def run_native_sensitivity_calibration(
                 positive_config,
                 positive_dir,
                 condition=f"native_sensitivity_injected_{magnitude}",
-                seed=replicate_seed + magnitude,
+                seed=positive_seed,
             )
             positive_record = _evaluate_native_sensitivity_dataset(
-                positive_config, positive_dir, seed=replicate_seed + magnitude
+                positive_config, positive_dir, seed=positive_seed
             )
             positive_record["dataset"]["dataset_fingerprint"] = positive_manifest[
                 "dataset_fingerprint"
             ]
             positive_record["perturbation_cycles"] = magnitude
-            fresh["positive"].setdefault(str(magnitude), []).append(positive_record)
+            frozen_validation_positive_records.setdefault(str(magnitude), []).append(
+                positive_record
+            )
             shuffled_dir = (
                 run_dir
                 / "frozen-validation"
@@ -1086,26 +1395,53 @@ def run_native_sensitivity_calibration(
                 / f"replicate-{replicate:04d}"
             )
             shuffled_manifest = _materialize_label_permutation(
-                positive_dir, shuffled_dir, positive_config, replicate_seed + magnitude + 7919
+                positive_dir, shuffled_dir, positive_config, positive_seed + 7919
             )
             shuffled_record = _evaluate_native_sensitivity_dataset(
-                positive_config, shuffled_dir, seed=replicate_seed + magnitude + 7919
+                positive_config, shuffled_dir, seed=positive_seed + 7919
             )
             shuffled_record["dataset"]["dataset_fingerprint"] = shuffled_manifest[
                 "dataset_fingerprint"
             ]
             shuffled_record["perturbation_cycles"] = magnitude
-            fresh["shuffled"].setdefault(str(magnitude), []).append(shuffled_record)
+            frozen_validation_shuffled_records_by_magnitude.setdefault(str(magnitude), []).append(
+                shuffled_record
+            )
 
-    fresh_positive = {float(magnitude): records for magnitude, records in fresh["positive"].items()}
-    fresh_curve = _sensitivity_curve(fresh_positive, critical_max_statistic=critical, alpha=alpha)
-    fresh_null_stats = np.asarray(
-        [
-            record["max_statistic"]
-            for record in fresh["null"]
-            if record.get("status") == "available"
-        ],
-        dtype=np.float64,
+    frozen_validation_null_statistics = _record_statistics(
+        frozen_validation_null_records,
+        require_complete=True,
+        expected_count=fresh_replicates,
+        ensemble="frozen-validation null",
+    )
+    frozen_validation_positive_records_by_float = {
+        float(magnitude): frozen_validation_positive_records[str(magnitude)]
+        for magnitude in frozen_validation_magnitudes
+    }
+    frozen_validation_positive_statistics: dict[float, np.ndarray] = {
+        magnitude: _record_statistics(
+            frozen_validation_positive_records[str(int(magnitude))],
+            require_complete=True,
+            expected_count=fresh_replicates,
+            ensemble=f"frozen-validation positive magnitude {int(magnitude)}",
+        )
+        for magnitude in frozen_validation_magnitudes
+    }
+    frozen_validation_shuffled_records = [
+        record
+        for magnitude in frozen_validation_magnitudes
+        for record in frozen_validation_shuffled_records_by_magnitude[str(int(magnitude))]
+    ]
+    frozen_validation_shuffled_statistics = _record_statistics(
+        frozen_validation_shuffled_records,
+        require_complete=True,
+        expected_count=len(frozen_validation_magnitudes) * fresh_replicates,
+        ensemble="frozen-validation shuffled-label controls",
+    )
+    fresh_curve = _sensitivity_curve(
+        frozen_validation_positive_records_by_float,
+        critical_max_statistic=frozen_validation_critical,
+        alpha=alpha,
     )
     minimum_recommended_null = int(
         sensitivity.get("minimum_recommended_null_replicates", 20)
@@ -1117,48 +1453,134 @@ def run_native_sensitivity_calibration(
         ensemble="development",
         alpha=alpha,
         minimum_recommended_null=minimum_recommended_null,
+        expected_replicates=len(magnitudes) * dev_shuffled_replicates,
     )
     fresh_shuffled_summary = _shuffled_false_positive_summary(
-        [record for records in fresh["shuffled"].values() for record in records],
-        critical_max_statistic=critical,
+        frozen_validation_shuffled_records,
+        critical_max_statistic=frozen_validation_critical,
         source="fresh/frozen shuffled-label controls only",
         ensemble="fresh_frozen_validation",
         alpha=alpha,
         minimum_recommended_null=minimum_recommended_null,
+        expected_replicates=len(frozen_validation_magnitudes) * fresh_replicates,
+    )
+    development_false_positive_rate = _false_positive_rate(
+        development_null_statistics, critical, alpha
+    ) | {
+        "source": "development zero-magnitude null controls only",
+        "ensemble": "development_null",
+    }
+    frozen_validation_false_positive_rate = _false_positive_rate(
+        frozen_validation_null_statistics, frozen_validation_critical, alpha
+    ) | {
+        "source": "fresh/frozen zero-magnitude null controls only",
+        "ensemble": "frozen_validation_null",
+    }
+    ensemble_provenance = {
+        "development_null": _ensemble_provenance(
+            development_null_records,
+            ensemble="development_null",
+            expected_count=dev_null_replicates,
+        ),
+        "development_positive": {
+            str(magnitude): _ensemble_provenance(
+                development_positive_records[str(magnitude)],
+                ensemble=f"development_positive_{magnitude}_cycles",
+                expected_count=dev_replicates,
+            )
+            for magnitude in magnitudes
+        },
+        "development_shuffled": _ensemble_provenance(
+            development_shuffled_records,
+            ensemble="development_shuffled",
+            expected_count=len(magnitudes) * dev_shuffled_replicates,
+        ),
+        "frozen_validation_null": _ensemble_provenance(
+            frozen_validation_null_records,
+            ensemble="frozen_validation_null",
+            expected_count=fresh_replicates,
+        ),
+        "frozen_validation_positive": {
+            str(magnitude): _ensemble_provenance(
+                frozen_validation_positive_records[str(int(magnitude))],
+                ensemble=f"frozen_validation_positive_{int(magnitude)}_cycles",
+                expected_count=fresh_replicates,
+            )
+            for magnitude in frozen_validation_magnitudes
+        },
+        "frozen_validation_shuffled": _ensemble_provenance(
+            frozen_validation_shuffled_records,
+            ensemble="frozen_validation_shuffled",
+            expected_count=len(frozen_validation_magnitudes) * fresh_replicates,
+        ),
+    }
+    empirically_calibrated_floor = (
+        selected if threshold_calibration["alpha_supported"] else None
     )
     report = {
-        "schema": "sensetrace.native-sensitivity-report.v2",
+        "schema": "sensetrace.native-sensitivity-report.v3",
         "status": "complete",
         "run_id": run_id,
         "protocol": {**protocol, "protocol_hash": protocol_hash},
         "kernel": kernel.provenance(),
-        "development": {
-            "null_max_statistic": null_stats.tolist(),
-            "critical_max_statistic": critical,
-            "false_positive_rate": {
-                "source": "development zero-magnitude null controls only",
-                "ensemble": "development",
-                "positive_replicates": int(np.sum(null_stats >= critical))
-                if len(null_stats)
-                else 0,
-                "replicates": int(len(null_stats)),
-                "rate": float(np.mean(null_stats >= critical)) if len(null_stats) else float("nan"),
-                "wilson_interval_95": wilson_interval(
-                    int(np.sum(null_stats >= critical)), len(null_stats)
-                )
-                if len(null_stats)
-                else [float("nan"), float("nan")],
+        "threshold_calibration": threshold_calibration,
+        "pilot_detection_floor": selected,
+        "empirically_alpha_calibrated_detection_floor": empirically_calibrated_floor,
+        "detection_floor_interpretation": (
+            "empirically alpha-calibrated detection floor"
+            if empirically_calibrated_floor is not None
+            else "pilot threshold only; the development null ensemble cannot resolve the requested alpha"
+        ),
+        "raw_measurements_retained": True,
+        "timing_perturbation_observations": {
+            "development_positive": {
+                str(magnitude): [
+                    record.get("timing_perturbation_observation", {})
+                    for record in development_positive_records[str(magnitude)]
+                ]
+                for magnitude in magnitudes
             },
+            "frozen_validation_positive": {
+                str(int(magnitude)): [
+                    record.get("timing_perturbation_observation", {})
+                    for record in frozen_validation_positive_records[str(int(magnitude))]
+                ]
+                for magnitude in frozen_validation_magnitudes
+            },
+        },
+        "ensemble_provenance": ensemble_provenance,
+        "ensemble_statistics": {
+            "development_null": development_null_statistics.tolist(),
+            "development_positive": {
+                str(magnitude): statistics.tolist()
+                for magnitude, statistics in development_positive_statistics.items()
+            },
+            "development_shuffled": development_shuffled_statistics.tolist(),
+            "frozen_validation_null": frozen_validation_null_statistics.tolist(),
+            "frozen_validation_positive": {
+                str(magnitude): statistics.tolist()
+                for magnitude, statistics in frozen_validation_positive_statistics.items()
+            },
+            "frozen_validation_shuffled": frozen_validation_shuffled_statistics.tolist(),
+        },
+        "development": {
+            "null_max_statistic": development_null_statistics.tolist(),
+            "null_statistics_source": "ensemble_provenance.development_null",
+            "shuffled_statistics_source": "ensemble_provenance.development_shuffled",
+            "positive_statistics_source": "ensemble_provenance.development_positive",
+            "threshold_calibration": threshold_calibration,
+            "critical_max_statistic": critical,
+            "false_positive_rate": development_false_positive_rate,
             "power_curve": power_curve,
             "shuffled_false_positive_rate": development_shuffled_summary,
             "statistics_quality": {
                 "null": _replicate_quality(
-                    statistics=null_stats,
+                    statistics=development_null_statistics,
                     alpha=alpha,
                     minimum_recommended=minimum_recommended_null,
                 ),
                 "shuffled": _replicate_quality(
-                    statistics=development_shuffled_stats,
+                    statistics=development_shuffled_statistics,
                     alpha=alpha,
                     minimum_recommended=minimum_recommended_null,
                 ),
@@ -1166,26 +1588,25 @@ def run_native_sensitivity_calibration(
         },
         "frozen_selection": {
             "selected_magnitude_cycles": selected,
-            "frozen_validation_magnitudes_cycles": frozen_levels,
+            "pilot_detection_floor_cycles": selected,
+            "empirically_alpha_calibrated_detection_floor_cycles": empirically_calibrated_floor,
+            "frozen_validation_magnitudes_cycles": list(frozen_validation_magnitudes),
             "selection_rule_applied_once": True,
             "selection_uses_fresh_validation": False,
+            "selection_frozen_before_fresh_validation": True,
         },
         "fresh_frozen_validation": {
-            "critical_max_statistic_from_development": critical,
+            "critical_max_statistic_from_development": frozen_validation_critical,
             "critical_value_source": "development zero-magnitude null ensemble",
+            "threshold_reused_without_recalibration": True,
+            "positive_statistics_source": "ensemble_provenance.frozen_validation_positive",
+            "shuffled_statistics_source": "ensemble_provenance.frozen_validation_shuffled",
             "power_curve": fresh_curve,
-            "null_false_positive_rate": {
-                "source": "fresh/frozen zero-magnitude null controls only",
-                "ensemble": "fresh_frozen_validation",
-                "rate": float(np.mean(fresh_null_stats >= critical))
-                if len(fresh_null_stats)
-                else float("nan"),
-                "replicates": int(len(fresh_null_stats)),
-            },
+            "null_false_positive_rate": frozen_validation_false_positive_rate,
             "shuffled_control_false_positive_rate": fresh_shuffled_summary,
             "statistics_quality": {
                 "null": _replicate_quality(
-                    statistics=fresh_null_stats,
+                    statistics=frozen_validation_null_statistics,
                     alpha=alpha,
                     minimum_recommended=minimum_recommended_null,
                 ),
@@ -1195,9 +1616,9 @@ def run_native_sensitivity_calibration(
         },
         "replicate_counts": {
             "development_positive_per_magnitude": dev_replicates,
-            "development_null": int(len(null_stats)),
-            "development_shuffled_total": int(len(development_shuffled_stats)),
-            "fresh_null": int(len(fresh_null_stats)),
+            "development_null": int(len(development_null_statistics)),
+            "development_shuffled_total": int(len(development_shuffled_statistics)),
+            "fresh_null": int(len(frozen_validation_null_statistics)),
             "fresh_shuffled_total": fresh_shuffled_summary["replicates"],
         },
         "claim_boundary": (

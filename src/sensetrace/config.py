@@ -242,6 +242,21 @@ def validate_config(config: dict[str, Any]) -> dict[str, Any]:
             raise ConfigError(
                 "characterization.weak_positive_control_cycles must include non-negative zero"
             )
+        null_stability = characterization.get("null_stability", {})
+        if not isinstance(null_stability, dict):
+            raise ConfigError("characterization.null_stability must be a mapping")
+        for name, default in {
+            "max_relative_deviation": 0.25,
+            "max_relative_mad": 0.10,
+        }.items():
+            value = null_stability.get(name, default)
+            if not isinstance(value, (int, float)) or value < 0:
+                raise ConfigError(f"characterization.null_stability.{name} must be non-negative")
+        minimum_replicates = null_stability.get("minimum_complete_replicates", 3)
+        if not isinstance(minimum_replicates, int) or minimum_replicates < 3:
+            raise ConfigError(
+                "characterization.null_stability.minimum_complete_replicates must be >= 3"
+            )
     return config
 
 

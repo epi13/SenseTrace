@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import ctypes
 import errno
+import fcntl
 import os
 import platform
 import shutil
@@ -31,7 +32,8 @@ class CounterEventCapability:
     probe_status: str
     scope: str
     provenance: str
-    encoding: dict[str, str] = field(default_factory=dict)
+    selection_status: str
+    encodings: tuple[dict[str, Any], ...] = ()
     probe: dict[str, Any] = field(default_factory=dict)
 
     def as_dict(self) -> dict[str, Any]:
@@ -57,6 +59,11 @@ _GENERIC_HARDWARE_CODES = {
     "cache-misses": 3,
 }
 
+_GENERIC_HARDWARE_NAMES = {
+    0: "PERF_TYPE_HARDWARE",
+    4: "PERF_TYPE_RAW",
+}
+
 PERF_TYPE_HARDWARE = 0
 PERF_TYPE_RAW = 4
 PERF_ATTR_SIZE = 128
@@ -67,12 +74,101 @@ PERF_ATTR_EXCLUDE_USER = 1 << 4
 PERF_ATTR_EXCLUDE_KERNEL = 1 << 5
 PERF_ATTR_EXCLUDE_HV = 1 << 6
 PERF_ATTR_EXCLUDE_IDLE = 1 << 7
+PERF_FORMAT_TOTAL_TIME_ENABLED = 1 << 0
+PERF_FORMAT_TOTAL_TIME_RUNNING = 1 << 1
+PERF_EVENT_IOC_ENABLE = 0x2400
+PERF_EVENT_IOC_DISABLE = 0x2401
+PERF_EVENT_IOC_RESET = 0x2403
+
+
+class PerfEventError(RuntimeError):
+    """A scoped perf-event operation failed with preserved provenance."""
+
+    def __init__(self, message: str, *, provenance: dict[str, Any], errno_value: int | None = None):
+        super().__init__(message)
+        self.provenance = provenance
+        self.errno_value = errno_value
+
+
+@dataclass(frozen=True)
+class PerfEventEncoding:
+    """One fully qualified PMU event description."""
+
+    device: str
+    alias: str
+    source_type: int | str
+    config: int | None
+    config_fields: dict[str, str]
+    format_fields: dict[str, str]
+    raw_spec: str
+
+    @property
+    def qualified_name(self) -> str:
+        return f"{self.device}/{self.alias}/"
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "device": self.device,
+            "alias": self.alias,
+            "qualified_name": self.qualified_name,
+            "event_source_type": {
+                "value": self.source_type,
+                "name": _GENERIC_HARDWARE_NAMES.get(
+                    self.source_type if isinstance(self.source_type, int) else -1,
+                    "sysfs_pmu_type",
+                ),
+            },
+            "config": self.config,
+            "config_width_bits": 64,
+            "config_fields": dict(self.config_fields),
+            "sysfs_format_fields": dict(self.format_fields),
+            "raw_spec": self.raw_spec,
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+        }
+
+
+@dataclass(frozen=True)
+class ScopedPerfEventReading:
+    """A single operation-scoped counter read with multiplexing evidence."""
+
+    raw_count: int
+    time_enabled: int
+    time_running: int
+    read_format: int
+
+    @property
+    def multiplexed(self) -> bool:
+        return self.time_running != self.time_enabled
+
+    @property
+    def scaled_count(self) -> float | None:
+        if self.time_running <= 0:
+            return None
+        return float(self.raw_count * self.time_enabled / self.time_running)
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "status": "complete" if self.time_running > 0 else "not_running",
+            "raw_count": self.raw_count,
+            "scaled_count": self.scaled_count,
+            "time_enabled": self.time_enabled,
+            "time_running": self.time_running,
+            "multiplexed": self.multiplexed,
+            "read_format": self.read_format,
+            "read_format_fields": {
+                "total_time_enabled": bool(self.read_format & PERF_FORMAT_TOTAL_TIME_ENABLED),
+                "total_time_running": bool(self.read_format & PERF_FORMAT_TOTAL_TIME_RUNNING),
+            },
+        }
 
 
 def build_perf_event_attr(
     event: str,
     *,
     raw_event: int | None = None,
+    event_type: int | None = None,
+    device: str = "kernel-generic",
+    read_format: int = PERF_FORMAT_TOTAL_TIME_ENABLED | PERF_FORMAT_TOTAL_TIME_RUNNING,
     size: int = PERF_ATTR_SIZE,
 ) -> tuple[bytes, dict[str, Any]]:
     """Build the ABI prefix used by a scoped ``perf_event_open`` probe.
@@ -84,6 +180,8 @@ def build_perf_event_attr(
 
     if size < 48 or size > PERF_ATTR_SIZE:
         raise ValueError("perf_event_attr size must cover the flags word and fit the probe buffer")
+    if raw_event is None and event_type is not None:
+        raise ValueError("event_type requires an explicit raw_event config")
     if raw_event is None:
         if event not in _GENERIC_HARDWARE_CODES:
             raise ValueError(f"no generic encoding is known for event {event!r}")
@@ -91,19 +189,33 @@ def build_perf_event_attr(
         config = _GENERIC_HARDWARE_CODES[event]
         encoding = f"PERF_TYPE_HARDWARE:{config}"
     else:
-        if not 0 <= raw_event <= 0xFFFFFFFF:
-            raise ValueError("raw PMU event encoding must fit the perf config field")
-        event_type = PERF_TYPE_RAW
+        if not 0 <= raw_event <= 0xFFFFFFFFFFFFFFFF:
+            raise ValueError("raw PMU event encoding must fit the 64-bit perf config field")
+        event_type = PERF_TYPE_RAW if event_type is None else event_type
         config = raw_event
-        encoding = f"PERF_TYPE_RAW:0x{raw_event:x}"
+        encoding = f"type={event_type}:config=0x{raw_event:x}"
+    if not 0 <= read_format <= 0xFFFFFFFFFFFFFFFF:
+        raise ValueError("perf read_format must fit the 64-bit ABI field")
     flags = PERF_ATTR_DISABLED | PERF_ATTR_EXCLUDE_KERNEL | PERF_ATTR_EXCLUDE_HV
     attribute = bytearray(PERF_ATTR_SIZE)
     struct.pack_into("<IIQ", attribute, 0, event_type, size, config)
+    struct.pack_into("<Q", attribute, 32, read_format)
     struct.pack_into("<Q", attribute, 40, flags)
     return bytes(attribute), {
         "type": event_type,
+        "event_source_type": {
+            "value": event_type,
+            "name": _GENERIC_HARDWARE_NAMES.get(event_type, "sysfs_pmu_type"),
+            "device": device,
+        },
         "config": config,
+        "config_width_bits": 64,
         "size": size,
+        "read_format": read_format,
+        "read_format_fields": {
+            "total_time_enabled": bool(read_format & PERF_FORMAT_TOTAL_TIME_ENABLED),
+            "total_time_running": bool(read_format & PERF_FORMAT_TOTAL_TIME_RUNNING),
+        },
         "flags": flags,
         "flags_by_name": {
             "disabled": True,
@@ -115,6 +227,7 @@ def build_perf_event_attr(
             "exclude_idle": False,
         },
         "encoding": encoding,
+        "device": device,
     }
 
 
@@ -132,6 +245,196 @@ def _perf_event_open(
             ctypes.c_ulong(0),
         )
     )
+
+
+class OperationScopedPerfEvent:
+    """Read one PMU event only while a caller-owned operation is executing.
+
+    The object always binds to the current native thread, uses ``cpu=-1`` in
+    the per-thread sense, creates the event disabled, and never accepts a
+    caller-supplied PID.  It is intentionally a single-event reader: a future
+    grouped or system-wide collector would need a separate, explicit contract.
+    """
+
+    def __init__(
+        self,
+        event: str | PerfEventEncoding,
+        *,
+        syscall_number: int | None = None,
+        read_format: int = PERF_FORMAT_TOTAL_TIME_ENABLED | PERF_FORMAT_TOTAL_TIME_RUNNING,
+    ) -> None:
+        if isinstance(event, PerfEventEncoding):
+            if event.config is None:
+                raise ValueError(
+                    f"PMU event {event.qualified_name!r} has no directly usable config encoding"
+                )
+            event_type = event.source_type if isinstance(event.source_type, int) else None
+            if event_type is None:
+                raise ValueError("PMU event source type must be numeric for perf_event_open")
+            self.event = event
+            self._attribute_bytes, self._attribute_record = build_perf_event_attr(
+                event.alias,
+                raw_event=event.config,
+                event_type=event_type,
+                device=event.device,
+                read_format=read_format,
+            )
+        else:
+            self.event = PerfEventEncoding(
+                device="kernel-generic",
+                alias=event,
+                source_type=PERF_TYPE_HARDWARE,
+                config=_GENERIC_HARDWARE_CODES.get(event),
+                config_fields={"generic_alias": event},
+                format_fields={},
+                raw_spec=event,
+            )
+            self._attribute_bytes, self._attribute_record = build_perf_event_attr(
+                event, read_format=read_format
+            )
+        self._syscall_number = syscall_number or getattr(os, "SYS_perf_event_open", None)
+        if self._syscall_number is None:
+            self._syscall_number = {"x86_64": 298, "aarch64": 241}.get(platform.machine())
+        self._read_format = read_format
+        self._fd: int | None = None
+        self._enabled = False
+        self._thread_id: int | None = None
+        self._open_errno: int | None = None
+
+    @property
+    def provenance(self) -> dict[str, Any]:
+        return {
+            "event": self.event.as_dict(),
+            "perf_event_attr": self._attribute_record,
+            "scope": {
+                "kind": "calling_thread",
+                "pid_argument": self._thread_id,
+                "cpu_argument": -1,
+                "inherit": False,
+                "system_wide": False,
+                "unrelated_processes": "not attached",
+            },
+            "read_format": self._read_format,
+            "read_format_fields": {
+                "total_time_enabled": bool(
+                    self._read_format & PERF_FORMAT_TOTAL_TIME_ENABLED
+                ),
+                "total_time_running": bool(
+                    self._read_format & PERF_FORMAT_TOTAL_TIME_RUNNING
+                ),
+            },
+            "multiplexing": "single event; read time_enabled and time_running explicitly",
+            "errno": self._open_errno or 0,
+            "errno_name": errno.errorcode.get(self._open_errno or 0, "none"),
+        }
+
+    def open(self) -> OperationScopedPerfEvent:
+        if self._fd is not None:
+            raise RuntimeError("scoped perf event is already open")
+        if self._syscall_number is None:
+            raise PerfEventError(
+                "perf_event_open is unsupported on this architecture",
+                provenance=self.provenance,
+            )
+        self._thread_id = threading.get_native_id()
+        attribute = (ctypes.c_ubyte * len(self._attribute_bytes)).from_buffer_copy(
+            self._attribute_bytes
+        )
+        fd = _perf_event_open(
+            attribute,
+            syscall_number=self._syscall_number,
+            thread_id=self._thread_id,
+            cpu=-1,
+        )
+        if fd < 0:
+            self._open_errno = ctypes.get_errno()
+            provenance = self.provenance
+            raise PerfEventError(
+                f"perf_event_open failed: {errno.errorcode.get(self._open_errno, self._open_errno)}",
+                provenance=provenance,
+                errno_value=self._open_errno,
+            )
+        self._fd = fd
+        return self
+
+    def _ioctl(self, request: int) -> None:
+        if self._fd is None:
+            raise RuntimeError("scoped perf event is not open")
+        try:
+            fcntl.ioctl(self._fd, request, 0)
+        except OSError as exc:
+            raise PerfEventError(
+                f"perf event ioctl {request:#x} failed: {exc}",
+                provenance=self.provenance,
+                errno_value=exc.errno,
+            ) from exc
+
+    def reset_and_enable(self) -> None:
+        self._ioctl(PERF_EVENT_IOC_RESET)
+        self._ioctl(PERF_EVENT_IOC_ENABLE)
+        self._enabled = True
+
+    def disable(self) -> None:
+        if self._enabled:
+            self._ioctl(PERF_EVENT_IOC_DISABLE)
+            self._enabled = False
+
+    def read(self) -> ScopedPerfEventReading:
+        if self._fd is None:
+            raise RuntimeError("scoped perf event is not open")
+        expected_size = struct.calcsize("<QQQ")
+        try:
+            payload = os.read(self._fd, expected_size)
+        except OSError as exc:
+            raise PerfEventError(
+                f"reading scoped perf event failed: {exc}",
+                provenance=self.provenance,
+                errno_value=exc.errno,
+            ) from exc
+        if len(payload) != expected_size:
+            raise PerfEventError(
+                f"scoped perf event returned {len(payload)} bytes; expected {expected_size}",
+                provenance=self.provenance,
+            )
+        raw_count, time_enabled, time_running = struct.unpack("<QQQ", payload)
+        return ScopedPerfEventReading(
+            raw_count=int(raw_count),
+            time_enabled=int(time_enabled),
+            time_running=int(time_running),
+            read_format=self._read_format,
+        )
+
+    def measure(self, operation: Callable[[], Any]) -> tuple[Any, ScopedPerfEventReading]:
+        """Run exactly one controlled callback between enable and disable."""
+
+        self.open()
+        try:
+            self.reset_and_enable()
+            result = operation()
+            self.disable()
+            return result, self.read()
+        finally:
+            self.close()
+
+    def close(self) -> None:
+        if self._fd is None:
+            return
+        try:
+            if self._enabled:
+                try:
+                    self.disable()
+                except PerfEventError:
+                    pass
+        finally:
+            os.close(self._fd)
+            self._fd = None
+            self._enabled = False
+
+    def __enter__(self) -> OperationScopedPerfEvent:
+        return self.open()
+
+    def __exit__(self, _exc_type: Any, _exc_value: Any, _traceback: Any) -> None:
+        self.close()
 
 
 def _probe_generic_event(event: str, *, thread_id: int | None = None) -> dict[str, Any]:
@@ -214,43 +517,130 @@ def _run(command: list[str], *, timeout: float = 5.0) -> str | None:
     return result.stdout
 
 
-def _sysfs_event_names(sysfs_root: Path) -> set[str]:
-    names: set[str] = set()
-    devices = sysfs_root / "bus/event_source/devices"
+def _parse_sysfs_event_fields(value: str) -> dict[str, str]:
+    fields: dict[str, str] = {}
+    for token in value.strip().split(","):
+        key, separator, field_value = token.partition("=")
+        if separator and key:
+            fields[key.strip()] = field_value.strip()
+        elif token.strip():
+            fields.setdefault("unparsed", token.strip())
+    return fields
+
+
+def _parse_numeric(value: str) -> int | None:
     try:
-        device_paths = sorted(path for path in devices.iterdir() if path.is_dir())
-    except OSError:
-        return names
-    for device in device_paths:
-        events_dir = device / "events"
-        try:
-            for path in events_dir.iterdir():
-                if path.is_file():
-                    names.add(path.name)
-                    names.add(f"{device.name}/{path.name}/")
-        except OSError:
-            continue
-    return names
+        return int(value, 0)
+    except ValueError:
+        return None
 
 
-def _sysfs_event_encodings(sysfs_root: Path) -> dict[str, str]:
-    encodings: dict[str, str] = {}
+def _encode_sysfs_config(
+    config_fields: dict[str, str], format_fields: dict[str, str]
+) -> int | None:
+    """Encode only fully understood ``config`` fields; preserve the rest verbatim."""
+
+    config = 0
+    for config_field, value_text in config_fields.items():
+        if config_field == "unparsed":
+            return None
+        value = _parse_numeric(value_text)
+        format_text = format_fields.get(config_field)
+        if value is None or format_text is None or ":" not in format_text:
+            return None
+        register, _, ranges = format_text.partition(":")
+        if register != "config":
+            return None
+        bit_positions: list[int] = []
+        for interval in ranges.split(","):
+            start_text, separator, end_text = interval.partition("-")
+            if not separator:
+                return None
+            try:
+                start = int(start_text)
+                end = int(end_text)
+            except ValueError:
+                return None
+            bit_positions.extend(range(start, end + 1))
+        if value >= 1 << len(bit_positions):
+            return None
+        for source_bit, destination_bit in enumerate(bit_positions):
+            if value & (1 << source_bit):
+                config |= 1 << destination_bit
+    return config
+
+
+def _sysfs_event_encodings(sysfs_root: Path) -> list[PerfEventEncoding]:
+    encodings: list[PerfEventEncoding] = []
     devices = sysfs_root / "bus/event_source/devices"
     try:
         device_paths = sorted(path for path in devices.iterdir() if path.is_dir())
     except OSError:
         return encodings
     for device in device_paths:
+        source_type_text = _read_text(device / "type") or "unavailable"
+        try:
+            source_type: int | str = int(source_type_text, 0)
+        except ValueError:
+            source_type = source_type_text
+        format_fields: dict[str, str] = {}
+        try:
+            for path in sorted((device / "format").iterdir()):
+                if path.is_file():
+                    format_fields[path.name] = path.read_text(encoding="utf-8").strip()
+        except OSError:
+            pass
         events_dir = device / "events"
         try:
             for path in events_dir.iterdir():
                 if path.is_file():
                     value = path.read_text(encoding="utf-8").strip()
-                    encodings[path.name] = value
-                    encodings[f"{device.name}/{path.name}/"] = value
+                    config_fields = _parse_sysfs_event_fields(value)
+                    config_value = _encode_sysfs_config(config_fields, format_fields)
+                    encodings.append(
+                        PerfEventEncoding(
+                            device=device.name,
+                            alias=path.name,
+                            source_type=source_type,
+                            config=config_value,
+                            config_fields=config_fields,
+                            format_fields=format_fields,
+                            raw_spec=value,
+                        )
+                    )
         except OSError:
             continue
     return encodings
+
+
+def select_sysfs_event_encoding(
+    sysfs_root: str | Path, event_name: str
+) -> PerfEventEncoding:
+    """Resolve a PMU event only by qualified ``device/alias/`` identity."""
+
+    encodings = _sysfs_event_encodings(Path(sysfs_root))
+    if event_name.endswith("/"):
+        matches = [item for item in encodings if item.qualified_name == event_name]
+    else:
+        matches = [item for item in encodings if item.alias == event_name]
+    if len(matches) != 1:
+        raise ValueError(
+            f"PMU event {event_name!r} is not uniquely qualified; use device/alias/ "
+            f"(matches={len(matches)})"
+        )
+    if matches[0].config is None or not isinstance(matches[0].source_type, int):
+        raise ValueError(
+            f"PMU event {matches[0].qualified_name!r} has no directly usable config encoding"
+        )
+    return matches[0]
+
+
+def _sysfs_event_names(sysfs_root: Path) -> set[str]:
+    names: set[str] = set()
+    for encoding in _sysfs_event_encodings(sysfs_root):
+        names.add(encoding.alias)
+        names.add(encoding.qualified_name)
+    return names
 
 
 def _read_text(path: Path) -> str | None:
@@ -353,24 +743,50 @@ def discover_counter_capabilities(
     selected_perf = perf_path or shutil.which("perf")
     if perf_output is None and selected_perf:
         perf_output = runner([selected_perf, "list", "--no-desc"])
+    sysfs_encodings = _sysfs_event_encodings(root)
     available = _sysfs_event_names(root) | _perf_event_names(perf_output)
-    encodings = _sysfs_event_encodings(root)
+    encodings_by_alias: dict[str, list[PerfEventEncoding]] = {}
+    encodings_by_qualified: dict[str, PerfEventEncoding] = {}
+    for encoding in sysfs_encodings:
+        encodings_by_alias.setdefault(encoding.alias, []).append(encoding)
+        encodings_by_qualified[encoding.qualified_name] = encoding
     permission_boundary = _permission_boundary(Path(proc_root))
     probe_thread_id = threading.get_native_id()
     event_records: list[CounterEventCapability] = []
     for logical_name, candidates in EVENT_CANDIDATES.items():
         found = tuple(candidate for candidate in candidates if candidate in available)
+        selected_encodings: list[PerfEventEncoding] = []
+        ambiguous_candidates: list[str] = []
+        for candidate in found:
+            if candidate.endswith("/"):
+                resolved_encoding = encodings_by_qualified.get(candidate)
+                if resolved_encoding is not None:
+                    selected_encodings.append(resolved_encoding)
+                continue
+            matches = encodings_by_alias.get(candidate, [])
+            if len(matches) == 1:
+                selected_encodings.append(matches[0])
+            elif len(matches) > 1:
+                ambiguous_candidates.append(candidate)
+                selected_encodings.extend(matches)
+        if ambiguous_candidates:
+            selection_status = "ambiguous_unqualified_alias"
+        elif selected_encodings:
+            selection_status = "qualified_encoding_available"
+        else:
+            selection_status = "generic_or_vocabulary_only"
         probe = (
             _probe_generic_event(found[0], thread_id=probe_thread_id)
-            if probe_hardware_events and found
+            if probe_hardware_events and found and not ambiguous_candidates
             else {}
         )
+        event_status = "ambiguous" if ambiguous_candidates else "available" if found else "unavailable"
         event_records.append(
             CounterEventCapability(
                 logical_name=logical_name,
                 candidate_events=candidates,
                 available_events=found,
-                status="available" if found else "unavailable",
+                status=event_status,
                 probe_status=probe.get("status", "not_requested"),
                 scope="SenseTrace-owned calling thread only; cpu=-1 follows that thread; no system-wide collection",
                 provenance=(
@@ -378,9 +794,8 @@ def discover_counter_capabilities(
                     if available
                     else "no readable PMU event description"
                 ),
-                encoding={
-                    candidate: encodings[candidate] for candidate in found if candidate in encodings
-                },
+                selection_status=selection_status,
+                encodings=tuple(item.as_dict() for item in selected_encodings),
                 probe=probe,
             )
         )
@@ -418,8 +833,12 @@ def discover_counter_capabilities(
         },
         "raw_core_event_support": {
             "status": "vocabulary_discovered",
-            "sysfs_event_encodings": encodings,
+            "sysfs_event_encodings": [item.as_dict() for item in sysfs_encodings],
             "raw_encoding_probe": "not_requested_for_non-generic_events",
+            "selection_policy": (
+                "qualified PMU device/type/config/format records are preserved; ambiguous bare aliases "
+                "are never selected"
+            ),
         },
         "event_multiplexing": {
             "status": "not_tested",

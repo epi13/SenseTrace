@@ -21,6 +21,7 @@ from sensetrace.splits import (
     partition_indices,
     phase1a_split_hierarchy,
     read_split,
+    validate_phase1a_split_hierarchy,
     write_split,
 )
 from sensetrace.storage import ShardWriter, load_shards, validate_all_shards
@@ -406,3 +407,49 @@ def test_campaign_combination_preserves_source_manifests_and_sample_identity(tmp
         campaign_id="campaign-test",
     )
     assert combined_again["rows"] == 4
+
+
+def test_hierarchy_audit_detects_renamed_but_equivalent_groupings():
+    metadata = {
+        "sample_id": np.asarray([f"sample-{index}" for index in range(9)]),
+        "location_id": np.asarray(
+            [
+                "session-A",
+                "session-A",
+                "session-A",
+                "session-B",
+                "session-B",
+                "session-B",
+                "session-C",
+                "session-C",
+                "session-C",
+            ]
+        ),
+        "session_id": np.asarray(
+            [
+                "block-17",
+                "block-17",
+                "block-17",
+                "block-42",
+                "block-42",
+                "block-42",
+                "block-99",
+                "block-99",
+                "block-99",
+            ]
+        ),
+    }
+    first = grouped_split(
+        metadata, dataset_fingerprint="dataset", group_keys=["location_id"], seed=3
+    )
+    second = grouped_split(
+        metadata, dataset_fingerprint="dataset", group_keys=["session_id"], seed=4
+    )
+    hierarchy = {
+        "location_level": {"status": "available", "split": first},
+        "renamed_level": {"status": "available", "split": second},
+    }
+    audit = validate_phase1a_split_hierarchy(metadata, hierarchy)
+    assert ["location_level", "renamed_level"] in audit[
+        "identical_grouping_equivalence_relations"
+    ]

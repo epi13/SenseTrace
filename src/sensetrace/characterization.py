@@ -28,7 +28,17 @@ from .inventory import collect_inventory
 from .journal import Journal
 from .runner import _git_commit, new_run_id
 
-CHARACTERIZATION_PROTOCOL_VERSION = "measurement-primitive-characterization-v1"
+CHARACTERIZATION_PROTOCOL_VERSION = "measurement-primitive-characterization-v2"
+
+DEFAULT_NULL_STABILITY_RULE: dict[str, Any] = {
+    "statistic": "median_of_replicate_sample_medians",
+    "spread_statistic": "median_absolute_deviation_of_replicate_sample_medians",
+    "relative_scale": "absolute_median_center",
+    "max_relative_deviation": 0.25,
+    "max_relative_mad": 0.10,
+    "minimum_complete_replicates": 3,
+    "insufficient_evidence_status": "insufficient_evidence",
+}
 
 
 def _write_json(path: Path, value: Any) -> None:
@@ -75,11 +85,15 @@ def characterization_protocol(
             "location_count": int(characterization.get("location_count", 4)),
             "trials_per_location": int(characterization.get("trials_per_location", 16)),
             "weak_positive_control_cycles": weak_levels,
+            "scoped_perf_event": characterization.get("scoped_perf_event", "not_configured"),
         },
         "analysis": {
             "no_model_training": True,
             "summary": "raw observations and primitive-declared control contrasts",
             "uncertainty": "report replicate count and descriptive spread; no hidden-bit threshold tuning",
+            "null_stability": dict(
+                contract.get("null_stability", DEFAULT_NULL_STABILITY_RULE)
+            ),
         },
         "claim_boundary": contract["claim_boundary"],
     }
@@ -114,6 +128,9 @@ def _collect_backend(backend: AcquisitionBackend) -> dict[str, Any]:
             "primitive": str(metadata[0]["measurement_primitive"]),
             "capabilities": json.loads(str(metadata[0]["measurement_primitive_capabilities"])),
             "access_state_oracle": json.loads(str(metadata[0]["access_state_oracle_provenance"])),
+            "operation_scoped_perf": json.loads(
+                str(metadata[0].get("operation_scoped_perf_observation", '{"status":"not_configured"}'))
+            ),
             "configuration_hash": str(metadata[0].get("configuration_hash", "unavailable")),
             "code_commit": str(metadata[0].get("code_commit", "unavailable")),
             "protocol_hash": str(metadata[0].get("protocol_hash", "unavailable")),
@@ -122,21 +139,73 @@ def _collect_backend(backend: AcquisitionBackend) -> dict[str, Any]:
         backend.close()
 
 
-def _contrast(left: list[dict[str, Any]], right: list[dict[str, Any]]) -> dict[str, Any]:
-    left_values = np.asarray(
-        [item["sample_median_summary"]["median"] for item in left if item["status"] == "complete"],
-        dtype=np.float64,
+def _record_replicate_id(record: dict[str, Any]) -> str:
+    """Return the explicit replicate identity used for characterization joins."""
+
+    if record.get("replicate_id") not in {None, ""}:
+        return str(record["replicate_id"])
+    if record.get("replicate") not in {None, ""}:
+        return f"replicate-{int(record['replicate']):04d}"
+    return ""
+
+
+def _complete_finite_records(records: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    result: dict[str, dict[str, Any]] = {}
+    for record in records:
+        if record.get("status") != "complete":
+            continue
+        replicate_id = _record_replicate_id(record)
+        try:
+            median = float(record["sample_median_summary"]["median"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if replicate_id and np.isfinite(median):
+            result[replicate_id] = record
+    return result
+
+
+def _contrast(
+    left: list[dict[str, Any]],
+    right: list[dict[str, Any]],
+    *,
+    expected_replicate_ids: Iterable[str] | None = None,
+) -> dict[str, Any]:
+    """Join contrast observations by explicit replicate identity."""
+
+    left_by_id = _complete_finite_records(left)
+    right_by_id = _complete_finite_records(right)
+    expected = {
+        str(value)
+        for value in (expected_replicate_ids or set(left_by_id) | set(right_by_id))
+    }
+    matched_ids = sorted(set(left_by_id) & set(right_by_id) & expected)
+    missing_left_ids = sorted(expected - set(left_by_id))
+    missing_right_ids = sorted(expected - set(right_by_id))
+    paired_differences = [
+        {
+            "replicate_id": replicate_id,
+            "left_median": float(left_by_id[replicate_id]["sample_median_summary"]["median"]),
+            "right_median": float(right_by_id[replicate_id]["sample_median_summary"]["median"]),
+            "difference": float(
+                right_by_id[replicate_id]["sample_median_summary"]["median"]
+                - left_by_id[replicate_id]["sample_median_summary"]["median"]
+            ),
+        }
+        for replicate_id in matched_ids
+    ]
+    differences = np.asarray(
+        [item["difference"] for item in paired_differences], dtype=np.float64
     )
-    right_values = np.asarray(
-        [item["sample_median_summary"]["median"] for item in right if item["status"] == "complete"],
-        dtype=np.float64,
-    )
-    paired_count = min(len(left_values), len(right_values))
-    differences = right_values[:paired_count] - left_values[:paired_count]
     return {
-        "left_replicates": int(len(left_values)),
-        "right_replicates": int(len(right_values)),
-        "paired_replicates": int(paired_count),
+        "left_replicates": int(len(left_by_id)),
+        "right_replicates": int(len(right_by_id)),
+        "expected_replicates": int(len(expected)),
+        "paired_replicates": int(len(matched_ids)),
+        "matched_replicate_ids": matched_ids,
+        "missing_left_replicate_ids": missing_left_ids,
+        "missing_right_replicate_ids": missing_right_ids,
+        "required_replicates_present": not missing_left_ids and not missing_right_ids,
+        "paired_differences": paired_differences,
         "left_label": "left",
         "right_label": "right",
         "difference_definition": "right median sample latency minus left median sample latency",
@@ -236,9 +305,99 @@ def _control_summary(records: list[dict[str, Any]]) -> dict[str, Any]:
         "records": records,
         "replicates": len(records),
         "complete_replicates": len(complete),
+        "replicate_ids": [_record_replicate_id(item) for item in records],
+        "replicate_medians": [
+            float(item["sample_median_summary"]["median"])
+            for item in complete
+            if np.isfinite(float(item["sample_median_summary"]["median"]))
+        ],
         "median_of_replicate_medians": float(np.median(medians)) if len(medians) else float("nan"),
         "replicate_median_std": float(np.std(medians, ddof=1)) if len(medians) > 1 else 0.0,
         "raw_values_retained": True,
+    }
+
+
+def _null_stability_analysis(
+    records: list[dict[str, Any]],
+    *,
+    expected_replicates: int,
+    rule: dict[str, Any],
+) -> dict[str, Any]:
+    """Evaluate a predeclared robust null-stability rule without filtering values."""
+
+    complete_records = [item for item in records if item.get("status") == "complete"]
+    complete_medians: list[float] = []
+    for record in complete_records:
+        try:
+            complete_medians.append(float(record["sample_median_summary"]["median"]))
+        except (KeyError, TypeError, ValueError):
+            complete_medians.append(float("nan"))
+    values = np.asarray(complete_medians, dtype=np.float64)
+    completeness = {
+        "status": "pass"
+        if len(records) == expected_replicates and len(complete_records) == expected_replicates
+        else "fail",
+        "expected_replicates": expected_replicates,
+        "observed_records": len(records),
+        "complete_records": len(complete_records),
+    }
+    finite_validity = {
+        "status": "pass"
+        if len(values) == expected_replicates and bool(np.all(np.isfinite(values)))
+        else "fail",
+        "finite_replicate_medians": int(np.sum(np.isfinite(values))),
+        "nonfinite_replicate_medians": int(np.sum(~np.isfinite(values))),
+        "raw_replicate_medians": complete_medians,
+    }
+    minimum_replicates = int(rule.get("minimum_complete_replicates", 3))
+    if completeness["status"] != "pass" or finite_validity["status"] != "pass":
+        return {
+            "status": "fail",
+            "completeness": completeness,
+            "finite_value_validity": finite_validity,
+            "stability": {
+                "status": "not_evaluable",
+                "reason": "complete finite null replicates are required before stability can be evaluated",
+            },
+            "rule": rule,
+        }
+    if len(values) < minimum_replicates:
+        return {
+            "status": "insufficient_evidence",
+            "completeness": completeness,
+            "finite_value_validity": finite_validity,
+            "stability": {
+                "status": "insufficient_evidence",
+                "reason": "too few complete finite null replicates for a stability statement",
+                "minimum_complete_replicates": minimum_replicates,
+            },
+            "rule": rule,
+        }
+
+    center = float(np.median(values))
+    absolute_deviations = np.abs(values - center)
+    mad = float(np.median(absolute_deviations))
+    denominator = max(abs(center), np.finfo(np.float64).tiny)
+    relative_deviations = absolute_deviations / denominator
+    relative_mad = mad / denominator
+    max_relative_deviation = float(np.max(relative_deviations))
+    stability_pass = bool(
+        max_relative_deviation <= float(rule["max_relative_deviation"])
+        and relative_mad <= float(rule["max_relative_mad"])
+    )
+    return {
+        "status": "pass" if stability_pass else "fail",
+        "completeness": completeness,
+        "finite_value_validity": finite_validity,
+        "stability": {
+            "status": "pass" if stability_pass else "fail",
+            "center": center,
+            "median_absolute_deviation": mad,
+            "relative_mad": relative_mad,
+            "relative_deviations": [float(value) for value in relative_deviations],
+            "max_relative_deviation": max_relative_deviation,
+        },
+        "rule": rule,
     }
 
 
@@ -254,7 +413,8 @@ def _decision_evidence(
         for item in required
     ]
     controls_pass = bool(required) and all(
-        contrasts.get(str(item["name"]), {}).get("paired_replicates", 0) == replicates
+        contrasts.get(str(item["name"]), {}).get("required_replicates_present", False)
+        and contrasts.get(str(item["name"]), {}).get("paired_replicates", 0) == replicates
         for item in required
     )
     observable_response = bool(contrast_ok) and all(contrast_ok)
@@ -276,16 +436,12 @@ def _decision_evidence(
         )
     )
     null_records = records_by_control.get(null_name, [])
-    null_medians = [
-        item["sample_median_summary"]["median"]
-        for item in null_records
-        if item.get("status") == "complete"
-    ]
-    null_stable = (
-        len(null_records) == replicates
-        and len(null_medians) == replicates
-        and all(np.isfinite(null_medians))
+    null_stability = _null_stability_analysis(
+        null_records,
+        expected_replicates=replicates,
+        rule=dict(contract.get("null_stability", DEFAULT_NULL_STABILITY_RULE)),
     )
+    null_stable = null_stability["status"] == "pass"
     all_records = [record for records in records_by_control.values() for record in records]
     required_provenance = (
         "session_id",
@@ -330,6 +486,7 @@ def _decision_evidence(
         "observable_response": observable_response,
         "controls_pass": controls_pass,
         "null_stable": null_stable,
+        "null_stability": null_stability,
         "provenance_complete": provenance_complete,
         "scope_acceptable": bool(contract.get("scope_acceptable", False)),
         "oracle_available": oracle_available,
@@ -395,6 +552,7 @@ def run_measurement_primitive_characterization(
     base_seed = int(config.get("experiment", {}).get("seed", 1337))
     for replicate in range(replicates):
         seed = base_seed + 104729 * (replicate + 1)
+        replicate_id = f"replicate-{replicate:04d}"
         boot_ids: list[str] = []
         order = [int(index) for index in np.random.default_rng(seed).permutation(len(controls))]
         matched_backends: dict[str, Any] | None = None
@@ -420,6 +578,7 @@ def run_measurement_primitive_characterization(
                 record["control"] = control.name
                 record["role"] = control.role
                 record["replicate"] = replicate
+                record["replicate_id"] = replicate_id
                 record["acquisition_order_index"] = acquisition_order_index
                 record["protocol_hash"] = protocol_hash
                 records_by_control[control.name].append(record)
@@ -441,6 +600,7 @@ def run_measurement_primitive_characterization(
         contrast_results[name] = _contrast(
             records_by_control.get(str(item["left_control"]), []),
             records_by_control.get(str(item["right_control"]), []),
+            expected_replicate_ids=[f"replicate-{index:04d}" for index in range(replicates)],
         )
     evidence = _decision_evidence(contract, records_by_control, contrast_results, replicates)
     decision_gate = decide_characterization(evidence)
@@ -573,6 +733,7 @@ def run_measurement_primitive_characterization(
         },
         "decision_gate": {
             **decision_gate,
+            "null_stability": evidence["null_stability"],
             "required_contrasts": [
                 str(item["name"]) for item in contract.get("required_contrasts", [])
             ],

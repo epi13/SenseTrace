@@ -29,14 +29,24 @@ def write_dataset_manifest(
     provenance: dict[str, Any] | None = None,
     acquisition_sessions: list[dict[str, Any]] | None = None,
     campaign_id: str | None = None,
+    dataset_purpose: str | None = None,
+    protocol_identity: str | None = None,
+    protocol_hash: str | None = None,
 ) -> dict[str, Any]:
     root = Path(run_dir)
     config_hash = config_fingerprint(config)
+    manifest_provenance = dict(provenance or {})
+    effective_purpose = str(
+        dataset_purpose or manifest_provenance.get("dataset_purpose", "generic")
+    )
+    effective_protocol_identity = protocol_identity or manifest_provenance.get("protocol_identity")
+    effective_protocol_hash = protocol_hash or manifest_provenance.get("protocol_hash")
     fingerprint = dataset_fingerprint(shard_infos, config_hash=config_hash)
     manifest = {
         "schema": "sensetrace.dataset-manifest.v1",
         "dataset_schema": SCHEMA_VERSION,
         "condition": condition,
+        "dataset_purpose": effective_purpose,
         "created_at": datetime.now(UTC).isoformat(),
         "config_hash": config_hash,
         "dataset_fingerprint": fingerprint,
@@ -45,8 +55,12 @@ def write_dataset_manifest(
         "rows": sum(info.rows for info in shard_infos),
         "shards": [info.as_dict() for info in shard_infos],
     }
-    if provenance:
-        manifest["provenance"] = provenance
+    if effective_protocol_identity is not None:
+        manifest["protocol_identity"] = str(effective_protocol_identity)
+    if effective_protocol_hash is not None:
+        manifest["protocol_hash"] = str(effective_protocol_hash)
+    if manifest_provenance:
+        manifest["provenance"] = manifest_provenance
     if acquisition_sessions is not None:
         manifest["acquisition_sessions"] = acquisition_sessions
     if campaign_id is not None:
@@ -69,6 +83,10 @@ def read_dataset_manifest(run_dir: str | Path) -> dict[str, Any]:
 
 def load_dataset(
     run_dir: str | Path,
+    *,
+    expected_purpose: str | None = None,
+    expected_protocol_identity: str | None = None,
+    expected_protocol_hash: str | None = None,
 ) -> tuple[np.ndarray, np.ndarray, dict[str, np.ndarray], list[ShardInfo], dict[str, Any]]:
     root = Path(run_dir)
     manifest = read_dataset_manifest(root)
@@ -78,9 +96,157 @@ def load_dataset(
         raise IntegrityError("dataset fingerprint does not match finalized shard evidence")
     if manifest.get("rows") != len(labels):
         raise IntegrityError("dataset manifest row count does not match shards")
-    _validate_physical_timing_provenance(metadata, manifest, root)
+    if expected_purpose == "physical_phase1a":
+        _validate_physical_phase1a_dataset(
+            metadata,
+            manifest,
+            root,
+            expected_protocol_identity=expected_protocol_identity,
+            expected_protocol_hash=expected_protocol_hash,
+        )
+    else:
+        _validate_physical_timing_provenance(metadata, manifest, root)
+        if expected_purpose is not None and manifest.get("dataset_purpose") != expected_purpose:
+            raise IntegrityError(
+                f"dataset {root} purpose {manifest.get('dataset_purpose')!r} does not match "
+                f"expected purpose {expected_purpose!r}"
+            )
     _validate_allocation_provenance(metadata, manifest, root)
     return traces, labels, metadata, shards, manifest
+
+
+def _metadata_values(metadata: dict[str, np.ndarray], field: str) -> list[str]:
+    if field not in metadata:
+        raise IntegrityError(f"physical Phase 1A dataset is missing required shard metadata {field!r}")
+    return [str(value) for value in np.asarray(metadata[field], dtype=object)]
+
+
+def _require_all_values(values: list[str], expected: str, field: str) -> None:
+    if not values or any(value != expected for value in values):
+        raise IntegrityError(
+            f"physical Phase 1A shard metadata {field!r} is not uniformly {expected!r}"
+        )
+
+
+def _validate_physical_phase1a_dataset(
+    metadata: dict[str, np.ndarray],
+    manifest: dict[str, Any],
+    source: Path,
+    *,
+    expected_protocol_identity: str | None,
+    expected_protocol_hash: str | None,
+) -> None:
+    """Validate the complete physical Phase 1A identity and scope boundary."""
+
+    if manifest.get("dataset_purpose") != "physical_phase1a":
+        raise IntegrityError(
+            f"dataset {source} is not explicitly marked for physical Phase 1A analysis"
+        )
+    identity = manifest.get("protocol_identity")
+    protocol_hash = manifest.get("protocol_hash")
+    if identity != PHASE1A_COMMODITY_BASELINE_VERSION:
+        raise IntegrityError(
+            "physical Phase 1A requires protocol identity "
+            f"{PHASE1A_COMMODITY_BASELINE_VERSION!r}; found {identity!r}"
+        )
+    if not isinstance(protocol_hash, str) or not protocol_hash:
+        raise IntegrityError("physical Phase 1A requires a non-empty protocol hash")
+    if expected_protocol_identity is not None and identity != expected_protocol_identity:
+        raise IntegrityError("physical Phase 1A protocol identity does not match the analysis boundary")
+    if expected_protocol_hash is not None and protocol_hash != expected_protocol_hash:
+        raise IntegrityError("physical Phase 1A protocol hash does not match the analysis boundary")
+
+    provenance = manifest.get("provenance")
+    if not isinstance(provenance, dict):
+        raise IntegrityError("physical Phase 1A requires a manifest provenance mapping")
+    if provenance.get("protocol_identity") != identity:
+        raise IntegrityError("manifest and provenance protocol identities disagree")
+    if provenance.get("protocol_hash") != protocol_hash:
+        raise IntegrityError("manifest and provenance protocol hashes disagree")
+    scope = provenance.get("artificial_timing_perturbation")
+    if not isinstance(scope, dict):
+        raise IntegrityError("physical Phase 1A requires an explicit timing scope contract")
+    required_scope = {
+        "allowed": False,
+        "timing_perturbation_cycles": 0,
+        "timing_perturbation_label": 1,
+        "label_correlated": False,
+        "applied": False,
+        "calibration_namespace": "forbidden",
+        "physical_phase1a_forbidden": True,
+    }
+    if any(scope.get(field) != value for field, value in required_scope.items()):
+        raise IntegrityError("physical Phase 1A manifest timing scope is missing or contradictory")
+
+    _require_all_values(_metadata_values(metadata, "protocol_identity"), str(identity), "protocol_identity")
+    _require_all_values(_metadata_values(metadata, "protocol_hash"), str(protocol_hash), "protocol_hash")
+    _require_all_values(
+        _metadata_values(metadata, "timing_perturbation_cycles"), "0", "timing_perturbation_cycles"
+    )
+    _require_all_values(
+        _metadata_values(metadata, "timing_perturbation_label"), "1", "timing_perturbation_label"
+    )
+    _require_all_values(
+        _metadata_values(metadata, "timing_perturbation_applied"), "False", "timing_perturbation_applied"
+    )
+    _require_all_values(
+        _metadata_values(metadata, "calibration_namespace"), "not_calibration", "calibration_namespace"
+    )
+    _require_all_values(
+        _metadata_values(metadata, "artificial_timing_perturbation_allowed"),
+        "False",
+        "artificial_timing_perturbation_allowed",
+    )
+
+    ledgers = manifest.get("acquisition_sessions")
+    if not isinstance(ledgers, list) or not ledgers or any(not isinstance(item, dict) for item in ledgers):
+        raise IntegrityError("physical Phase 1A requires complete source session ledgers")
+    ledger_ids: set[str] = set()
+    for ledger in ledgers:
+        ledger_identity = ledger.get("protocol_identity")
+        ledger_hash = ledger.get("protocol_hash")
+        if ledger_identity != identity or ledger_hash != protocol_hash:
+            raise IntegrityError("source session ledger protocol identity/hash disagrees with manifest")
+        if ledger.get("acquisition_scope") != "physical Phase 1A commodity baseline":
+            raise IntegrityError("source session ledger is outside the physical Phase 1A scope")
+        ledger_scope = ledger.get("timing_perturbation")
+        if not isinstance(ledger_scope, dict) or any(
+            ledger_scope.get(field) != value
+            for field, value in {
+                "cycles": 0,
+                "label": 1,
+                "allowed": False,
+                "physical_phase1a_forbidden": True,
+                "namespace": "not_calibration",
+            }.items()
+        ):
+            raise IntegrityError("source session ledger timing scope is missing or contradictory")
+        ledger_id = str(ledger.get("acquisition_session_id", ""))
+        allocation = ledger.get("controlled_memory_region", {})
+        if not ledger_id or not isinstance(allocation, dict) or not allocation.get("allocation_id"):
+            raise IntegrityError("source session ledger lacks acquisition or allocation identity")
+        ledger_ids.add(ledger_id)
+    metadata_session_values = set(_metadata_values(metadata, "acquisition_session_id"))
+    if metadata_session_values != ledger_ids:
+        raise IntegrityError("shard metadata sessions do not match the source session ledgers")
+
+    source_manifest_file = source / "source-manifests.json"
+    if source_manifest_file.exists():
+        try:
+            source_record = json.loads(source_manifest_file.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise IntegrityError("cannot read combined dataset source-manifests.json") from exc
+        embedded = source_record.get("source_manifests")
+        if not isinstance(embedded, list) or not embedded:
+            raise IntegrityError("combined physical dataset has no embedded source manifests")
+        if any(
+            not isinstance(item, dict)
+            or item.get("dataset_purpose") != "physical_phase1a"
+            or item.get("protocol_identity") != identity
+            or item.get("protocol_hash") != protocol_hash
+            for item in embedded
+        ):
+            raise IntegrityError("combined source manifests disagree with physical protocol scope")
 
 
 def _validate_physical_timing_provenance(
@@ -285,6 +451,27 @@ def combine_datasets(
     source_manifest_paths = source_manifest_paths or [
         str(path / "dataset.json") for path in sources
     ]
+    source_purposes = {str(manifest.get("dataset_purpose", "generic")) for manifest in source_manifests}
+    if len(source_purposes) != 1:
+        raise IntegrityError("cannot combine source datasets with different dataset purposes")
+    combined_purpose = next(iter(source_purposes))
+    if combined_purpose == "physical_phase1a":
+        # Re-open through the strict boundary before any rows are copied.
+        loaded = [load_dataset(path, expected_purpose="physical_phase1a") for path in sources]
+        source_manifests = [item[4] for item in loaded]
+    source_protocols = {
+        (manifest.get("protocol_identity"), manifest.get("protocol_hash"))
+        for manifest in source_manifests
+    }
+    if len(source_protocols) != 1:
+        raise IntegrityError("cannot combine source datasets with different protocol identities/hashes")
+    combined_protocol_identity, combined_protocol_hash = next(iter(source_protocols))
+    if combined_purpose == "physical_phase1a" and (
+        combined_protocol_identity != PHASE1A_COMMODITY_BASELINE_VERSION
+        or not isinstance(combined_protocol_hash, str)
+        or not combined_protocol_hash
+    ):
+        raise IntegrityError("physical Phase 1A source datasets require explicit protocol identity/hash")
 
     existing_ids: set[str] = set()
     seen_session_ids: dict[str, Path] = {}
@@ -357,9 +544,29 @@ def combine_datasets(
             "source_dataset_fingerprints": [
                 manifest.get("dataset_fingerprint", "unavailable") for manifest in source_manifests
             ],
+            **(
+                {
+                    "protocol_identity": combined_protocol_identity,
+                    "protocol_hash": combined_protocol_hash,
+                    "artificial_timing_perturbation": {
+                        "allowed": False,
+                        "timing_perturbation_cycles": 0,
+                        "timing_perturbation_label": 1,
+                        "label_correlated": False,
+                        "applied": False,
+                        "calibration_namespace": "forbidden",
+                        "physical_phase1a_forbidden": True,
+                    },
+                }
+                if combined_purpose == "physical_phase1a"
+                else {}
+            ),
         },
         acquisition_sessions=sessions,
         campaign_id=campaign_id,
+        dataset_purpose=combined_purpose,
+        protocol_identity=(str(combined_protocol_identity) if combined_protocol_identity else None),
+        protocol_hash=(str(combined_protocol_hash) if combined_protocol_hash else None),
     )
     (target / "source-manifests.json").write_text(
         json.dumps(

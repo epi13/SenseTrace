@@ -1,19 +1,33 @@
 from __future__ import annotations
 
+import struct
+
+import pytest
+
 from sensetrace.acquisition.capabilities import commodity_timing_oracle
 from sensetrace.acquisition.perf import (
     PERF_ATTR_DISABLED,
     PERF_ATTR_EXCLUDE_HV,
     PERF_ATTR_EXCLUDE_KERNEL,
+    PERF_EVENT_IOC_DISABLE,
+    PERF_EVENT_IOC_ENABLE,
+    PERF_EVENT_IOC_RESET,
+    OperationScopedPerfEvent,
     build_perf_event_attr,
     discover_counter_capabilities,
+    select_sysfs_event_encoding,
 )
 from sensetrace.acquisition.primitive import (
     CommodityTimingPrimitive,
     PrimitiveCapabilities,
     available_measurement_primitives,
 )
-from sensetrace.characterization import characterization_protocol, decide_characterization
+from sensetrace.characterization import (
+    _contrast,
+    _decision_evidence,
+    characterization_protocol,
+    decide_characterization,
+)
 from sensetrace.config import validate_config
 
 
@@ -90,7 +104,7 @@ def test_perf_discovery_is_cpu_vocabulary_aware(tmp_path):
 
 def test_characterization_protocol_is_not_hidden_bit_inference():
     protocol = characterization_protocol(_config())
-    assert protocol["version"] == "measurement-primitive-characterization-v1"
+    assert protocol["version"] == "measurement-primitive-characterization-v2"
     assert protocol["analysis"]["no_model_training"] is True
     assert "physical DRAM access" in protocol["claim_boundary"]
     assert protocol["primitive"]["access_state_oracle"]["model_feature_eligible"] is False
@@ -105,6 +119,77 @@ def test_perf_event_attr_is_disabled_and_excludes_kernel_and_hypervisor():
     assert flags & PERF_ATTR_EXCLUDE_HV
     assert record["flags_by_name"]["inherit"] is False
     assert record["flags_by_name"]["exclude_user"] is False
+    assert record["config_width_bits"] == 64
+    assert record["read_format_fields"]["total_time_running"] is True
+
+
+def test_perf_raw_config_accepts_full_64_bit_width():
+    _attribute, record = build_perf_event_attr("raw", raw_event=0x1_0000_0000)
+    assert record["config"] == 0x1_0000_0000
+    assert record["config_width_bits"] == 64
+
+
+def test_sysfs_event_identity_and_format_are_preserved_without_alias_collision(tmp_path):
+    for device in ["cpu", "alternate"]:
+        events = tmp_path / "bus" / "event_source" / "devices" / device / "events"
+        events.mkdir(parents=True)
+        (events.parent / "type").write_text("4\n")
+        format_dir = events.parent / "format"
+        format_dir.mkdir()
+        (format_dir / "event").write_text("config:0-7\n")
+        (format_dir / "umask").write_text("config:8-15\n")
+        (events / "cache-misses").write_text("event=0x2e,umask=0x41\n")
+
+    result = discover_counter_capabilities(sysfs_root=tmp_path, perf_output="")
+    cache_misses = next(item for item in result["events"] if item["logical_name"] == "cache_misses")
+    assert cache_misses["status"] == "ambiguous"
+    assert cache_misses["selection_status"] == "ambiguous_unqualified_alias"
+    assert {item["device"] for item in cache_misses["encodings"]} == {"alternate", "cpu"}
+    assert all(item["event_source_type"]["value"] == 4 for item in cache_misses["encodings"])
+    assert all(item["config"] == 0x412E for item in cache_misses["encodings"])
+    assert all("event" in item["sysfs_format_fields"] for item in cache_misses["encodings"])
+    with pytest.raises(ValueError, match="not uniquely qualified"):
+        select_sysfs_event_encoding(tmp_path, "cache-misses")
+    selected = select_sysfs_event_encoding(tmp_path, "cpu/cache-misses/")
+    assert selected.device == "cpu"
+
+
+def test_operation_scoped_reader_enables_only_around_callback_and_closes_fd(monkeypatch):
+    ioctls = []
+    closed = []
+
+    def fake_open(attribute, *, syscall_number, thread_id, cpu):
+        assert syscall_number == 298
+        assert thread_id > 0
+        assert cpu == -1
+        assert int.from_bytes(bytes(attribute)[40:48], "little") & PERF_ATTR_DISABLED
+        return 73
+
+    monkeypatch.setattr("sensetrace.acquisition.perf._perf_event_open", fake_open)
+    monkeypatch.setattr(
+        "sensetrace.acquisition.perf.fcntl.ioctl",
+        lambda fd, request, value: ioctls.append((fd, request, value)),
+    )
+    monkeypatch.setattr(
+        "sensetrace.acquisition.perf.os.read",
+        lambda fd, size: struct.pack("<QQQ", 7, 10, 10),
+    )
+    monkeypatch.setattr("sensetrace.acquisition.perf.os.close", lambda fd: closed.append(fd))
+
+    reader = OperationScopedPerfEvent("cache-misses", syscall_number=298)
+    result, reading = reader.measure(lambda: "controlled-result")
+    assert result == "controlled-result"
+    assert reading.raw_count == 7
+    assert reading.multiplexed is False
+    assert [request for _fd, request, _value in ioctls] == [
+        PERF_EVENT_IOC_RESET,
+        PERF_EVENT_IOC_ENABLE,
+        PERF_EVENT_IOC_DISABLE,
+    ]
+    assert closed == [73]
+    assert reader.provenance["scope"]["cpu_argument"] == -1
+    assert reader.provenance["scope"]["system_wide"] is False
+    assert reader.provenance["scope"]["inherit"] is False
 
 
 def test_permission_denied_perf_probe_is_machine_readable(monkeypatch):
@@ -165,3 +250,58 @@ def test_characterization_decision_returns_b_for_an_unavailable_oracle():
 def test_characterization_decision_returns_c_for_failed_controls():
     result = decide_characterization(_complete_characterization_evidence(controls_pass=False))
     assert result["outcome"] == "C_primitive_unsuitable"
+
+
+def _replicate_record(replicate_id: str, median: float, *, status: str = "complete") -> dict:
+    return {
+        "replicate_id": replicate_id,
+        "status": status,
+        "sample_median_summary": {"median": median},
+    }
+
+
+def test_null_stability_rejects_extremely_drifting_finite_replicates():
+    contract = {
+        "controls": [{"name": "null", "role": "null"}],
+        "required_contrasts": [],
+        "null_stability": {
+            "max_relative_deviation": 0.25,
+            "max_relative_mad": 0.10,
+            "minimum_complete_replicates": 3,
+        },
+    }
+    evidence = _decision_evidence(
+        contract,
+        {"null": [_replicate_record("replicate-0000", 10.0), _replicate_record("replicate-0001", 10.0), _replicate_record("replicate-0002", 100.0)]},
+        {},
+        3,
+    )
+    assert evidence["null_stable"] is False
+    assert evidence["null_stability"]["completeness"]["status"] == "pass"
+    assert evidence["null_stability"]["finite_value_validity"]["status"] == "pass"
+    assert evidence["null_stability"]["stability"]["status"] == "fail"
+
+
+def test_contrast_pairs_only_matching_replicate_ids_and_reports_missing_side():
+    left = [
+        _replicate_record("replicate-0000", 10.0),
+        _replicate_record("replicate-0001", 20.0),
+        _replicate_record("replicate-0002", 30.0),
+    ]
+    right = [
+        _replicate_record("replicate-0000", 15.0),
+        _replicate_record("replicate-0001", 25.0, status="unavailable"),
+        _replicate_record("replicate-0002", 45.0),
+    ]
+    result = _contrast(
+        left,
+        right,
+        expected_replicate_ids=["replicate-0000", "replicate-0001", "replicate-0002"],
+    )
+    assert result["matched_replicate_ids"] == ["replicate-0000", "replicate-0002"]
+    assert result["missing_right_replicate_ids"] == ["replicate-0001"]
+    assert result["paired_differences"] == [
+        {"replicate_id": "replicate-0000", "left_median": 10.0, "right_median": 15.0, "difference": 5.0},
+        {"replicate_id": "replicate-0002", "left_median": 30.0, "right_median": 45.0, "difference": 15.0},
+    ]
+    assert result["required_replicates_present"] is False

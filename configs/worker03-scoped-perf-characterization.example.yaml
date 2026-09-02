@@ -1,0 +1,51 @@
+# Operation-scoped PMU characterization only. This is not a hidden-bit run and
+# must not be merged with the historical commodity Phase 1A dataset.
+host:
+  name: worker-03
+  role: dedicated_experiment_host
+
+experiment:
+  name: worker03-scoped-perf-characterization
+  description: Compare cache-path controls with one thread-scoped PMU event.
+  seed: 20260902
+
+data:
+  target_balance: 0.50
+  samples: 64
+  trace_channels: 1
+  trace_length: 32
+
+acquisition:
+  backend: commodity
+  shard_target_mb: 1
+  max_samples_per_shard: 64
+
+phase1a:
+  status: measurement_primitive_characterization
+  protocol_version: phase1a-commodity-baseline-v1
+  measurement_primitive: commodity-clflush-timed-load
+  location_count: 4
+  trials_per_location: 16
+  labels_per_location: 8
+  samples: 64
+  trace_length: 32
+  pattern: single_bit
+  target_bit: 0
+  word_count: 64
+  lock_memory: false
+  cache_control: clflush
+  eviction_bytes: 1048576
+  cpu_affinity: null
+  use_native_kernel: true
+  require_native_kernel: true
+
+characterization:
+  replicates: 3
+  location_count: 4
+  trials_per_location: 16
+  trace_length: 32
+  weak_positive_control_cycles: [0, 32, 64, 128]
+  # Qualified sysfs identity is required for a CPU-specific event. The
+  # uncore IMC event family is intentionally not selected: it is not
+  # thread-scoped and cannot satisfy this primitive's declared boundary.
+  scoped_perf_event: cpu/cache-misses/

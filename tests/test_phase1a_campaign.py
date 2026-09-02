@@ -9,7 +9,10 @@ from sensetrace.config import validate_config
 from sensetrace.datasets import combine_datasets, write_dataset_manifest
 from sensetrace.errors import ConfigError
 from sensetrace.phase1a import _analyze_condition, run_phase1a_campaign
-from sensetrace.protocol import phase1a_commodity_baseline_protocol
+from sensetrace.protocol import (
+    phase1a_commodity_baseline_protocol,
+    phase1a_commodity_baseline_protocol_hash,
+)
 from sensetrace.splits import partition_indices, phase1a_split_hierarchy
 from sensetrace.storage import ShardWriter, validate_all_shards
 
@@ -47,6 +50,8 @@ def _campaign_config() -> dict:
 
 def test_same_boot_sessions_leave_cross_boot_split_unavailable(tmp_path):
     config = _campaign_config()
+    protocol = phase1a_commodity_baseline_protocol(config)
+    protocol_hash = phase1a_commodity_baseline_protocol_hash(config)
     source_dirs = []
     for session_index in range(4):
         session_id = f"session-{session_index}"
@@ -58,13 +63,22 @@ def test_same_boot_sessions_leave_cross_boot_split_unavailable(tmp_path):
             word_count=8,
             lock_memory=False,
             cache_control="none",
-            use_native_kernel=False,
-            acquisition_session_id=session_id,
-            session_index=session_index,
-        )
+                use_native_kernel=False,
+                acquisition_session_id=session_id,
+                session_index=session_index,
+                protocol_identity=protocol["version"],
+                protocol_hash=protocol_hash,
+            )
         source = tmp_path / session_id
         writer = ShardWriter(source, max_samples_per_shard=8)
         session_ledger = backend.session_provenance()
+        session_ledger.update(
+            {
+                "protocol_identity": protocol["version"],
+                "protocol_hash": protocol_hash,
+                "acquisition_scope": "physical Phase 1A commodity baseline",
+            }
+        )
         for sample in backend.samples():
             writer.add(sample.trace, sample.label, sample.metadata)
         backend.close()
@@ -75,9 +89,25 @@ def test_same_boot_sessions_leave_cross_boot_split_unavailable(tmp_path):
             condition="paired_single_bit",
             shard_infos=validate_all_shards(source),
             label_stream_fingerprint=session_ledger["label_stream_fingerprint"],
-            class_balance={"0": 4, "1": 4},
-            acquisition_sessions=[session_ledger],
-        )
+                class_balance={"0": 4, "1": 4},
+                acquisition_sessions=[session_ledger],
+                dataset_purpose="physical_phase1a",
+                protocol_identity=protocol["version"],
+                protocol_hash=protocol_hash,
+                provenance={
+                    "protocol_identity": protocol["version"],
+                    "protocol_hash": protocol_hash,
+                    "artificial_timing_perturbation": {
+                        "allowed": False,
+                        "timing_perturbation_cycles": 0,
+                        "timing_perturbation_label": 1,
+                        "label_correlated": False,
+                        "applied": False,
+                        "calibration_namespace": "forbidden",
+                        "physical_phase1a_forbidden": True,
+                    },
+                },
+            )
         source_dirs.append(source)
     target = tmp_path / "combined"
     manifest = combine_datasets(

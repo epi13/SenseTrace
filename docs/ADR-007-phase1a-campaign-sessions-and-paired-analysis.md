@@ -16,7 +16,10 @@ combined dataset. Legacy `session_id` and `location_id` fields remain readable
 aliases, with documentation that they do not identify physical DRAM topology.
 
 Pair order is exactly counterbalanced per virtual location and randomized at
-the pair level. Every available A–E split is materialized and evaluated
+the pair level. A is a repeated-trial diagnostic, B is grouped by virtual
+location, C by acquisition block, D only by acquisition session, and E only by
+genuine OS boot ID. E is unavailable without at least three distinct boot
+groups. Every available hierarchy level is materialized and evaluated
 independently. The report includes a predeclared paired sample-median timing
 analysis, cluster-aware uncertainty, and nuisance/drift audits; those audits
 are not model features.

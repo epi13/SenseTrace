@@ -130,6 +130,9 @@ class CommodityDramBackend(AcquisitionBackend):
     labels_per_location: int | None = None
     session_count: int = 1
     use_native_kernel: bool = True
+    timing_perturbation_cycles: int = 0
+    timing_perturbation_label: int = 1
+    calibration_namespace: str | None = None
     acquisition_session_id: str | None = None
     # Kept as an input alias so older callers can supply session_id while the
     # emitted contract uses acquisition_session_id explicitly.
@@ -153,6 +156,10 @@ class CommodityDramBackend(AcquisitionBackend):
             raise ValueError(f"unsupported cache-control method: {self.cache_control}")
         if self.operation not in {"memory_read", "idle"}:
             raise ValueError(f"unsupported safe memory operation: {self.operation}")
+        if self.timing_perturbation_cycles < 0:
+            raise ValueError("timing_perturbation_cycles must be non-negative")
+        if self.timing_perturbation_label not in {0, 1}:
+            raise ValueError("timing_perturbation_label must be 0 or 1")
         if not 0 <= self.target_bit < 64:
             raise ValueError("target_bit must be in [0, 63]")
         if self.eviction_bytes < 64:
@@ -346,9 +353,33 @@ class CommodityDramBackend(AcquisitionBackend):
                     if self.operation == "idle":
                         observed.append(float(self._native_kernel.idle_calibration(1)[0]))
                     elif self.cache_control == "clflush":
-                        observed.append(float(self._native_kernel.measure_flushed(address, 1)[0]))
+                        observed.append(
+                            float(
+                                self._native_kernel.measure_flushed(
+                                    address,
+                                    1,
+                                    extra_delay_cycles=(
+                                        self.timing_perturbation_cycles
+                                        if label == self.timing_perturbation_label
+                                        else 0
+                                    ),
+                                )[0]
+                            )
+                        )
                     else:
-                        observed.append(float(self._native_kernel.measure_cached(address, 1)[0]))
+                        observed.append(
+                            float(
+                                self._native_kernel.measure_cached(
+                                    address,
+                                    1,
+                                    extra_delay_cycles=(
+                                        self.timing_perturbation_cycles
+                                        if label == self.timing_perturbation_label
+                                        else 0
+                                    ),
+                                )[0]
+                            )
+                        )
                 else:
                     started = time.perf_counter_ns()
                     if self.operation == "memory_read":
@@ -366,11 +397,20 @@ class CommodityDramBackend(AcquisitionBackend):
                     "session_id": self.acquisition_session_id,
                     "acquisition_session_id": self.acquisition_session_id,
                     "boot_id": self._boot_id_value,
+                    "allocation_id": self._allocation_id,
+                    "physical_allocation_id": self._allocation_id,
                     "acquisition_block": f"{self.acquisition_session_id}:block-{location // 16:04d}",
-                    "location_id": f"{self.acquisition_session_id}:location-{location:08d}",
-                    "virtual_location_id": f"{self.acquisition_session_id}:virtual-location-{location:08d}",
-                    "pair_id": f"{self.acquisition_session_id}:{pair_id}",
-                    "trial_pair_id": f"{self.acquisition_session_id}:{trial_pair_id}",
+                    "location_id": (
+                        f"{self.acquisition_session_id}:{self._allocation_id}:location-{location:08d}"
+                    ),
+                    "virtual_location_id": (
+                        f"{self.acquisition_session_id}:{self._allocation_id}:"
+                        f"virtual-location-{location:08d}"
+                    ),
+                    "pair_id": f"{self.acquisition_session_id}:{self._allocation_id}:{pair_id}",
+                    "trial_pair_id": (
+                        f"{self.acquisition_session_id}:{self._allocation_id}:{trial_pair_id}"
+                    ),
                     "pair_order": (
                         "label_0_first"
                         if self._pair_order[(location * self.trials_per_location // 2) + pair_index]
@@ -382,8 +422,14 @@ class CommodityDramBackend(AcquisitionBackend):
                     "device_id": "device-unknown",
                     "bank_id": "bank-unknown",
                     "row_id": "row-unknown",
-                    "cell_or_offset_id": f"{self.acquisition_session_id}:buffer-word-{buffer_index:08d}",
-                    "buffer_offset_id": f"{self.acquisition_session_id}:buffer-offset-{buffer_index:08d}",
+                    "cell_or_offset_id": (
+                        f"{self.acquisition_session_id}:{self._allocation_id}:"
+                        f"buffer-word-{buffer_index:08d}"
+                    ),
+                    "buffer_offset_id": (
+                        f"{self.acquisition_session_id}:{self._allocation_id}:"
+                        f"buffer-offset-{buffer_index:08d}"
+                    ),
                     "trial_index": index,
                     "physical_operation": (
                         "ordinary_user_space_write_then_read"
@@ -437,6 +483,13 @@ class CommodityDramBackend(AcquisitionBackend):
                         if self._native_kernel is not None
                         else False
                     ),
+                    "timing_perturbation_cycles": self.timing_perturbation_cycles,
+                    "timing_perturbation_label": self.timing_perturbation_label,
+                    "timing_perturbation_applied": bool(
+                        self.timing_perturbation_cycles > 0
+                        and label == self.timing_perturbation_label
+                    ),
+                    "calibration_namespace": self.calibration_namespace or "not_calibration",
                     "seed_id": f"commodity:{self.seed}",
                     "label_stream_fingerprint": hashlib.sha256(self._labels.tobytes()).hexdigest(),
                     "session_manifest_ref": f"sessions/{self.acquisition_session_id}/session.json",
@@ -475,6 +528,16 @@ class CommodityDramBackend(AcquisitionBackend):
             "cpu_frequency_regime": self._frequency_regime,
             "configuration_hash": self.configuration_hash or "unavailable",
             "code_commit": self.code_commit or "unavailable",
+            "timing_perturbation": {
+                "cycles": self.timing_perturbation_cycles,
+                "label": self.timing_perturbation_label,
+                "mechanism": (
+                    "native timed load includes a TSC-deadline delay after the load"
+                    if self.timing_perturbation_cycles
+                    else "none"
+                ),
+                "namespace": self.calibration_namespace or "not_calibration",
+            },
         }
 
     def pair_order_balance(self) -> dict[str, Any]:

@@ -22,22 +22,30 @@ class NativeMeasurementKernel:
         for name in [
             "st_measure_cached",
             "st_measure_flushed",
+            "st_measure_cached_delayed",
+            "st_measure_flushed_delayed",
             "st_timer_calibration",
             "st_idle_calibration",
         ]:
             function = getattr(self.library, name)
-            function.argtypes = (
-                [
+            if name.endswith("_delayed"):
+                function.argtypes = [
+                    ctypes.c_void_p,
+                    ctypes.c_size_t,
+                    ctypes.c_uint64,
+                    ctypes.POINTER(ctypes.c_uint64),
+                ]
+            elif name.startswith("st_measure"):
+                function.argtypes = [
                     ctypes.c_void_p,
                     ctypes.c_size_t,
                     ctypes.POINTER(ctypes.c_uint64),
                 ]
-                if name.startswith("st_measure")
-                else [
+            else:
+                function.argtypes = [
                     ctypes.c_size_t,
                     ctypes.POINTER(ctypes.c_uint64),
                 ]
-            )
             function.restype = ctypes.c_int
         self.supports_clflush = bool(self.library.st_cpu_supports_clflush())
 
@@ -54,25 +62,53 @@ class NativeMeasurementKernel:
             if candidate.exists():
                 try:
                     return cls(ctypes.CDLL(str(candidate)), candidate)
-                except OSError:
+                except (OSError, AttributeError):
                     continue
         return None
 
-    def _measure(self, function_name: str, address: int, repetitions: int) -> np.ndarray:
+    def _measure(
+        self,
+        function_name: str,
+        address: int,
+        repetitions: int,
+        extra_delay_cycles: int = 0,
+    ) -> np.ndarray:
         if repetitions < 1:
             raise ValueError("repetitions must be positive")
         output = (ctypes.c_uint64 * repetitions)()
         function = getattr(self.library, function_name)
-        result = function(ctypes.c_void_p(address), repetitions, output)
+        if function_name.endswith("_delayed"):
+            result = function(
+                ctypes.c_void_p(address),
+                repetitions,
+                ctypes.c_uint64(extra_delay_cycles),
+                output,
+            )
+        else:
+            result = function(ctypes.c_void_p(address), repetitions, output)
         if result != 0:
             raise OSError(-result, f"native {function_name} failed")
         return np.ctypeslib.as_array(output).astype(np.float64, copy=True)
 
-    def measure_cached(self, address: int, repetitions: int) -> np.ndarray:
-        return self._measure("st_measure_cached", address, repetitions)
+    def measure_cached(
+        self, address: int, repetitions: int, *, extra_delay_cycles: int = 0
+    ) -> np.ndarray:
+        return self._measure(
+            "st_measure_cached_delayed" if extra_delay_cycles else "st_measure_cached",
+            address,
+            repetitions,
+            extra_delay_cycles,
+        )
 
-    def measure_flushed(self, address: int, repetitions: int) -> np.ndarray:
-        return self._measure("st_measure_flushed", address, repetitions)
+    def measure_flushed(
+        self, address: int, repetitions: int, *, extra_delay_cycles: int = 0
+    ) -> np.ndarray:
+        return self._measure(
+            "st_measure_flushed_delayed" if extra_delay_cycles else "st_measure_flushed",
+            address,
+            repetitions,
+            extra_delay_cycles,
+        )
 
     def flush_calibration(self, address: int, repetitions: int) -> np.ndarray:
         """Return raw cycle counts for the CLFLUSH control path."""
@@ -107,13 +143,19 @@ class NativeMeasurementKernel:
             "version": self.library.st_kernel_version().decode("ascii"),
             "library": str(self.path),
             "library_sha256": hashlib.sha256(self.path.read_bytes()).hexdigest(),
-            "timer_source": "RDTSC start with LFENCE; RDTSCP end with LFENCE",
+            "timer_source": (
+                "explicit compiler barrier; LFENCE; RDTSC start; RDTSCP end; "
+                "LFENCE; explicit compiler barrier"
+            ),
             "cached_measurement_primitive": "warm-line load timed with LFENCE/RDTSC and RDTSCP/LFENCE",
             "clflush_measurement_primitive": (
                 "_mm_clflush(address), _mm_mfence(), then load timed with "
                 "LFENCE/RDTSC and RDTSCP/LFENCE"
             ),
             "cache_control": "CLFLUSH plus MFENCE for the flushed control path",
+            "compiler_barriers": (
+                "explicit GCC/Clang memory barriers surround timing fences and the volatile load"
+            ),
             "clflush_supported": self.supports_clflush,
             "raw_units": "TSC cycles",
             "guarantees": [
@@ -124,6 +166,7 @@ class NativeMeasurementKernel:
                 "CLFLUSH does not prove that the load reached DRAM",
                 "no physical address, row, bank, subarray, chip, or DIMM identity is exposed",
                 "cache coherence, prefetch, replacement, and memory-controller behavior remain uncontrolled",
+                "the delayed control is an artificial instrumentation calibration, not a physical memory effect",
             ],
         }
 
@@ -147,4 +190,11 @@ def summarize_measurements(values: np.ndarray) -> dict[str, Any]:
         "outlier_fraction_iqr": float(
             np.mean((finite < q1 - 1.5 * (q3 - q1)) | (finite > q3 + 1.5 * (q3 - q1)))
         ),
+        "lag_1_autocorrelation": (
+            float(np.corrcoef(finite[:-1], finite[1:])[0, 1])
+            if len(finite) > 2 and np.std(finite[:-1]) > 0 and np.std(finite[1:]) > 0
+            else float("nan")
+        ),
+        "raw_samples_retained": True,
+        "outlier_filtering": "none; quantile and IQR values are audit summaries only",
     }

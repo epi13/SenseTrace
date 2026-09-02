@@ -790,6 +790,39 @@ class RemoteHost:
             raise RuntimeError(result.stderr or result.stdout)
         return result.stdout
 
+    def run_native_sensitivity_calibration(
+        self,
+        config: str | Path,
+        *,
+        output: str | None = None,
+        development_magnitudes: list[int] | None = None,
+        development_replicates: int | None = None,
+        validation_replicates: int | None = None,
+    ) -> str:
+        """Run the separately namespaced native-path calibration on the worker."""
+
+        home = self._home()
+        venv = f"{home}/.local/share/sensetrace/venv/bin/sensetrace"
+        remote_config = f"{home}/.config/sensetrace/native-sensitivity.yaml"
+        self.connection.put(str(config), remote=remote_config)
+        destination = output or f"{home}/.local/share/sensetrace/runs/native-sensitivity"
+        command = (
+            f"{venv} calibrate native-sensitivity --config {quote(remote_config)} "
+            f"--output {quote(destination)}"
+        )
+        if development_magnitudes:
+            command += " --development-magnitudes " + " ".join(
+                str(int(value)) for value in development_magnitudes
+            )
+        if development_replicates is not None:
+            command += f" --development-replicates {int(development_replicates)}"
+        if validation_replicates is not None:
+            command += f" --validation-replicates {int(validation_replicates)}"
+        result = self.run(command, warn=True, hide=True)
+        if not result.ok:
+            raise RuntimeError(result.stderr or result.stdout)
+        return result.stdout
+
     def verify_recovery(self) -> dict[str, Any]:
         home = self._home()
         output = f"{home}/.local/share/sensetrace/runs/recovery-check"

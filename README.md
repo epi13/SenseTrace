@@ -164,6 +164,8 @@ The purpose of the project is to characterize physical information channels in m
 - [worker-03 Phase 0 evidence](docs/evidence/worker03-phase0-2026-09-01.md)
 - [Phase 0 v2 final-gate evidence](docs/evidence/phase0-final-v2-gate-2026-09-01.md)
 - [worker-03 Phase 1A campaign evidence](docs/evidence/worker03-phase1a-2026-09-01.md)
+- [Phase 1A split erratum](docs/evidence/phase1a-erratum-reanalysis-2026-09-01.md)
+- [Native-path sensitivity decision](docs/ADR-010-native-path-sensitivity-calibration.md)
 - [Phase 0 v2 protocol](docs/PHASE0-PROTOCOL-V2.md)
 - [Architecture decisions](docs/ADR-001-storage-and-journal.md)
 
@@ -171,7 +173,7 @@ The purpose of the project is to characterize physical information channels in m
 
 The initial infrastructure milestone is implemented: an installable Python package and CLI; crash-safe NPZ shards; an append-only recovery journal; dataset/split fingerprints; default-deny identity-feature enforcement; logistic regression, boosted-tree, tiny MLP, and tiny 1D CNN baselines; Fabric-backed controller operations; root-capable Fedora systemd assets; an unprivileged user-service fallback; and Phase 0 null, injected-signal, and shuffled-label controls.
 
-The current evidence claim is deliberately narrow: **the injected-signal Phase 0 classifier recovered a known synthetic perturbation under grouped holdout, and the gated Phase 1A worker campaign completed its exploratory safe-observable run**. No physical DRAM-state inference claim has been established.
+The current evidence claim is deliberately narrow: **the injected-signal Phase 0 classifier recovered a known synthetic perturbation under grouped holdout, and the gated Phase 1A worker campaign completed its exploratory safe-observable run**. The original Phase 1A E result was corrected by dated erratum: one OS boot cannot support an unseen-boot holdout. The native sensitivity calibration is an artificial instrumentation positive control, not physical DRAM evidence. No physical DRAM-state inference claim has been established.
 
 Phase 1A is now implemented as a campaign of genuine acquisition sessions. Each
 session gets a UUID, a fresh anonymous controlled buffer, its own host/boot and
@@ -187,6 +189,7 @@ pair-order counterbalance, a predeclared paired median-latency statistic with
 pair-level sign flips, and acquisition-order/drift diagnostics. A CLFLUSH
 observation is explicitly documented as a cache-line invalidation control with
 the native fences and conservative limitations; it is not called a DRAM
-measurement. The Phase 0 v2 final gate passed under its frozen rule and
-authorized the safe worker campaign, which completed without producing a
+measurement. E is available only for genuinely disjoint OS boot groups; D
+remains the acquisition-session holdout. The Phase 0 v2 final gate passed under
+its frozen rule and authorized the safe worker campaign, which completed without producing a
 physical-address, row, bank, subarray, chip, or DIMM measurement.

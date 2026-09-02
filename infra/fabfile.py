@@ -88,6 +88,27 @@ def calibrate_phase0(
 
 
 @task
+def calibrate_native_sensitivity(
+    c: Connection,
+    config: str = "configs/worker03.example.yaml",
+    output: str | None = None,
+    development_magnitudes: str = "",
+    development_replicates: int | None = None,
+    validation_replicates: int | None = None,
+) -> None:
+    magnitudes = [int(value) for value in development_magnitudes.split()]
+    print(
+        _remote(c).run_native_sensitivity_calibration(
+            config,
+            output=output,
+            development_magnitudes=magnitudes or None,
+            development_replicates=development_replicates,
+            validation_replicates=validation_replicates,
+        )
+    )
+
+
+@task
 def start(c: Connection) -> None:
     print(_remote(c).service_action("start"))
 
@@ -172,6 +193,7 @@ for _name in [
     "run_phase0",
     "run_phase1a",
     "calibrate_phase0",
+    "calibrate_native_sensitivity",
     "start",
     "stop",
     "restart",

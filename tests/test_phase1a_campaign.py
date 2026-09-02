@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import numpy as np
+
 from sensetrace.acquisition.commodity import CommodityDramBackend
 from sensetrace.config import validate_config
 from sensetrace.datasets import combine_datasets, write_dataset_manifest
 from sensetrace.phase1a import _analyze_condition, run_phase1a_campaign
+from sensetrace.splits import partition_indices, phase1a_split_hierarchy
 from sensetrace.storage import ShardWriter, validate_all_shards
 
 
@@ -38,7 +41,7 @@ def _campaign_config() -> dict:
     )
 
 
-def test_all_available_phase1a_splits_are_evaluated_and_strict_levels_are_visible(tmp_path):
+def test_same_boot_sessions_leave_cross_boot_split_unavailable(tmp_path):
     config = _campaign_config()
     source_dirs = []
     for session_index in range(4):
@@ -82,12 +85,57 @@ def test_all_available_phase1a_splits_are_evaluated_and_strict_levels_are_visibl
     )
     result = _analyze_condition(target, manifest, config)
     analyses = result["split_analyses"]
-    assert all(analyses[name]["status"] == "available" for name in analyses)
+    assert all(
+        analyses[name]["status"] == "available" for name in analyses if name != "E_unseen_boot"
+    )
+    assert analyses["E_unseen_boot"]["status"] == "unavailable"
+    assert "insufficient independent OS boot groups" in analyses["E_unseen_boot"]["reason"]
     assert result["analysis_summary"]["all_available_splits_evaluated_independently"] is True
-    assert all("models" in analyses[name] for name in analyses)
-    assert all("paired_statistics" in analyses[name] for name in analyses)
+    assert all("models" in analyses[name] for name in analyses if analyses[name]["available"])
+    assert all(
+        "paired_statistics" in analyses[name] for name in analyses if analyses[name]["available"]
+    )
     assert len(manifest["acquisition_sessions"]) == 4
     assert len({item["acquisition_session_id"] for item in manifest["acquisition_sessions"]}) == 4
+
+
+def test_multiple_genuine_boots_make_e_available_and_keep_boots_disjoint():
+    all_samples = []
+    for boot_index in range(4):
+        backend = CommodityDramBackend(
+            count=8,
+            location_count=1,
+            trials_per_location=8,
+            trace_length=32,
+            word_count=8,
+            lock_memory=False,
+            cache_control="none",
+            use_native_kernel=False,
+            acquisition_session_id=f"boot-session-{boot_index}",
+            session_index=boot_index,
+        )
+        try:
+            samples = list(backend.samples())
+        finally:
+            backend.close()
+        for sample in samples:
+            sample.metadata["boot_id"] = f"genuine-boot-{boot_index}"
+        all_samples.extend(samples)
+    metadata = {
+        key: np.asarray([sample.metadata[key] for sample in all_samples])
+        for key in all_samples[0].metadata
+    }
+    hierarchy = phase1a_split_hierarchy(metadata, dataset_fingerprint="test", seed=19)
+    record = hierarchy["E_unseen_boot"]
+    assert record["status"] == "available"
+    assert "OS boot IDs" in record["split"]["claim_boundary"]
+    partitions = partition_indices(metadata, record["split"])
+    boot_membership = {}
+    for part, indices in partitions.items():
+        for boot_id in np.unique(metadata["boot_id"][indices]):
+            assert boot_id not in boot_membership
+            boot_membership[str(boot_id)] = part
+    assert len(boot_membership) == 4
 
 
 def test_phase1a_campaign_refuses_a_closed_phase0_gate(tmp_path):

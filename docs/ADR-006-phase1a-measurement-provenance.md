@@ -7,7 +7,8 @@ buffer. `mlock` and CPU affinity are best-effort operations whose actual result
 is recorded. Timing uses the host's `perf_counter_ns` path and preserves raw
 observations. Cache controls are named and scoped: `none` is a cache-hit
 control, `eviction_buffer` is best-effort eviction, and `clflush` uses the
-native `_mm_clflush` plus `_mm_mfence` sequence before the timed load. Neither
+native `_mm_clflush` plus `_mm_mfence` sequence before the timed load, with
+explicit compiler barriers around the LFENCE/RDTSC/RDTSCP sequence. Neither
 eviction method proves a DRAM access. Whole-word contrast, single-bit contrast,
 and randomized words are separate patterns.
 

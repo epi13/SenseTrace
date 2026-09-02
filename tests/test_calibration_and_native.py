@@ -7,7 +7,7 @@ import numpy as np
 from sensetrace.acquisition.commodity import CommodityDramBackend
 from sensetrace.acquisition.native import NativeMeasurementKernel
 from sensetrace.acquisition.synthetic import SyntheticBackend
-from sensetrace.calibration import run_phase0_calibration
+from sensetrace.calibration import run_native_sensitivity_calibration, run_phase0_calibration
 from sensetrace.config import validate_config
 from sensetrace.metrics import max_statistic, monte_carlo_permutation_test, paired_delta_analysis
 from sensetrace.protocol import phase0_protocol, phase0_protocol_hash
@@ -233,3 +233,69 @@ def test_native_kernel_is_optional_but_has_serialized_contract():
     if len(flushed):
         assert len(flushed) == 8
     assert "RDTSC" in kernel.provenance()["timer_source"]
+
+
+def test_native_delayed_control_is_inside_the_timed_path():
+    kernel = NativeMeasurementKernel.load()
+    if kernel is None or not kernel.supports_clflush:
+        return
+    address = kernel.calibration_address()
+    baseline = float(np.median(kernel.measure_flushed(address, 16)))
+    delayed = float(np.median(kernel.measure_flushed(address, 16, extra_delay_cycles=256)))
+    assert delayed > baseline
+
+
+def test_native_sensitivity_calibration_separates_development_and_fresh_validation(tmp_path):
+    kernel = NativeMeasurementKernel.load()
+    if kernel is None or not kernel.supports_clflush:
+        return
+    config = validate_config(
+        {
+            "experiment": {"name": "native-sensitivity-test", "seed": 91},
+            "data": {"target_balance": 0.5, "samples": 8, "trace_length": 32},
+            "models": {
+                "logistic_regression": {"enabled": True},
+                "boosted_trees": {"enabled": False},
+                "tiny_mlp": {"enabled": False},
+                "tiny_cnn": {"enabled": False},
+            },
+            "training": {"seeds": [3], "epochs": 2, "early_stopping_patience": 1},
+            "acquisition": {"shard_target_mb": 1, "max_samples_per_shard": 8},
+            "phase1a": {
+                "samples": 8,
+                "trace_length": 32,
+                "location_count": 1,
+                "trials_per_location": 8,
+                "labels_per_location": 4,
+                "word_count": 8,
+                "lock_memory": False,
+                "cache_control": "clflush",
+                "use_native_kernel": True,
+                "require_native_kernel": True,
+                "session_count": 4,
+            },
+            "reporting": {
+                "ci_unit": "acquisition_session_id",
+                "bootstrap_repetitions": 2,
+                "paired_repetitions": 5,
+            },
+            "native_sensitivity": {
+                "session_count": 4,
+                "alpha": 0.05,
+                "target_power": 0.5,
+            },
+        }
+    )
+    report = run_native_sensitivity_calibration(
+        config,
+        tmp_path,
+        development_magnitudes=[0, 256],
+        development_replicates=2,
+        validation_replicates=2,
+    )
+    assert report["status"] == "complete"
+    assert report["protocol"]["holdout"] == "D_unseen_acquisition_session"
+    assert report["protocol"]["null_magnitude_cycles"] == 0
+    assert report["frozen_selection"]["selection_uses_fresh_validation"] is False
+    assert report["fresh_frozen_validation"]["datasets_are_fresh_and_separately_seeded"] is True
+    assert report["fresh_frozen_validation"]["power_curve"]

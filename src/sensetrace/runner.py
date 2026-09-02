@@ -149,6 +149,20 @@ class AcquisitionRunner:
         )
         journal_state = self.journal.recover()
         start_index, quarantined = self._resume_index()
+        if (
+            str(self.config.get("acquisition", {}).get("backend", "synthetic")) == "commodity"
+            and start_index
+        ):
+            self.journal.append(
+                "commodity_recovery_refused",
+                run_id=self.run_id,
+                resume_from_sample=start_index,
+                decision="fail_closed; start a new acquisition session/run with a fresh allocation",
+            )
+            raise RuntimeError(
+                "commodity acquisition cannot resume finalized shards in place: "
+                "start a new run/session so a fresh allocation cannot share the old identity"
+            )
         self.journal.append(
             "recovery_started",
             run_id=self.run_id,

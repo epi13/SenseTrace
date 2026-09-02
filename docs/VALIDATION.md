@@ -137,6 +137,38 @@ cache state, boot/session identity, and block identity. These channels are
 reported to diagnose nuisance explanations and remain excluded from the
 default feature matrix.
 
+### Phase 1A holdout boundary and native sensitivity
+
+The strict levels have distinct declared identities: A groups repeated trials
+within a virtual location and pair, B groups virtual locations, C groups
+acquisition blocks, D groups acquisition sessions, and E groups only OS boot
+IDs. E is unavailable with fewer than three real boot groups. A session ID or
+allocation ID cannot be used to manufacture a cross-boot split. Every run
+records split invariants for exact coverage, group disjointness, unique sample
+IDs, and duplicated nominal partitions.
+
+The exact native timing path is calibrated separately with a positive control
+that adds a known TSC-deadline delay after the volatile load inside the native
+timing window. The sweep includes a zero null, multiple predeclared magnitudes,
+fresh independently seeded datasets, the D holdout, the same model/metric
+maximum-statistic rule, paired statistics, uncertainty, session/boot
+dependence, and shuffled-label controls. Development data selects a frozen
+candidate; fresh validation uses new seeds and the development critical value
+without retuning. This estimates an instrumentation detection floor only. It
+does not constitute a physical DRAM-state result.
+
+Use the separate namespace with:
+
+```bash
+sensetrace calibrate native-sensitivity \
+  --config configs/worker03.example.yaml --output runs/native-sensitivity
+```
+
+Raw timing values are retained. Quantiles, autocorrelation, outlier fractions,
+CPU/frequency/thermal state, cache-control separation, and acquisition-order
+drift are audit diagnostics; no noisy trace is removed merely because it hurts
+a result.
+
 ## Multiple comparisons
 
 Searching hundreds of channels, windows, architectures, and timing settings can eventually produce an above-chance result by luck.

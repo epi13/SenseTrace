@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 import numpy as np
 import pytest
 
@@ -9,9 +12,33 @@ from sensetrace.config import validate_config
 from sensetrace.datasets import build_feature_matrix, combine_datasets, write_dataset_manifest
 from sensetrace.errors import JournalCorruptionError
 from sensetrace.journal import Journal
+from sensetrace.phase1a import _materialize_session
 from sensetrace.recovery import recovery_test
 from sensetrace.splits import grouped_split, partition_indices, read_split, write_split
-from sensetrace.storage import ShardWriter, validate_all_shards
+from sensetrace.storage import ShardWriter, load_shards, validate_all_shards
+
+
+def _physical_recovery_config() -> dict:
+    return validate_config(
+        {
+            "experiment": {"name": "physical-recovery-test", "seed": 31},
+            "data": {"target_balance": 0.5, "samples": 8, "trace_length": 32},
+            "acquisition": {"shard_target_mb": 1, "max_samples_per_shard": 1},
+            "phase1a": {
+                "samples": 8,
+                "trace_length": 32,
+                "location_count": 1,
+                "trials_per_location": 8,
+                "labels_per_location": 4,
+                "word_count": 8,
+                "lock_memory": False,
+                "cache_control": "none",
+                "use_native_kernel": False,
+                "require_native_kernel": False,
+                "session_count": 1,
+            },
+        }
+    )
 
 
 def test_grouped_split_keeps_groups_together(tmp_path):
@@ -65,6 +92,62 @@ def test_recovery_quarantines_temp_and_avoids_duplicate_ranges():
     assert len(result["finalized_next_sample_indices"]) == len(
         set(result["finalized_next_sample_indices"])
     )
+
+
+def test_phase1a_recovery_fails_closed_at_allocation_boundary(tmp_path):
+    config = _physical_recovery_config()
+    old_dir = tmp_path / "sessions" / "session-old"
+    old_dir.mkdir(parents=True)
+    old_backend = CommodityDramBackend(
+        count=8,
+        location_count=1,
+        trials_per_location=8,
+        trace_length=32,
+        word_count=8,
+        lock_memory=False,
+        cache_control="none",
+        use_native_kernel=False,
+        acquisition_session_id="session-old",
+    )
+    try:
+        old_ledger = old_backend.session_provenance()
+        first = next(old_backend.samples())
+    finally:
+        old_backend.close()
+    writer = ShardWriter(old_dir, max_samples_per_shard=1)
+    writer.add(first.trace, first.label, first.metadata)
+    writer.finalize()
+    old_ledger.update({"condition": "physical", "status": "active"})
+    (old_dir / "session.json").write_text(json.dumps(old_ledger, indent=2) + "\n", encoding="utf-8")
+    Journal(old_dir / "events.jsonl").append("acquisition_session_started")
+
+    replacement_manifest = _materialize_session(
+        config,
+        old_dir,
+        condition="physical",
+        campaign_id="recovery-campaign",
+        session_index=0,
+        session_id="session-old",
+        host_inventory_snapshot={"host_id": "test-host"},
+    )
+    replacement_dir = (
+        tmp_path / "sessions" / Path(replacement_manifest.pop("_materialized_source_dir")).name
+    )
+    old_after = json.loads((old_dir / "session.json").read_text())
+    new_ledger = replacement_manifest["acquisition_sessions"][0]
+    assert old_after["status"] == "interrupted"
+    assert old_after["recovery_decision"] == "fail_closed_new_allocation"
+    assert old_after["recovery_replacement_session_id"] == new_ledger["acquisition_session_id"]
+    assert new_ledger["acquisition_session_id"] != old_ledger["acquisition_session_id"]
+    assert (
+        new_ledger["controlled_memory_region"]["allocation_id"]
+        != old_ledger["controlled_memory_region"]["allocation_id"]
+    )
+    assert new_ledger["recovery"]["parent_session_id"] == old_ledger["acquisition_session_id"]
+    assert len(validate_all_shards(old_dir)) == 1
+    _traces, _labels, metadata, _shards = load_shards(replacement_dir)
+    assert len(set(metadata["allocation_id"])) == 1
+    assert set(metadata["trial_pair_id"]).isdisjoint({str(first.metadata["trial_pair_id"])})
 
 
 def test_journal_rejects_non_trailing_corruption(tmp_path):

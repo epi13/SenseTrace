@@ -1,0 +1,59 @@
+# Small, predeclared validation campaign used only to test genuine boot-group
+# provenance.  It is not a replacement for the exploratory Phase 1A run.
+host:
+  name: worker-03
+  role: dedicated_experiment_host
+
+experiment:
+  name: worker03-phase1a-multiboot-validation
+  description: Three fresh OS boots for a genuine E_unseen_boot holdout.
+  seed: 20260902
+
+data:
+  target_balance: 0.50
+  samples: 64
+  trace_channels: 1
+  trace_length: 32
+
+acquisition:
+  backend: commodity
+  shard_target_mb: 1
+  max_samples_per_shard: 64
+
+phase1a:
+  status: exploratory_multiboot_validation
+  location_count: 4
+  trials_per_location: 16
+  labels_per_location: 8
+  samples: 64
+  trace_length: 32
+  pattern: single_bit
+  target_bit: 0
+  word_count: 64
+  lock_memory: false
+  cache_control: clflush
+  cpu_affinity: null
+  ci_unit: acquisition_session_id
+  use_native_kernel: true
+  require_native_kernel: true
+  session_count: 1
+
+models:
+  logistic_regression:
+    enabled: true
+  boosted_trees:
+    enabled: true
+  tiny_mlp:
+    enabled: false
+  tiny_cnn:
+    enabled: false
+
+training:
+  seeds: [11, 23]
+  epochs: 10
+  early_stopping_patience: 2
+
+reporting:
+  ci_unit: acquisition_session_id
+  bootstrap_repetitions: 100
+  paired_repetitions: 500

@@ -77,7 +77,53 @@ def load_dataset(
         raise IntegrityError("dataset fingerprint does not match finalized shard evidence")
     if manifest.get("rows") != len(labels):
         raise IntegrityError("dataset manifest row count does not match shards")
+    _validate_allocation_provenance(metadata, manifest, root)
     return traces, labels, metadata, shards, manifest
+
+
+def _validate_allocation_provenance(
+    metadata: dict[str, np.ndarray], manifest: dict[str, Any], source: Path
+) -> None:
+    """Reject a source dataset that blurs one session across allocations."""
+
+    session_field = (
+        "acquisition_session_id" if "acquisition_session_id" in metadata else "session_id"
+    )
+    if session_field not in metadata or "allocation_id" not in metadata:
+        return
+    session_values = np.asarray(metadata[session_field]).astype(str)
+    allocation_values = np.asarray(metadata["allocation_id"]).astype(str)
+    allocations: dict[str, set[str]] = {}
+    for session, allocation in zip(session_values, allocation_values, strict=True):
+        allocations.setdefault(str(session), set()).add(str(allocation))
+    blurred = {session: values for session, values in allocations.items() if len(values) != 1}
+    if blurred:
+        raise IntegrityError(
+            f"dataset {source} has session identities spanning multiple allocation IDs: {blurred}"
+        )
+    ledgers = manifest.get("acquisition_sessions", [])
+    expected: dict[str, str] = {}
+    for ledger in ledgers:
+        if not isinstance(ledger, dict):
+            continue
+        status = ledger.get("status")
+        if status in {"active", "interrupted", "incomplete"}:
+            raise IntegrityError(
+                f"dataset {source} references an incomplete acquisition session ({status})"
+            )
+        session = str(ledger.get("acquisition_session_id", ledger.get("session_id", "")))
+        allocation = str(ledger.get("controlled_memory_region", {}).get("allocation_id", ""))
+        if session and allocation and allocation not in {"unavailable", "unknown"}:
+            expected[session] = allocation
+    mismatched = {
+        session: (next(iter(values)), expected[session])
+        for session, values in allocations.items()
+        if session in expected and next(iter(values)) != expected[session]
+    }
+    if mismatched:
+        raise IntegrityError(
+            f"dataset {source} allocation metadata disagrees with its session ledger: {mismatched}"
+        )
 
 
 def trace_features(traces: np.ndarray, *, bins: int = 32) -> np.ndarray:
@@ -171,6 +217,20 @@ def combine_datasets(
     ]
 
     existing_ids: set[str] = set()
+    seen_session_ids: dict[str, Path] = {}
+    for source, manifest in zip(sources, source_manifests, strict=True):
+        for ledger in manifest.get("acquisition_sessions", []):
+            if not isinstance(ledger, dict):
+                continue
+            session_id = str(ledger.get("acquisition_session_id", ledger.get("session_id", "")))
+            if not session_id:
+                continue
+            if session_id in seen_session_ids and seen_session_ids[session_id] != source:
+                raise IntegrityError(
+                    "one acquisition_session_id appears in multiple source datasets; "
+                    "combine only independently materialized sessions"
+                )
+            seen_session_ids[session_id] = source
     if sorted(target.glob("shard-*.npz")):
         _existing_traces, _existing_labels, existing_metadata, _existing_shards = load_shards(
             target

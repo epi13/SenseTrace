@@ -203,6 +203,45 @@ def _categorical_audit(
     return {"status": "reported_audit_only", "field": field, "values": rows}
 
 
+def _distribution_summary(values: np.ndarray) -> dict[str, Any]:
+    finite = np.asarray(values, dtype=np.float64)
+    finite = finite[np.isfinite(finite)]
+    if not len(finite):
+        return {"count": 0, "status": "unavailable"}
+    quantile_values = np.percentile(finite, [1, 5, 25, 50, 75, 95, 99])
+    return {
+        "status": "reported_audit_only",
+        "count": int(len(finite)),
+        "mean": float(np.mean(finite)),
+        "std": float(np.std(finite, ddof=1)) if len(finite) > 1 else 0.0,
+        "quantiles": {
+            str(level): float(value)
+            for level, value in zip([1, 5, 25, 50, 75, 95, 99], quantile_values, strict=True)
+        },
+        "raw_samples_retained": True,
+        "outlier_filtering": "none; summary only",
+    }
+
+
+def _grouped_latency_distributions(
+    measurement: np.ndarray, metadata: dict[str, np.ndarray], fields: list[str]
+) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for field in fields:
+        if field not in metadata:
+            result[field] = {"status": "unavailable", "reason": f"{field} is absent"}
+            continue
+        values = np.asarray(metadata[field]).astype(str)
+        result[field] = {
+            "status": "reported_audit_only",
+            "groups": {
+                str(group): _distribution_summary(measurement[values == group])
+                for group in np.unique(values)
+            },
+        }
+    return result
+
+
 def _drift_diagnostics(
     traces: np.ndarray | None, labels: np.ndarray, metadata: dict[str, np.ndarray]
 ) -> dict[str, Any]:
@@ -225,6 +264,12 @@ def _drift_diagnostics(
         result["run_drift"] = {"status": "unavailable", "reason": "trace or trial_index is absent"}
         return result
     measurement = np.median(np.asarray(traces, dtype=np.float64), axis=1)
+    trace_values = np.asarray(traces, dtype=np.float64)
+    autocorrelations: list[float] = []
+    for row in trace_values:
+        if len(row) < 2 or np.std(row[:-1]) == 0 or np.std(row[1:]) == 0:
+            continue
+        autocorrelations.append(float(np.corrcoef(row[:-1], row[1:])[0, 1]))
     order = np.asarray(metadata["trial_index"], dtype=np.float64)
     centered_order = order - np.mean(order)
     centered_measurement = measurement - np.mean(measurement)
@@ -255,6 +300,27 @@ def _drift_diagnostics(
             for label in [0, 1]
             if np.any(labels == label)
         },
+    }
+    result["trace_quality"] = {
+        "status": "reported_audit_only",
+        "trace_shape": list(trace_values.shape),
+        "finite_fraction": float(np.mean(np.isfinite(trace_values))),
+        "lag_1_autocorrelation_mean": (
+            float(np.mean(autocorrelations)) if autocorrelations else float("nan")
+        ),
+        "lag_1_autocorrelation_median": (
+            float(np.median(autocorrelations)) if autocorrelations else float("nan")
+        ),
+        "per_session_cpu_distributions": _grouped_latency_distributions(
+            measurement,
+            metadata,
+            [
+                "acquisition_session_id" if "acquisition_session_id" in metadata else "session_id",
+                "cpu_id",
+            ],
+        ),
+        "raw_samples_retained": True,
+        "outlier_filtering": "none; distribution diagnostics do not alter the dataset",
     }
     return result
 

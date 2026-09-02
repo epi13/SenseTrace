@@ -114,6 +114,19 @@ host snapshot, timestamps, journal boundaries, label fingerprint, kernel/cache
 provenance, and configuration/code hashes. A combined campaign manifest keeps
 all source session manifests available for audit and restart recovery.
 
+The declared holdout hierarchy is `A_repeated_trial_holdout`,
+`B_unseen_location`, `C_unseen_acquisition_block`,
+`D_unseen_acquisition_session`, and `E_unseen_boot`. D groups only by
+acquisition-session ID. E groups only by OS boot ID and is unavailable unless
+three genuine independent boot groups can populate train, validation, and
+test. Multiple sessions from one boot do not create E evidence. The analyzer
+also reports identical nominal partitions or grouping relations as duplicated
+evidence rather than counting them twice.
+
+An interrupted physical session is never resumed in place. Its finalized
+shards are retained as excluded evidence, and a replacement session receives a
+new UUID and allocation ID with an explicit parent/recovery relationship.
+
 ### Phase 2 — controlled memory interface
 
 Introduce tighter command-level control when suitable research hardware is available, for example an FPGA-based DRAM controller. This phase can systematically vary activation, precharge, refresh, and timing conditions while preserving the same validation rules.

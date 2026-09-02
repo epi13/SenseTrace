@@ -14,15 +14,24 @@
 #endif
 
 #if SENSETRACE_X86
+static inline void st_compiler_barrier(void) {
+    __asm__ __volatile__("" ::: "memory");
+}
+
 static inline uint64_t st_begin(void) {
+    st_compiler_barrier();
     _mm_lfence();
-    return __rdtsc();
+    uint64_t value = __rdtsc();
+    st_compiler_barrier();
+    return value;
 }
 
 static inline uint64_t st_end(void) {
     unsigned int aux = 0;
+    st_compiler_barrier();
     uint64_t value = __rdtscp(&aux);
     _mm_lfence();
+    st_compiler_barrier();
     return value;
 }
 
@@ -41,10 +50,27 @@ static uint64_t st_load(const volatile uint64_t *address, volatile uint64_t *sin
     *sink ^= value;
     return finished - started;
 }
+
+static uint64_t st_load_delayed(
+    const volatile uint64_t *address, volatile uint64_t *sink, uint64_t delay_cycles
+) {
+    uint64_t started = st_begin();
+    uint64_t value = *address;
+    st_compiler_barrier();
+    if (delay_cycles > 0) {
+        uint64_t deadline = __rdtsc() + delay_cycles;
+        while (__rdtsc() < deadline) {
+            _mm_pause();
+        }
+    }
+    uint64_t finished = st_end();
+    *sink ^= value;
+    return finished - started;
+}
 #endif
 
 const char *st_kernel_version(void) {
-    return "sensetrace-native-kernel-v1";
+    return "sensetrace-native-kernel-v2";
 }
 
 int st_cpu_supports_clflush(void) {
@@ -91,6 +117,59 @@ int st_measure_flushed(const volatile uint64_t *address, size_t repetitions, uin
 #else
     (void)address;
     (void)repetitions;
+    (void)output;
+    return -ENOTSUP;
+#endif
+}
+
+int st_measure_cached_delayed(
+    const volatile uint64_t *address,
+    size_t repetitions,
+    uint64_t delay_cycles,
+    uint64_t *output
+) {
+#if SENSETRACE_X86
+    if (address == NULL || output == NULL || repetitions == 0) {
+        return -EINVAL;
+    }
+    volatile uint64_t sink = *address;
+    for (size_t index = 0; index < repetitions; ++index) {
+        output[index] = st_load_delayed(address, &sink, delay_cycles);
+    }
+    return 0;
+#else
+    (void)address;
+    (void)repetitions;
+    (void)delay_cycles;
+    (void)output;
+    return -ENOTSUP;
+#endif
+}
+
+int st_measure_flushed_delayed(
+    const volatile uint64_t *address,
+    size_t repetitions,
+    uint64_t delay_cycles,
+    uint64_t *output
+) {
+#if SENSETRACE_X86
+    if (address == NULL || output == NULL || repetitions == 0) {
+        return -EINVAL;
+    }
+    if (!st_has_clflush()) {
+        return -ENOTSUP;
+    }
+    volatile uint64_t sink = 0;
+    for (size_t index = 0; index < repetitions; ++index) {
+        _mm_clflush((const void *)address);
+        _mm_mfence();
+        output[index] = st_load_delayed(address, &sink, delay_cycles);
+    }
+    return 0;
+#else
+    (void)address;
+    (void)repetitions;
+    (void)delay_cycles;
     (void)output;
     return -ENOTSUP;
 #endif

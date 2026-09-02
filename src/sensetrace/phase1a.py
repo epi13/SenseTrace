@@ -23,7 +23,13 @@ from .metrics import paired_delta_analysis
 from .models import train_and_evaluate
 from .phase0 import _enabled_models
 from .runner import _git_commit, new_run_id
-from .splits import partition_indices, phase1a_split_hierarchy, split_composition, write_split
+from .splits import (
+    partition_indices,
+    phase1a_split_hierarchy,
+    split_composition,
+    validate_phase1a_split_hierarchy,
+    write_split,
+)
 from .storage import (
     ShardWriter,
     load_shards,
@@ -60,6 +66,8 @@ def _backend_from_config(
     campaign_id: str | None = None,
     host_inventory_snapshot: dict[str, Any] | None = None,
     session_started_at: str | None = None,
+    parent_session_id: str | None = None,
+    recovery_reason: str | None = None,
 ) -> CommodityDramBackend:
     data = config.get("data", {})
     physical = config.get("phase1a", {})
@@ -90,6 +98,9 @@ def _backend_from_config(
         # only for source compatibility and no longer partitions one stream.
         session_count=1,
         use_native_kernel=bool(physical.get("use_native_kernel", True)),
+        timing_perturbation_cycles=int(physical.get("timing_perturbation_cycles", 0)),
+        timing_perturbation_label=int(physical.get("timing_perturbation_label", 1)),
+        calibration_namespace=physical.get("calibration_namespace"),
         acquisition_session_id=session_id,
         session_index=session_index,
         campaign_id=campaign_id,
@@ -117,6 +128,8 @@ def _materialize_session(
     session_index: int,
     session_id: str,
     host_inventory_snapshot: dict[str, Any],
+    parent_session_id: str | None = None,
+    recovery_reason: str | None = None,
 ) -> dict[str, Any]:
     """Acquire one genuine session into its own crash-safe source directory."""
 
@@ -130,14 +143,64 @@ def _materialize_session(
             return manifest
 
     if existing_record:
-        session_id = str(existing_record.get("acquisition_session_id", session_id))
-        session_index = int(existing_record.get("session_index", session_index))
-        session_started_at = str(existing_record.get("started_at", datetime.now(UTC).isoformat()))
-        host_inventory_snapshot = existing_record.get(
-            "host_inventory_snapshot", host_inventory_snapshot
+        status = str(existing_record.get("status", "unknown"))
+        if status == "completed":
+            raise RuntimeError("completed session unexpectedly reached recovery path")
+
+        # A finalized shard is immutable evidence from the old physical
+        # allocation.  It cannot be resumed by constructing a new backend in
+        # this directory: doing so would join two allocations under one
+        # acquisition-session identity.  Leave an append-only decision in the
+        # old ledger and materialize a sibling session with new identities.
+        old_session_id = str(existing_record.get("acquisition_session_id", session_id))
+        old_allocation_id = str(
+            existing_record.get("controlled_memory_region", {}).get("allocation_id", "unavailable")
         )
-    else:
-        session_started_at = datetime.now(UTC).isoformat()
+        old_journal = Journal(session_dir / "events.jsonl")
+        recovered = old_journal.recover()
+        replacement_id = f"session-{uuid.uuid4().hex}"
+        replacement_dir = session_dir.parent / replacement_id
+        interruption_event = old_journal.append(
+            "acquisition_session_interrupted",
+            acquisition_session_id=old_session_id,
+            allocation_id=old_allocation_id,
+            finalized_shard_count=len(validate_all_shards(session_dir))
+            if list(session_dir.glob("shard-*.npz"))
+            else 0,
+            decision="finalized shards remain immutable and are excluded from the replacement session",
+            replacement_session_id=replacement_id,
+            recovery_reason=recovery_reason or "restart after incomplete physical acquisition",
+            recovered_event_count=len(recovered.events),
+        )
+        existing_record.update(
+            {
+                "status": "interrupted",
+                "interrupted_at": datetime.now(UTC).isoformat(),
+                "interruption_reason": recovery_reason
+                or "restart after incomplete physical acquisition",
+                "recovery_decision": "fail_closed_new_allocation",
+                "recovery_replacement_session_id": replacement_id,
+                "recovery_replacement_dir": str(replacement_dir),
+                "interruption_event": interruption_event,
+            }
+        )
+        _write_json(session_path, existing_record)
+        replacement_snapshot = collect_inventory()
+        replacement = _materialize_session(
+            config,
+            replacement_dir,
+            condition=condition,
+            campaign_id=campaign_id,
+            session_index=session_index,
+            session_id=replacement_id,
+            host_inventory_snapshot=replacement_snapshot,
+            parent_session_id=old_session_id,
+            recovery_reason="replacement for interrupted physical acquisition session",
+        )
+        replacement["_materialized_source_dir"] = str(replacement_dir)
+        return replacement
+
+    session_started_at = datetime.now(UTC).isoformat()
 
     backend = _backend_from_config(
         config,
@@ -167,6 +230,12 @@ def _materialize_session(
             "code_commit": _git_commit(),
         }
     )
+    if parent_session_id is not None:
+        session_record["recovery"] = {
+            "parent_session_id": parent_session_id,
+            "reason": recovery_reason or "replacement session",
+            "allocation_boundary": "new allocation and new acquisition-session identity",
+        }
     _write_json(session_path, session_record)
     journal = Journal(session_dir / "events.jsonl")
     recovered = journal.recover()
@@ -260,6 +329,28 @@ def _materialize_session(
     )
 
 
+def _existing_session_for_index(source_root: Path, session_index: int) -> Path | None:
+    """Find the latest valid candidate for a logical session slot.
+
+    Completed replacement sessions take precedence over interrupted parents;
+    this prevents a second restart from attempting another recovery of the
+    immutable parent directory.
+    """
+
+    candidates: list[tuple[Path, dict[str, Any]]] = []
+    if not source_root.exists():
+        return None
+    for path in sorted(item for item in source_root.iterdir() if item.is_dir()):
+        record = _session_record_from_file(path / "session.json")
+        if record is not None and int(record.get("session_index", -1)) == session_index:
+            candidates.append((path, record))
+    for desired_status in ("completed", "active", "interrupted"):
+        matching = [path for path, record in candidates if record.get("status") == desired_status]
+        if matching:
+            return matching[-1]
+    return None
+
+
 def _materialize_backend(
     config: dict[str, Any],
     condition_dir: Path,
@@ -282,7 +373,7 @@ def _materialize_backend(
     campaign_id = f"compat-{uuid.uuid4().hex}"
     session_id = f"session-{uuid.uuid4().hex}"
     source_dir = condition_dir / "sessions" / session_id
-    _materialize_session(
+    materialized = _materialize_session(
         effective,
         source_dir,
         condition="physical",
@@ -291,6 +382,7 @@ def _materialize_backend(
         session_id=session_id,
         host_inventory_snapshot=collect_inventory(),
     )
+    source_dir = Path(materialized.pop("_materialized_source_dir", str(source_dir)))
     return combine_datasets(
         [source_dir],
         condition_dir,
@@ -311,21 +403,16 @@ def _materialize_acquired_condition(
     session_count: int,
 ) -> dict[str, Any]:
     source_root = condition_dir / "sessions"
-    existing_dirs = (
-        sorted(path for path in source_root.iterdir() if path.is_dir())
-        if source_root.exists()
-        else []
-    )
     source_dirs: list[Path] = []
     for session_index in range(session_count):
-        source_dir = existing_dirs[session_index] if session_index < len(existing_dirs) else None
+        source_dir = _existing_session_for_index(source_root, session_index)
         session_id = source_dir.name if source_dir is not None else f"session-{uuid.uuid4().hex}"
         source_dir = source_dir or source_root / session_id
         # Capture the ledger at the actual independent session boundary. The
         # campaign-level host snapshot remains useful context, but must not be
         # mistaken for six identical session snapshots.
         session_inventory = collect_inventory()
-        _materialize_session(
+        materialized = _materialize_session(
             config,
             source_dir,
             condition=condition,
@@ -334,7 +421,8 @@ def _materialize_acquired_condition(
             session_id=session_id,
             host_inventory_snapshot=session_inventory,
         )
-        source_dirs.append(source_dir)
+        actual_source_dir = Path(materialized.pop("_materialized_source_dir", str(source_dir)))
+        source_dirs.append(actual_source_dir)
     return combine_datasets(
         source_dirs,
         condition_dir,
@@ -402,7 +490,7 @@ def _claim_for_split(name: str) -> str:
         "B_unseen_location": "candidate relationship beyond tested virtual buffer locations; not session/device generalization",
         "C_unseen_acquisition_block": "candidate relationship beyond acquisition blocks; physical topology remains unknown",
         "D_unseen_acquisition_session": "candidate relationship across unseen acquisition sessions on this host/device",
-        "E_unseen_boot_session": "candidate relationship across unseen boot/session groups; not device-independent evidence",
+        "E_unseen_boot": "candidate relationship across genuinely unseen OS boot IDs; not device-independent evidence",
     }.get(name, "claim boundary unavailable")
 
 
@@ -415,6 +503,9 @@ def _analyze_condition(
         dataset_fingerprint=manifest["dataset_fingerprint"],
         seed=int(config.get("experiment", {}).get("seed", 1337)),
     )
+    hierarchy_invariants = validate_phase1a_split_hierarchy(metadata, hierarchy)
+    if hierarchy_invariants["status"] != "pass":
+        raise RuntimeError("Phase 1A split hierarchy invariants failed")
     features = build_feature_matrix(traces, metadata)
     requested_ci_unit = str(
         config.get("phase1a", {}).get(
@@ -511,6 +602,7 @@ def _analyze_condition(
     return {
         "dataset": manifest,
         "split_hierarchy": hierarchy,
+        "split_hierarchy_invariants": hierarchy_invariants,
         "split_analyses": split_analyses,
         "analysis_summary": {
             "available_split_count": len(available),
@@ -520,6 +612,7 @@ def _analyze_condition(
                 if analysis.get("status") != "available"
             ],
             "all_available_splits_evaluated_independently": True,
+            "identical_nominal_levels": hierarchy_invariants["identical_materialized_partitions"],
         },
         # Compatibility view: callers of the pre-campaign report can still
         # find the B result, but it is explicitly not the sole analysis.

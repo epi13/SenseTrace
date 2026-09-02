@@ -40,6 +40,10 @@ def grouped_split(
         groups.setdefault(_group_key(metadata, index, group_keys), []).append(index)
     rng = np.random.default_rng(seed)
     group_names = list(groups)
+    if len(group_names) < 3:
+        raise SchemaError(
+            f"grouped split requires at least three independent groups; found {len(group_names)}"
+        )
     rng.shuffle(group_names)
     targets = {
         "train": count * train_fraction,
@@ -69,6 +73,7 @@ def grouped_split(
             "test": test_fraction,
         },
         "dataset_fingerprint": dataset_fingerprint,
+        "independent_group_count": len(group_names),
         "train_sample_ids": [sample_ids[index] for index in assigned["train"]],
         "validation_sample_ids": [sample_ids[index] for index in assigned["validation"]],
         "test_sample_ids": [sample_ids[index] for index in assigned["test"]],
@@ -87,7 +92,29 @@ def phase1a_split_hierarchy(
         "B_unseen_location": ["virtual_location_id"],
         "C_unseen_acquisition_block": ["acquisition_block"],
         "D_unseen_acquisition_session": ["acquisition_session_id"],
-        "E_unseen_boot_session": ["boot_id", "acquisition_session_id"],
+        "E_unseen_boot": ["boot_id"],
+    }
+    claim_boundaries = {
+        "A_repeated_trial_holdout": (
+            "repeat-level diagnostic within virtual locations; it does not establish "
+            "unseen-location, session, boot, or physical-topology generalization"
+        ),
+        "B_unseen_location": (
+            "candidate relationship beyond tested virtual buffer locations; it does not "
+            "establish session, boot, device, or physical-topology generalization"
+        ),
+        "C_unseen_acquisition_block": (
+            "candidate relationship beyond acquisition blocks in the recorded host/session "
+            "protocol; physical topology remains unknown"
+        ),
+        "D_unseen_acquisition_session": (
+            "candidate relationship across genuinely unseen acquisition sessions on the "
+            "recorded host/device; it is not unseen-boot or device-independent evidence"
+        ),
+        "E_unseen_boot": (
+            "candidate relationship across genuinely unseen OS boot IDs on the recorded "
+            "host; it is not device-independent or physical DRAM-state evidence"
+        ),
     }
     aliases = {
         "virtual_location_id": "location_id",
@@ -95,6 +122,32 @@ def phase1a_split_hierarchy(
     }
     results: dict[str, dict[str, Any]] = {}
     for offset, (name, keys) in enumerate(specifications.items()):
+        if name == "E_unseen_boot":
+            if "boot_id" not in metadata:
+                results[name] = {
+                    "status": "unavailable",
+                    "grouping_keys": keys,
+                    "reason": "required explicit boot_id metadata is unavailable",
+                    "claim_boundary": claim_boundaries[name],
+                }
+                continue
+            boot_ids = {
+                str(value)
+                for value in np.asarray(metadata["boot_id"]).astype(str)
+                if str(value).strip().lower() not in {"", "unknown", "unavailable", "none"}
+            }
+            if len(boot_ids) < 3:
+                results[name] = {
+                    "status": "unavailable",
+                    "grouping_keys": keys,
+                    "reason": (
+                        "insufficient independent OS boot groups; "
+                        f"need at least 3, found {len(boot_ids)}"
+                    ),
+                    "independent_group_count": len(boot_ids),
+                    "claim_boundary": claim_boundaries[name],
+                }
+                continue
         resolved_keys = [
             key if key in metadata else aliases[key]
             for key in keys
@@ -117,16 +170,104 @@ def phase1a_split_hierarchy(
             )
             split["split_name"] = name
             split["declared_grouping_keys"] = keys
+            split["claim_boundary"] = claim_boundaries[name]
             split["split_fingerprint"] = fingerprint_split(split)
-            results[name] = {"status": "available", "split": split}
+            results[name] = {
+                "status": "available",
+                "split": split,
+                "claim_boundary": claim_boundaries[name],
+            }
         except SchemaError as exc:
             results[name] = {
                 "status": "unavailable",
                 "grouping_keys": keys,
                 "reason": str(exc),
-                "claim_boundary": "not enough independent groups in this acquisition",
+                "claim_boundary": claim_boundaries[name],
             }
     return results
+
+
+def validate_phase1a_split_hierarchy(
+    metadata: dict[str, np.ndarray], hierarchy: dict[str, dict[str, Any]]
+) -> dict[str, Any]:
+    """Return machine-checkable invariants for the complete Phase 1A hierarchy.
+
+    The checks are intentionally audit-only.  They make it visible when two
+    nominal hierarchy levels happen to materialize the same partition or the
+    same sample equivalence relation, instead of treating that coincidence as
+    independent evidence.
+    """
+
+    sample_ids = ensure_sample_ids(metadata)
+    sample_id_unique = len(sample_ids) == len(set(sample_ids))
+    available: dict[str, Any] = {}
+    partition_signatures: dict[str, tuple[str, ...]] = {}
+    grouping_signatures: dict[str, tuple[str, ...]] = {}
+    for name, record in hierarchy.items():
+        if record.get("status") != "available":
+            available[name] = {
+                "status": "unavailable",
+                "reason": record.get("reason", "unavailable"),
+            }
+            continue
+        split = record["split"]
+        partitions = partition_indices(metadata, split)
+        membership = np.full(len(sample_ids), "", dtype="U16")
+        for part, indices in partitions.items():
+            membership[indices] = part
+        resolved_keys = list(split.get("grouping_keys", []))
+        group_to_partition: dict[tuple[str, ...], str] = {}
+        crossing_groups: list[list[str]] = []
+        for index in range(len(sample_ids)):
+            group = tuple(_group_key(metadata, index, resolved_keys).split("|"))
+            part = str(membership[index])
+            previous = group_to_partition.setdefault(group, part)
+            if previous != part:
+                crossing_groups.append(list(group))
+        grouping_signature = tuple(
+            _group_key(metadata, index, resolved_keys) for index in range(len(sample_ids))
+        )
+        partition_signature = tuple(str(value) for value in membership)
+        grouping_signatures[name] = grouping_signature
+        partition_signatures[name] = partition_signature
+        available[name] = {
+            "status": "available",
+            "coverage_exact": bool(
+                all(len(indices) > 0 for indices in partitions.values())
+                and sum(len(indices) for indices in partitions.values()) == len(sample_ids)
+            ),
+            "partition_group_disjoint": not crossing_groups,
+            "crossing_groups": crossing_groups,
+            "independent_group_count": int(len(set(grouping_signature))),
+        }
+
+    identical_partitions: list[list[str]] = []
+    identical_groupings: list[list[str]] = []
+    names = list(partition_signatures)
+    for left_index, left in enumerate(names):
+        for right in names[left_index + 1 :]:
+            if partition_signatures[left] == partition_signatures[right]:
+                identical_partitions.append([left, right])
+            if grouping_signatures[left] == grouping_signatures[right]:
+                identical_groupings.append([left, right])
+    return {
+        "status": "pass"
+        if sample_id_unique
+        and all(
+            item.get("coverage_exact") and item.get("partition_group_disjoint")
+            for item in available.values()
+            if item.get("status") == "available"
+        )
+        else "fail",
+        "sample_id_unique": sample_id_unique,
+        "available_splits": available,
+        "identical_materialized_partitions": identical_partitions,
+        "identical_grouping_equivalence_relations": identical_groupings,
+        "interpretation": (
+            "identical nominal levels are not additional independent evidence; "
+            "unavailable levels are not evidence against or for the claim"
+        ),
+    }
 
 
 def split_composition(

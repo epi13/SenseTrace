@@ -7,7 +7,12 @@ import json
 import sys
 from pathlib import Path
 
-from .calibration import run_native_calibration, run_phase0_calibration, run_phase0_power_study
+from .calibration import (
+    run_native_calibration,
+    run_native_sensitivity_calibration,
+    run_phase0_calibration,
+    run_phase0_power_study,
+)
 from .config import load_config, validate_config
 from .datasets import load_dataset
 from .host.client import RemoteHost
@@ -93,6 +98,15 @@ def build_parser() -> argparse.ArgumentParser:
     )
     native_calibration.add_argument("--output", default="runs/native-calibration")
     native_calibration.add_argument("--repetitions", type=int, default=200)
+    native_sensitivity = calibrate_sub.add_parser(
+        "native-sensitivity",
+        help="measure the native acquisition pipeline's artificial timing detection floor",
+    )
+    native_sensitivity.add_argument("--config", default="configs/worker03.example.yaml")
+    native_sensitivity.add_argument("--output", default="runs/native-sensitivity")
+    native_sensitivity.add_argument("--development-magnitudes", nargs="+", type=int)
+    native_sensitivity.add_argument("--development-replicates", type=int)
+    native_sensitivity.add_argument("--validation-replicates", type=int)
 
     validate = sub.add_parser("validate", help="validate a dataset run directory")
     validate.add_argument("dataset")
@@ -175,6 +189,13 @@ def build_parser() -> argparse.ArgumentParser:
     remote_calibration.add_argument("--shuffled-replicates", type=int)
     remote_calibration.add_argument("--injected-replicates", type=int)
     remote_calibration.add_argument("--gate-validation-replicates", type=int)
+    remote_sensitivity = host_sub.add_parser("calibrate-native-sensitivity")
+    remote_sensitivity.add_argument("host", nargs="?", default="worker-03")
+    remote_sensitivity.add_argument("--config", default="configs/worker03.example.yaml")
+    remote_sensitivity.add_argument("--output")
+    remote_sensitivity.add_argument("--development-magnitudes", nargs="+", type=int)
+    remote_sensitivity.add_argument("--development-replicates", type=int)
+    remote_sensitivity.add_argument("--validation-replicates", type=int)
     results = sub.add_parser("results", help="retrieve result artifacts")
     results_sub = results.add_subparsers(dest="results_command", required=True)
     latest = results_sub.add_parser("latest")
@@ -258,6 +279,17 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command == "calibrate" and args.calibrate_command == "native":
         _json(run_native_calibration(args.output, repetitions=args.repetitions))
+        return 0
+    if args.command == "calibrate" and args.calibrate_command == "native-sensitivity":
+        _json(
+            run_native_sensitivity_calibration(
+                validate_config(load_config(args.config)),
+                args.output,
+                development_magnitudes=args.development_magnitudes,
+                development_replicates=args.development_replicates,
+                validation_replicates=args.validation_replicates,
+            )
+        )
         return 0
     if args.command == "validate":
         traces, labels, metadata, shards, manifest = load_dataset(args.dataset)
@@ -366,6 +398,17 @@ def main(argv: list[str] | None = None) -> int:
                     shuffled_replicates=args.shuffled_replicates,
                     injected_replicates=args.injected_replicates,
                     gate_validation_replicates=args.gate_validation_replicates,
+                ),
+                end="",
+            )
+        elif args.host_command == "calibrate-native-sensitivity":
+            print(
+                remote.run_native_sensitivity_calibration(
+                    args.config,
+                    output=args.output,
+                    development_magnitudes=args.development_magnitudes,
+                    development_replicates=args.development_replicates,
+                    validation_replicates=args.validation_replicates,
                 ),
                 end="",
             )

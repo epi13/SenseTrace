@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -11,6 +12,7 @@ from typing import Any
 import numpy as np
 
 from .acquisition.synthetic import SyntheticBackend
+from .audits import run_leakage_audits
 from .config import config_fingerprint
 from .datasets import build_feature_matrix, load_dataset, write_dataset_manifest
 from .inventory import collect_inventory
@@ -23,13 +25,20 @@ from .metrics import (
     max_statistic,
     metric_value,
     monte_carlo_permutation_test,
+    paired_delta_analysis,
     wilson_interval,
 )
-from .models import fit_model
+from .models import fit_model, train_and_evaluate
 from .phase0 import _enabled_models
 from .protocol import phase0_protocol, phase0_protocol_hash
 from .runner import _git_commit, new_run_id
-from .splits import grouped_split, partition_indices, write_split
+from .splits import (
+    grouped_split,
+    partition_indices,
+    phase1a_split_hierarchy,
+    validate_phase1a_split_hierarchy,
+    write_split,
+)
 from .storage import ShardWriter, validate_all_shards
 
 
@@ -452,11 +461,14 @@ def run_native_calibration(output_root: str | Path, *, repetitions: int = 200) -
     output = Path(output_root)
     output.mkdir(parents=True, exist_ok=True)
     address = kernel.calibration_address()
+    get_cpu = getattr(os, "sched_getcpu", None)
+    cpu_before = get_cpu() if get_cpu is not None else "unavailable"
     cached = kernel.measure_cached(address, repetitions)
     flushed = kernel.measure_flushed(address, repetitions)
     timer = kernel.timer_calibration(repetitions)
     ffi = np.asarray([kernel.timer_calibration(1)[0] for _ in range(repetitions)], dtype=np.float64)
     idle = kernel.idle_calibration(repetitions)
+    cpu_after = get_cpu() if get_cpu is not None else "unavailable"
     report = {
         "schema": "sensetrace.native-calibration.v1",
         "status": "complete",
@@ -469,9 +481,621 @@ def run_native_calibration(output_root: str | Path, *, repetitions: int = 200) -
             "flushed_load": summarize_measurements(flushed),
             "idle_control": summarize_measurements(idle),
         },
+        "measurement_quality_diagnostics": {
+            "cpu_affinity_at_calibration": (
+                sorted(os.sched_getaffinity(0))
+                if hasattr(os, "sched_getaffinity")
+                else "unavailable"
+            ),
+            "cpu_at_call_boundaries": {
+                "before": cpu_before,
+                "after": cpu_after,
+                "interpretation": (
+                    "backend samples also record sched_getcpu at sample boundaries; the native "
+                    "library does not silently discard migration or interrupt-contaminated traces"
+                ),
+            },
+            "frequency_and_governor": (
+                "recorded in host inventory and per-sample backend metadata; not a model feature"
+            ),
+            "thermal_and_interrupts": (
+                "recorded as available by host inventory; interrupt/context-switch contamination "
+                "is not filtered from raw timing values"
+            ),
+            "cache_control_separation": {
+                "cached_median_cycles": float(np.median(cached)),
+                "flushed_median_cycles": float(np.median(flushed)),
+                "flushed_minus_cached_cycles": float(np.median(flushed) - np.median(cached)),
+            },
+            "timer_overhead_median_cycles": float(np.median(timer)),
+            "autocorrelation_is_audit_only": True,
+        },
         "claim_boundary": "flushed means CLFLUSH followed by a timed load; it does not prove DRAM access",
     }
     _write_json(output / "native-calibration.json", report)
+    return report
+
+
+def _native_sensitivity_config(
+    config: dict[str, Any],
+    *,
+    cycles: int,
+    namespace: str,
+    seed: int,
+) -> dict[str, Any]:
+    value = json.loads(json.dumps(config))
+    physical = value.setdefault("phase1a", {})
+    physical.update(
+        {
+            "timing_perturbation_cycles": int(cycles),
+            "timing_perturbation_label": 1,
+            "calibration_namespace": namespace,
+            "use_native_kernel": True,
+            "require_native_kernel": True,
+        }
+    )
+    value.setdefault("experiment", {})["seed"] = int(seed)
+    return value
+
+
+def _materialize_native_sensitivity_dataset(
+    config: dict[str, Any], dataset_dir: Path, *, condition: str, seed: int
+) -> dict[str, Any]:
+    """Acquire one independently seeded native calibration dataset.
+
+    This deliberately uses the same CommodityDramBackend and per-session
+    source-manifest path as Phase 1A, but writes under a separate calibration
+    namespace and never changes any Phase 1A run directory.
+    """
+
+    from .phase1a import _materialize_session
+
+    physical = config.get("phase1a", {})
+    session_count = int(
+        config.get("native_sensitivity", {}).get("session_count", physical.get("session_count", 4))
+    )
+    campaign_id = f"native-sensitivity-{seed:010d}"
+    source_root = dataset_dir / "sessions"
+    source_dirs: list[Path] = []
+    for session_index in range(session_count):
+        session_id = f"session-{seed:010d}-{session_index:04d}"
+        source_dir = source_root / session_id
+        materialized = _materialize_session(
+            config,
+            source_dir,
+            condition=condition,
+            campaign_id=campaign_id,
+            session_index=session_index,
+            session_id=session_id,
+            host_inventory_snapshot=collect_inventory(),
+        )
+        source_dirs.append(Path(materialized.pop("_materialized_source_dir", str(source_dir))))
+    from .datasets import combine_datasets
+
+    return combine_datasets(
+        source_dirs,
+        dataset_dir,
+        config=config,
+        condition=condition,
+        campaign_id=campaign_id,
+        source_manifest_paths=[str(path / "dataset.json") for path in source_dirs],
+    )
+
+
+def _session_dependence(
+    traces: np.ndarray,
+    labels: np.ndarray,
+    metadata: dict[str, np.ndarray],
+    indices: np.ndarray,
+) -> dict[str, Any]:
+    session_field = (
+        "acquisition_session_id" if "acquisition_session_id" in metadata else "session_id"
+    )
+    if session_field not in metadata:
+        return {"status": "unavailable", "reason": "acquisition session metadata is absent"}
+    measurement = np.median(np.asarray(traces[indices], dtype=np.float64), axis=1)
+    sessions = np.asarray(metadata[session_field][indices]).astype(str)
+    local_labels = np.asarray(labels[indices], dtype=np.uint8)
+    result: dict[str, Any] = {"status": "reported_diagnostic", "sessions": {}}
+    for session in sorted(set(sessions)):
+        mask = sessions == session
+        values = {
+            str(label): float(np.mean(measurement[mask & (local_labels == label)]))
+            for label in [0, 1]
+            if np.any(mask & (local_labels == label))
+        }
+        result["sessions"][session] = {
+            "sample_count": int(np.sum(mask)),
+            "label_means": values,
+            "label_1_minus_label_0": (
+                values.get("1", float("nan")) - values.get("0", float("nan"))
+                if "0" in values and "1" in values
+                else float("nan")
+            ),
+        }
+    result["session_count"] = len(result["sessions"])
+    return result
+
+
+def _evaluate_native_sensitivity_dataset(
+    config: dict[str, Any], dataset_dir: Path, *, seed: int
+) -> dict[str, Any]:
+    traces, labels, metadata, _shards, manifest = load_dataset(dataset_dir)
+    hierarchy = phase1a_split_hierarchy(
+        metadata, dataset_fingerprint=manifest["dataset_fingerprint"], seed=seed
+    )
+    invariants = validate_phase1a_split_hierarchy(metadata, hierarchy)
+    record: dict[str, Any] = {
+        "dataset": manifest,
+        "split_hierarchy": {
+            name: {"status": item.get("status"), "reason": item.get("reason")}
+            for name, item in hierarchy.items()
+        },
+        "split_hierarchy_invariants": invariants,
+        "feature_policy": "trace-derived features only; all identity/audit metadata excluded",
+    }
+    d_record = hierarchy.get("D_unseen_acquisition_session", {})
+    if d_record.get("status") != "available":
+        record.update(
+            {
+                "status": "unavailable",
+                "reason": d_record.get("reason", "D split unavailable"),
+            }
+        )
+        return record
+    split = d_record["split"]
+    partitions = partition_indices(metadata, split)
+    features = build_feature_matrix(traces, metadata)
+    ci_unit = str(config.get("reporting", {}).get("ci_unit", "acquisition_session_id"))
+    if ci_unit != "sample" and ci_unit not in metadata:
+        ci_unit = "sample"
+    model_results = {
+        name: train_and_evaluate(
+            name,
+            traces,
+            features,
+            labels,
+            partitions,
+            seeds=[int(value) for value in config.get("training", {}).get("seeds", [11])],
+            dataset_fingerprint=manifest["dataset_fingerprint"],
+            split_fingerprint=split["split_fingerprint"],
+            epochs=int(config.get("training", {}).get("epochs", 10)),
+            patience=int(config.get("training", {}).get("early_stopping_patience", 2)),
+            batch_size=int(config.get("training", {}).get("batch_size", 128)),
+            groups=None if ci_unit == "sample" else metadata[ci_unit],
+            ci_unit=ci_unit,
+            bootstrap_repetitions=int(
+                config.get("reporting", {}).get("bootstrap_repetitions", 100)
+            ),
+        )
+        for name in _enabled_models(config)
+    }
+    metric_values = {
+        f"{name}.{metric}": float(result["summary"][f"{metric}_mean"])
+        for name, result in model_results.items()
+        for metric in SUPPORTED_METRICS
+    }
+    maximum, component = max_statistic(metric_values)
+    test_indices = partitions["test"]
+    test_metadata = {key: values[test_indices] for key, values in metadata.items()}
+    paired = paired_delta_analysis(
+        traces[test_indices],
+        labels[test_indices],
+        test_metadata,
+        repetitions=int(config.get("reporting", {}).get("paired_repetitions", 500)),
+        seed=seed + 5000,
+    )
+    audits = run_leakage_audits(
+        labels,
+        metadata,
+        features,
+        partitions,
+        dataset_fingerprint=manifest["dataset_fingerprint"],
+        split_fingerprint=split["split_fingerprint"],
+        traces=traces,
+        seed=seed + 7000,
+    )
+    boot_field = (
+        np.asarray(metadata["boot_id"][test_indices]).astype(str)
+        if "boot_id" in metadata
+        else np.asarray([])
+    )
+    record.update(
+        {
+            "status": "available",
+            "split": split,
+            "models": model_results,
+            "metric_values": metric_values,
+            "max_statistic": maximum,
+            "max_component": component,
+            "paired_statistics": paired,
+            "audits": audits,
+            "session_dependence": _session_dependence(traces, labels, metadata, test_indices),
+            "boot_dependence": {
+                "status": "reported_diagnostic" if len(set(boot_field)) > 1 else "unavailable",
+                "boot_count": len(set(boot_field)),
+                "reason": "calibration uses one OS boot unless a multi-boot dataset is supplied",
+            },
+            "test_composition": {
+                "rows": int(len(test_indices)),
+                "session_count": int(
+                    len(
+                        set(
+                            np.asarray(
+                                metadata.get("acquisition_session_id", metadata["session_id"])
+                            )[test_indices].astype(str)
+                        )
+                    )
+                ),
+                "boot_count": len(set(boot_field)),
+            },
+        }
+    )
+    return record
+
+
+def _sensitivity_curve(
+    records: dict[float, list[dict[str, Any]]],
+    *,
+    critical_max_statistic: float,
+    alpha: float,
+) -> dict[str, Any]:
+    curve: dict[str, Any] = {}
+    for magnitude, values in sorted(records.items()):
+        finite = np.asarray(
+            [float(item["max_statistic"]) for item in values if item.get("status") == "available"],
+            dtype=np.float64,
+        )
+        positives = int(np.sum(finite >= critical_max_statistic))
+        model_metrics: dict[str, Any] = {}
+        for item in values:
+            for name, score in item.get("metric_values", {}).items():
+                model_metrics.setdefault(name, []).append(float(score))
+        curve[str(magnitude)] = {
+            "magnitude_cycles": magnitude,
+            "replicates": int(len(finite)),
+            "detected_replicates": positives,
+            "empirical_power": float(positives / len(finite)) if len(finite) else float("nan"),
+            "empirical_power_wilson_interval_95": wilson_interval(positives, len(finite))
+            if len(finite)
+            else [float("nan"), float("nan")],
+            "critical_max_statistic": critical_max_statistic,
+            "alpha": alpha,
+            "metrics": {
+                name: {
+                    "mean": float(np.mean(scores)),
+                    "std": float(np.std(scores, ddof=1)) if len(scores) > 1 else 0.0,
+                }
+                for name, scores in model_metrics.items()
+            },
+            "paired_statistics": [item.get("paired_statistics", {}) for item in values],
+            "records": values,
+        }
+    return curve
+
+
+def run_native_sensitivity_calibration(
+    config: dict[str, Any],
+    output_root: str | Path,
+    *,
+    run_id: str | None = None,
+    development_magnitudes: list[int] | None = None,
+    development_replicates: int | None = None,
+    validation_replicates: int | None = None,
+) -> dict[str, Any]:
+    """Measure the native worker pipeline's artificial timing detection floor.
+
+    Development magnitudes are predeclared and used only to select a frozen
+    candidate.  Fresh validation uses new seeds and the development critical
+    value exactly once; it never retunes the threshold or model.
+    """
+
+    from .acquisition.native import NativeMeasurementKernel
+    from .phase1a import _materialize_label_permutation
+
+    sensitivity = config.get("native_sensitivity", {})
+    magnitudes = sorted(
+        set(
+            int(value)
+            for value in (
+                development_magnitudes
+                or sensitivity.get("development_magnitudes_cycles", [0, 32, 64, 128, 256, 512])
+            )
+        )
+    )
+    if not magnitudes or magnitudes[0] != 0 or any(value < 0 for value in magnitudes):
+        raise ValueError("native sensitivity magnitudes must include zero and be non-negative")
+    dev_replicates = int(development_replicates or sensitivity.get("development_replicates", 3))
+    fresh_replicates = int(validation_replicates or sensitivity.get("validation_replicates", 5))
+    if dev_replicates < 2 or fresh_replicates < 2:
+        raise ValueError("native sensitivity development and validation replicates must be >= 2")
+    kernel = NativeMeasurementKernel.load()
+    if kernel is None or not kernel.supports_clflush:
+        return {
+            "schema": "sensetrace.native-sensitivity-report.v1",
+            "status": "unavailable",
+            "reason": "native x86 CLFLUSH measurement path is unavailable",
+        }
+
+    run_id = run_id or new_run_id("native-sensitivity")
+    run_dir = Path(output_root) / run_id
+    run_dir.mkdir(parents=True, exist_ok=False)
+    base_seed = int(config.get("experiment", {}).get("seed", 1337))
+    alpha = float(sensitivity.get("alpha", 0.05))
+    target_power = float(sensitivity.get("target_power", 0.8))
+    protocol = {
+        "version": "native-sensitivity-protocol-v1",
+        "namespace": "native_path_sensitivity_calibration",
+        "mechanism": "native timed load includes a TSC-deadline delay after the volatile load for label=1",
+        "cache_control": "CLFLUSH plus MFENCE, using the same worker acquisition path",
+        "magnitudes_cycles": magnitudes,
+        "null_magnitude_cycles": 0,
+        "development_replicates": dev_replicates,
+        "fresh_validation_replicates": fresh_replicates,
+        "holdout": "D_unseen_acquisition_session",
+        "model_rule": "empirical maximum statistic across enabled model/metric summaries",
+        "alpha": alpha,
+        "target_power": target_power,
+        "selection_rule": "smallest positive development magnitude with empirical power >= target_power",
+        "fresh_validation_is_frozen": True,
+        "shuffled_labels": "same-observation label permutation control, never a model feature",
+    }
+    protocol_hash = hashlib.sha256(
+        json.dumps(protocol, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+    _write_json(
+        run_dir / "run.json",
+        {
+            "schema": "sensetrace.run.v2",
+            "run_id": run_id,
+            "status": "active",
+            "started_at": datetime.now(UTC).isoformat(),
+            "code_commit": _git_commit(),
+            "configuration_hash": config_fingerprint(config),
+            "protocol_hash": protocol_hash,
+            "claim_scope": "native instrumentation sensitivity only; no physical DRAM evidence",
+        },
+    )
+    _write_json(run_dir / "host.json", collect_inventory())
+    _write_json(run_dir / "config.json", config)
+    _write_json(run_dir / "protocol.json", {**protocol, "protocol_hash": protocol_hash})
+    journal = Journal(run_dir / "events.jsonl")
+    journal.append("native_sensitivity_calibration_started", protocol_hash=protocol_hash)
+
+    development: dict[str, Any] = {"null": [], "positive": {}, "shuffled": {}}
+    for replicate in range(dev_replicates):
+        replicate_seed = base_seed + 100003 * (replicate + 1)
+        null_config = _native_sensitivity_config(
+            config,
+            cycles=0,
+            namespace=f"native-sensitivity:development:null:{replicate:04d}",
+            seed=replicate_seed,
+        )
+        null_dir = run_dir / "development" / "null" / f"replicate-{replicate:04d}"
+        null_manifest = _materialize_native_sensitivity_dataset(
+            null_config, null_dir, condition="native_sensitivity_null", seed=replicate_seed
+        )
+        null_record = _evaluate_native_sensitivity_dataset(
+            null_config, null_dir, seed=replicate_seed
+        )
+        null_record["dataset"]["dataset_fingerprint"] = null_manifest["dataset_fingerprint"]
+        development["null"].append(null_record)
+        for magnitude in magnitudes:
+            positive_dir = (
+                run_dir / "development" / f"injected-{magnitude:08d}" / f"replicate-{replicate:04d}"
+            )
+            positive_config = _native_sensitivity_config(
+                config,
+                cycles=magnitude,
+                namespace=f"native-sensitivity:development:{magnitude}:{replicate:04d}",
+                seed=replicate_seed + magnitude,
+            )
+            positive_manifest = _materialize_native_sensitivity_dataset(
+                positive_config,
+                positive_dir,
+                condition=f"native_sensitivity_injected_{magnitude}",
+                seed=replicate_seed + magnitude,
+            )
+            positive_record = _evaluate_native_sensitivity_dataset(
+                positive_config, positive_dir, seed=replicate_seed + magnitude
+            )
+            positive_record["dataset"]["dataset_fingerprint"] = positive_manifest[
+                "dataset_fingerprint"
+            ]
+            positive_record["perturbation_cycles"] = magnitude
+            development["positive"].setdefault(str(magnitude), []).append(positive_record)
+            shuffled_dir = (
+                run_dir / "development" / f"shuffled-{magnitude:08d}" / f"replicate-{replicate:04d}"
+            )
+            shuffled_manifest = _materialize_label_permutation(
+                positive_dir,
+                shuffled_dir,
+                positive_config,
+                replicate_seed + magnitude + 7919,
+            )
+            shuffled_record = _evaluate_native_sensitivity_dataset(
+                positive_config, shuffled_dir, seed=replicate_seed + magnitude + 7919
+            )
+            shuffled_record["dataset"]["dataset_fingerprint"] = shuffled_manifest[
+                "dataset_fingerprint"
+            ]
+            shuffled_record["perturbation_cycles"] = magnitude
+            development["shuffled"].setdefault(str(magnitude), []).append(shuffled_record)
+
+    null_stats = np.asarray(
+        [
+            record["max_statistic"]
+            for record in development["null"]
+            if record.get("status") == "available"
+        ],
+        dtype=np.float64,
+    )
+    critical = float(np.quantile(null_stats, 1.0 - alpha)) if len(null_stats) else float("nan")
+    dev_positive = {
+        float(magnitude): records for magnitude, records in development["positive"].items()
+    }
+    power_curve = _sensitivity_curve(dev_positive, critical_max_statistic=critical, alpha=alpha)
+    selected = next(
+        (
+            magnitude
+            for magnitude in magnitudes
+            if magnitude > 0
+            and np.isfinite(power_curve[str(float(magnitude))]["empirical_power"])
+            and power_curve[str(float(magnitude))]["empirical_power"] >= target_power
+        ),
+        None,
+    )
+    frozen_levels = sorted(
+        set(
+            [0]
+            + ([selected] if selected is not None else [])
+            + ([magnitudes[-1]] if magnitudes[-1] != selected else [])
+        )
+    )
+    fresh: dict[str, Any] = {"null": [], "positive": {}, "shuffled": {}}
+    for replicate in range(fresh_replicates):
+        replicate_seed = base_seed + 9000001 + 100003 * replicate
+        null_config = _native_sensitivity_config(
+            config,
+            cycles=0,
+            namespace=f"native-sensitivity:frozen:null:{replicate:04d}",
+            seed=replicate_seed,
+        )
+        null_dir = run_dir / "frozen-validation" / "null" / f"replicate-{replicate:04d}"
+        null_manifest = _materialize_native_sensitivity_dataset(
+            null_config, null_dir, condition="native_sensitivity_null", seed=replicate_seed
+        )
+        null_record = _evaluate_native_sensitivity_dataset(
+            null_config, null_dir, seed=replicate_seed
+        )
+        null_record["dataset"]["dataset_fingerprint"] = null_manifest["dataset_fingerprint"]
+        fresh["null"].append(null_record)
+        for magnitude in frozen_levels:
+            positive_config = _native_sensitivity_config(
+                config,
+                cycles=magnitude,
+                namespace=f"native-sensitivity:frozen:{magnitude}:{replicate:04d}",
+                seed=replicate_seed + magnitude,
+            )
+            positive_dir = (
+                run_dir
+                / "frozen-validation"
+                / f"injected-{magnitude:08d}"
+                / f"replicate-{replicate:04d}"
+            )
+            positive_manifest = _materialize_native_sensitivity_dataset(
+                positive_config,
+                positive_dir,
+                condition=f"native_sensitivity_injected_{magnitude}",
+                seed=replicate_seed + magnitude,
+            )
+            positive_record = _evaluate_native_sensitivity_dataset(
+                positive_config, positive_dir, seed=replicate_seed + magnitude
+            )
+            positive_record["dataset"]["dataset_fingerprint"] = positive_manifest[
+                "dataset_fingerprint"
+            ]
+            positive_record["perturbation_cycles"] = magnitude
+            fresh["positive"].setdefault(str(magnitude), []).append(positive_record)
+            shuffled_dir = (
+                run_dir
+                / "frozen-validation"
+                / f"shuffled-{magnitude:08d}"
+                / f"replicate-{replicate:04d}"
+            )
+            shuffled_manifest = _materialize_label_permutation(
+                positive_dir, shuffled_dir, positive_config, replicate_seed + magnitude + 7919
+            )
+            shuffled_record = _evaluate_native_sensitivity_dataset(
+                positive_config, shuffled_dir, seed=replicate_seed + magnitude + 7919
+            )
+            shuffled_record["dataset"]["dataset_fingerprint"] = shuffled_manifest[
+                "dataset_fingerprint"
+            ]
+            shuffled_record["perturbation_cycles"] = magnitude
+            fresh["shuffled"].setdefault(str(magnitude), []).append(shuffled_record)
+
+    fresh_positive = {float(magnitude): records for magnitude, records in fresh["positive"].items()}
+    fresh_curve = _sensitivity_curve(fresh_positive, critical_max_statistic=critical, alpha=alpha)
+    fresh_null_stats = np.asarray(
+        [
+            record["max_statistic"]
+            for record in fresh["null"]
+            if record.get("status") == "available"
+        ],
+        dtype=np.float64,
+    )
+    fresh_shuffled_stats = np.asarray(
+        [
+            record["max_statistic"]
+            for records in fresh["shuffled"].values()
+            for record in records
+            if record.get("status") == "available"
+        ],
+        dtype=np.float64,
+    )
+    report = {
+        "schema": "sensetrace.native-sensitivity-report.v1",
+        "status": "complete",
+        "run_id": run_id,
+        "protocol": {**protocol, "protocol_hash": protocol_hash},
+        "kernel": kernel.provenance(),
+        "development": {
+            "null_max_statistic": null_stats.tolist(),
+            "critical_max_statistic": critical,
+            "false_positive_rate": {
+                "positive_replicates": int(np.sum(null_stats >= critical))
+                if len(null_stats)
+                else 0,
+                "replicates": int(len(null_stats)),
+                "rate": float(np.mean(null_stats >= critical)) if len(null_stats) else float("nan"),
+                "wilson_interval_95": wilson_interval(
+                    int(np.sum(null_stats >= critical)), len(null_stats)
+                )
+                if len(null_stats)
+                else [float("nan"), float("nan")],
+            },
+            "power_curve": power_curve,
+            "shuffled_false_positive_rate": {
+                "rate": float(np.mean(fresh_shuffled_stats >= critical))
+                if len(fresh_shuffled_stats)
+                else float("nan"),
+                "replicates": int(len(fresh_shuffled_stats)),
+            },
+        },
+        "frozen_selection": {
+            "selected_magnitude_cycles": selected,
+            "frozen_validation_magnitudes_cycles": frozen_levels,
+            "selection_rule_applied_once": True,
+            "selection_uses_fresh_validation": False,
+        },
+        "fresh_frozen_validation": {
+            "critical_max_statistic_from_development": critical,
+            "power_curve": fresh_curve,
+            "null_false_positive_rate": {
+                "rate": float(np.mean(fresh_null_stats >= critical))
+                if len(fresh_null_stats)
+                else float("nan"),
+                "replicates": int(len(fresh_null_stats)),
+            },
+            "shuffled_control_false_positive_rate": {
+                "rate": float(np.mean(fresh_shuffled_stats >= critical))
+                if len(fresh_shuffled_stats)
+                else float("nan"),
+                "replicates": int(len(fresh_shuffled_stats)),
+            },
+            "datasets_are_fresh_and_separately_seeded": True,
+        },
+        "claim_boundary": (
+            "This is a positive-control calibration of the native timing and analysis path. "
+            "It is artificial timing sensitivity, not evidence of physical DRAM-state inference."
+        ),
+    }
+    _write_json(run_dir / "metrics.json", report)
+    journal.append("native_sensitivity_calibration_completed", selected_magnitude_cycles=selected)
+    run = json.loads((run_dir / "run.json").read_text(encoding="utf-8"))
+    run.update({"status": "completed", "completed_at": datetime.now(UTC).isoformat()})
+    _write_json(run_dir / "run.json", run)
     return report
 
 

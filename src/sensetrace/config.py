@@ -18,6 +18,8 @@ DEFAULT_IDENTITY_FIELDS = [
     "bank_id",
     "row_id",
     "cell_or_offset_id",
+    "allocation_id",
+    "physical_allocation_id",
     "buffer_offset_id",
     "virtual_location_id",
     "session_id",

@@ -103,3 +103,15 @@ reporting:
   ci_unit: session_id
   bootstrap_repetitions: 400
   paired_repetitions: 2000
+
+# Native timing sensitivity is a separately namespaced calibration. It must
+# never be combined with the physical Phase 1A dataset or used as physical
+# DRAM-state evidence.
+native_sensitivity:
+  protocol_version: native-sensitivity-protocol-v1
+  session_count: 4
+  development_magnitudes_cycles: [0, 32, 64, 128, 256, 512]
+  development_replicates: 20
+  validation_replicates: 20
+  alpha: 0.05
+  target_power: 0.80

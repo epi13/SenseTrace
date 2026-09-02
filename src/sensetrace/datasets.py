@@ -77,7 +77,53 @@ def load_dataset(
         raise IntegrityError("dataset fingerprint does not match finalized shard evidence")
     if manifest.get("rows") != len(labels):
         raise IntegrityError("dataset manifest row count does not match shards")
+    _validate_allocation_provenance(metadata, manifest, root)
     return traces, labels, metadata, shards, manifest
+
+
+def _validate_allocation_provenance(
+    metadata: dict[str, np.ndarray], manifest: dict[str, Any], source: Path
+) -> None:
+    """Reject a source dataset that blurs one session across allocations."""
+
+    session_field = (
+        "acquisition_session_id" if "acquisition_session_id" in metadata else "session_id"
+    )
+    if session_field not in metadata or "allocation_id" not in metadata:
+        return
+    session_values = np.asarray(metadata[session_field]).astype(str)
+    allocation_values = np.asarray(metadata["allocation_id"]).astype(str)
+    allocations: dict[str, set[str]] = {}
+    for session, allocation in zip(session_values, allocation_values, strict=True):
+        allocations.setdefault(str(session), set()).add(str(allocation))
+    blurred = {session: values for session, values in allocations.items() if len(values) != 1}
+    if blurred:
+        raise IntegrityError(
+            f"dataset {source} has session identities spanning multiple allocation IDs: {blurred}"
+        )
+    ledgers = manifest.get("acquisition_sessions", [])
+    expected: dict[str, str] = {}
+    for ledger in ledgers:
+        if not isinstance(ledger, dict):
+            continue
+        status = ledger.get("status")
+        if status in {"active", "interrupted", "incomplete"}:
+            raise IntegrityError(
+                f"dataset {source} references an incomplete acquisition session ({status})"
+            )
+        session = str(ledger.get("acquisition_session_id", ledger.get("session_id", "")))
+        allocation = str(ledger.get("controlled_memory_region", {}).get("allocation_id", ""))
+        if session and allocation and allocation not in {"unavailable", "unknown"}:
+            expected[session] = allocation
+    mismatched = {
+        session: (next(iter(values)), expected[session])
+        for session, values in allocations.items()
+        if session in expected and next(iter(values)) != expected[session]
+    }
+    if mismatched:
+        raise IntegrityError(
+            f"dataset {source} allocation metadata disagrees with its session ledger: {mismatched}"
+        )
 
 
 def trace_features(traces: np.ndarray, *, bins: int = 32) -> np.ndarray:
@@ -171,26 +217,54 @@ def combine_datasets(
     ]
 
     existing_ids: set[str] = set()
+    seen_session_ids: dict[str, Path] = {}
+    for source, manifest in zip(sources, source_manifests, strict=True):
+        for ledger in manifest.get("acquisition_sessions", []):
+            if not isinstance(ledger, dict):
+                continue
+            session_id = str(ledger.get("acquisition_session_id", ledger.get("session_id", "")))
+            if not session_id:
+                continue
+            if session_id in seen_session_ids and seen_session_ids[session_id] != source:
+                raise IntegrityError(
+                    "one acquisition_session_id appears in multiple source datasets; "
+                    "combine only independently materialized sessions"
+                )
+            seen_session_ids[session_id] = source
     if sorted(target.glob("shard-*.npz")):
         _existing_traces, _existing_labels, existing_metadata, _existing_shards = load_shards(
             target
         )
         existing_ids.update(ensure_sample_ids(existing_metadata))
+    row_refs: list[tuple[str, int, int]] = []
+    source_ids: set[str] = set()
+    for dataset_index, (_traces, _labels, metadata, _shards, _manifest) in enumerate(loaded):
+        ids = ensure_sample_ids(metadata)
+        for row_index, sample_id in enumerate(ids):
+            if sample_id in source_ids:
+                raise IntegrityError(
+                    f"sample_id {sample_id!r} appears more than once across source datasets"
+                )
+            source_ids.add(sample_id)
+            row_refs.append((sample_id, dataset_index, row_index))
+    # Source session directories are not necessarily ordered by sample_id (the
+    # IDs include independently generated session UUIDs). Canonicalize the
+    # merged stream before writing so validate_all_shards can enforce its
+    # monotonic shard-boundary invariant without weakening that invariant.
+    row_refs.sort(key=lambda item: item[0])
+
     writer = ShardWriter(
         target,
         shard_target_mb=float(config.get("acquisition", {}).get("shard_target_mb", 512)),
         max_samples_per_shard=config.get("acquisition", {}).get("max_samples_per_shard"),
     )
-    for traces, labels, metadata, _shards, _manifest in loaded:
-        ids = ensure_sample_ids(metadata)
-        for index, sample_id in enumerate(ids):
-            if sample_id in existing_ids:
-                continue
-            row_metadata = {key: values[index] for key, values in metadata.items()}
-            info = writer.add(traces[index], int(labels[index]), row_metadata)
-            existing_ids.add(sample_id)
-            if info is not None:
-                pass
+    for sample_id, dataset_index, row_index in row_refs:
+        if sample_id in existing_ids:
+            continue
+        traces, labels, metadata, _shards, _manifest = loaded[dataset_index]
+        row_metadata = {key: values[row_index] for key, values in metadata.items()}
+        writer.add(traces[row_index], int(labels[row_index]), row_metadata)
+        existing_ids.add(sample_id)
     writer.finalize()
     shards = validate_all_shards(target)
     _combined_traces, combined_labels, _combined_metadata, _combined_shards = load_shards(target)

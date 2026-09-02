@@ -22,6 +22,7 @@ Recommended metadata fields:
 | `bank_id` | Physical grouping where known | No |
 | `row_id` | Physical grouping where known | No |
 | `cell_or_offset_id` | Fine physical grouping where known | No |
+| `allocation_id` | Fresh anonymous allocation identity for one physical session incarnation | No |
 | `virtual_location_id` | Controlled location in the anonymous virtual buffer | No |
 | `buffer_offset_id` | Controlled buffer-word offset identifier | No |
 | `pair_id` / `trial_pair_id` | Matched label-0/label-1 pair grouping | No |
@@ -50,6 +51,12 @@ controlled memory allocation. It is not a slice of a continuous stream. Its
 allocation/locking result, label-stream fingerprint, measurement-kernel and
 cache-control provenance, journal boundaries, environment snapshot, and
 configuration/code hashes.
+
+If a physical session is interrupted, finalized shards remain in its immutable
+interrupted source directory. Recovery records an append-only interruption
+decision and starts a fresh session/allocation with a new UUID, allocation ID,
+host snapshot, and parent-session reference. A completed campaign never
+silently combines an interrupted source with its replacement.
 
 A Phase 1A campaign may contain multiple source session datasets. The combined
 condition manifest records all source dataset fingerprints and embeds the

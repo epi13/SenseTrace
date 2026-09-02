@@ -137,6 +137,48 @@ cache state, boot/session identity, and block identity. These channels are
 reported to diagnose nuisance explanations and remain excluded from the
 default feature matrix.
 
+### Phase 1A holdout boundary and native sensitivity
+
+The strict levels have distinct declared identities: A groups repeated trials
+within a virtual location and pair, B groups virtual locations, C groups
+acquisition blocks, D groups acquisition sessions, and E groups only OS boot
+IDs. E is unavailable with fewer than three real boot groups. A session ID or
+allocation ID cannot be used to manufacture a cross-boot split. Every run
+records split invariants for exact coverage, group disjointness, unique sample
+IDs, and duplicated nominal partitions.
+
+The exact native timing path is calibrated separately with a positive control
+that adds a known TSC-deadline delay after the volatile load inside the native
+timing window. The sweep includes a zero null, multiple predeclared magnitudes,
+fresh independently seeded datasets, the D holdout, the same model/metric
+maximum-statistic rule, paired statistics, uncertainty, session/boot
+dependence, and shuffled-label controls. Development data selects a frozen
+candidate; fresh validation uses new seeds and the development critical value
+without retuning. This estimates an instrumentation detection floor only. It
+does not constitute a physical DRAM-state result.
+
+Use the separate namespace with:
+
+```bash
+sensetrace calibrate native-sensitivity \
+  --config configs/worker03.example.yaml --output runs/native-sensitivity
+```
+
+Raw timing values are retained. Quantiles, autocorrelation, outlier fractions,
+CPU/frequency/thermal state, cache-control separation, and acquisition-order
+drift are audit diagnostics; no noisy trace is removed merely because it hurts
+a result.
+
+The worker-03 validation evidence is split by claim scope: [genuine multi-boot
+Phase 1A validation](evidence/worker03-multiboot-validation-2026-09-01.md)
+documents the corrected E boundary and physical result, while [native-path
+sensitivity evidence](evidence/native-sensitivity-worker03-2026-09-01.md)
+documents the artificial timing positive control. The former was near chance on
+the small three-boot test; the latter is not evidence of DRAM-state inference.
+Given that result, the next physical experiment changes the measurement
+primitive toward a controlled memory interface or hardware-counter access-state
+oracle before increasing Phase 1A sample counts.
+
 ## Multiple comparisons
 
 Searching hundreds of channels, windows, architectures, and timing settings can eventually produce an above-chance result by luck.

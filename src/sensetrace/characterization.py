@@ -465,6 +465,123 @@ def _null_stability_analysis(
     }
 
 
+def _operation_scoped_perf_median(record: dict[str, Any]) -> float | None:
+    """Return one replicate's robust PMU summary when the read is complete."""
+
+    operation = record.get("operation_scoped_perf")
+    if not isinstance(operation, dict) or operation.get("status") != "complete":
+        return None
+    summary = operation.get("raw_count_summary")
+    if not isinstance(summary, dict):
+        return None
+    try:
+        value = float(summary["median"])
+    except (KeyError, TypeError, ValueError):
+        return None
+    return value if np.isfinite(value) else None
+
+
+def _operation_scoped_perf_oracle_analysis(
+    records_by_control: dict[str, list[dict[str, Any]]],
+    contract: dict[str, Any],
+    replicates: int,
+) -> dict[str, Any]:
+    """Assess directional PMU agreement and null stability without hidden-bit labels."""
+
+    required = contract.get("required_contrasts", [])
+    null_name = next(
+        (
+            str(item["name"])
+            for item in contract.get("controls", [])
+            if item.get("role") == "null"
+        ),
+        "",
+    )
+    null_records = records_by_control.get(null_name, [])
+    null_values = [
+        value
+        for record in null_records
+        if (value := _operation_scoped_perf_median(record)) is not None
+    ]
+    null_stability_records = [
+        {"status": "complete", "sample_median_summary": {"median": value}}
+        for value in null_values
+    ]
+    null_stability = _null_stability_analysis(
+        null_stability_records,
+        expected_replicates=replicates,
+        rule=dict(contract.get("null_stability", DEFAULT_NULL_STABILITY_RULE)),
+    )
+    null_stability["value_definition"] = (
+        "median of all per-operation raw cache-miss counts within each null replicate"
+    )
+    if not required:
+        return {
+            "status": "unavailable",
+            "reason": "no required contrast defines an expected access-state relationship",
+            "null_stability": null_stability,
+        }
+    contrast = required[0]
+    left_name = str(contrast["left_control"])
+    right_name = str(contrast["right_control"])
+    left_by_id = {
+        _record_replicate_id(record): value
+        for record in records_by_control.get(left_name, [])
+        if (value := _operation_scoped_perf_median(record)) is not None
+        and _record_replicate_id(record)
+    }
+    right_by_id = {
+        _record_replicate_id(record): value
+        for record in records_by_control.get(right_name, [])
+        if (value := _operation_scoped_perf_median(record)) is not None
+        and _record_replicate_id(record)
+    }
+    expected_ids = {f"replicate-{index:04d}" for index in range(replicates)}
+    matched_ids = sorted(set(left_by_id) & set(right_by_id) & expected_ids)
+    paired = [
+        {
+            "replicate_id": replicate_id,
+            "left_median": left_by_id[replicate_id],
+            "right_median": right_by_id[replicate_id],
+            "difference": right_by_id[replicate_id] - left_by_id[replicate_id],
+            "observed_relationship": (
+                "right_above_left"
+                if right_by_id[replicate_id] > left_by_id[replicate_id]
+                else "right_not_above_left"
+            ),
+        }
+        for replicate_id in matched_ids
+    ]
+    agreement_count = sum(item["observed_relationship"] == "right_above_left" for item in paired)
+    agreement = {
+        "status": "pass"
+        if len(matched_ids) == len(expected_ids) and agreement_count == len(expected_ids)
+        else "fail",
+        "expected_relationship": "requested_clflush PMU median above cached PMU median",
+        "matched_replicate_ids": matched_ids,
+        "missing_left_replicate_ids": sorted(expected_ids - set(left_by_id)),
+        "missing_right_replicate_ids": sorted(expected_ids - set(right_by_id)),
+        "paired_differences": paired,
+        "agreement_count": agreement_count,
+        "sample_count": len(paired),
+        "confusion_matrix": {
+            "expected_right_above_left": {
+                "observed_right_above_left": agreement_count,
+                "observed_right_not_above_left": len(paired) - agreement_count,
+            }
+        },
+    }
+    return {
+        "status": "complete" if paired else "unavailable",
+        "left_control": left_name,
+        "right_control": right_name,
+        "agreement": agreement,
+        "null_stability": null_stability,
+        "stability_pass": null_stability["status"] == "pass",
+        "raw_replicate_medians_retained": True,
+    }
+
+
 def _decision_evidence(
     contract: dict[str, Any],
     records_by_control: dict[str, list[dict[str, Any]]],
@@ -666,6 +783,36 @@ def run_measurement_primitive_characterization(
             records_by_control.get(str(item["right_control"]), []),
             expected_replicate_ids=[f"replicate-{index:04d}" for index in range(replicates)],
         )
+    operation_scoped_perf_oracle = _operation_scoped_perf_oracle_analysis(
+        records_by_control, contract, replicates
+    )
+    oracle_agreement_by_replicate = {
+        item["replicate_id"]: {
+            "status": "pass"
+            if item["observed_relationship"] == "right_above_left"
+            else "fail",
+            "expected_relationship": "requested_clflush PMU median above cached PMU median",
+            "observed_relationship": item["observed_relationship"],
+            "difference": item["difference"],
+        }
+        for item in operation_scoped_perf_oracle.get("agreement", {}).get(
+            "paired_differences", []
+        )
+    }
+    oracle_stable = operation_scoped_perf_oracle.get("stability_pass", False)
+    if operation_scoped_perf_oracle.get("status") == "complete":
+        primary_contrast = contract.get("required_contrasts", [])[0]
+        for record in records_by_control.get(
+            str(primary_contrast["right_control"]),
+            [],
+        ):
+            replicate_id = _record_replicate_id(record)
+            record["oracle_agreement"] = oracle_agreement_by_replicate.get(
+                replicate_id, {"status": "fail", "reason": "replicate not matched"}
+            )
+            access_oracle = record.get("access_state_oracle")
+            if isinstance(access_oracle, dict):
+                access_oracle["stable"] = bool(oracle_stable)
     evidence = _decision_evidence(contract, records_by_control, contrast_results, replicates)
     decision_gate = decide_characterization(evidence)
     primary_right = next(
@@ -794,6 +941,7 @@ def run_measurement_primitive_characterization(
                 "raw_values_retained": True,
             },
             "oracle_agreement": oracle_agreement,
+            "operation_scoped_perf_oracle": operation_scoped_perf_oracle,
         },
         "decision_gate": {
             **decision_gate,

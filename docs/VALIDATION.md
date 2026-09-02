@@ -169,6 +169,16 @@ CPU/frequency/thermal state, cache-control separation, and acquisition-order
 drift are audit diagnostics; no noisy trace is removed merely because it hurts
 a result.
 
+The worker-03 validation evidence is split by claim scope: [genuine multi-boot
+Phase 1A validation](evidence/worker03-multiboot-validation-2026-09-01.md)
+documents the corrected E boundary and physical result, while [native-path
+sensitivity evidence](evidence/native-sensitivity-worker03-2026-09-01.md)
+documents the artificial timing positive control. The former was near chance on
+the small three-boot test; the latter is not evidence of DRAM-state inference.
+Given that result, the next physical experiment changes the measurement
+primitive toward a controlled memory interface or hardware-counter access-state
+oracle before increasing Phase 1A sample counts.
+
 ## Multiple comparisons
 
 Searching hundreds of channels, windows, architectures, and timing settings can eventually produce an above-chance result by luck.

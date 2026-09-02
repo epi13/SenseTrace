@@ -165,6 +165,8 @@ The purpose of the project is to characterize physical information channels in m
 - [Phase 0 v2 final-gate evidence](docs/evidence/phase0-final-v2-gate-2026-09-01.md)
 - [worker-03 Phase 1A campaign evidence](docs/evidence/worker03-phase1a-2026-09-01.md)
 - [Phase 1A split erratum](docs/evidence/phase1a-erratum-reanalysis-2026-09-01.md)
+- [worker-03 genuine multi-boot validation](docs/evidence/worker03-multiboot-validation-2026-09-01.md)
+- [worker-03 native sensitivity evidence](docs/evidence/native-sensitivity-worker03-2026-09-01.md)
 - [Native-path sensitivity decision](docs/ADR-010-native-path-sensitivity-calibration.md)
 - [Phase 0 v2 protocol](docs/PHASE0-PROTOCOL-V2.md)
 - [Architecture decisions](docs/ADR-001-storage-and-journal.md)

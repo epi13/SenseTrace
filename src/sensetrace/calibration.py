@@ -461,11 +461,14 @@ def run_native_calibration(output_root: str | Path, *, repetitions: int = 200) -
     output = Path(output_root)
     output.mkdir(parents=True, exist_ok=True)
     address = kernel.calibration_address()
+    get_cpu = getattr(os, "sched_getcpu", None)
+    cpu_before = get_cpu() if get_cpu is not None else "unavailable"
     cached = kernel.measure_cached(address, repetitions)
     flushed = kernel.measure_flushed(address, repetitions)
     timer = kernel.timer_calibration(repetitions)
     ffi = np.asarray([kernel.timer_calibration(1)[0] for _ in range(repetitions)], dtype=np.float64)
     idle = kernel.idle_calibration(repetitions)
+    cpu_after = get_cpu() if get_cpu is not None else "unavailable"
     report = {
         "schema": "sensetrace.native-calibration.v1",
         "status": "complete",
@@ -485,8 +488,8 @@ def run_native_calibration(output_root: str | Path, *, repetitions: int = 200) -
                 else "unavailable"
             ),
             "cpu_at_call_boundaries": {
-                "before": os.sched_getcpu() if hasattr(os, "sched_getcpu") else "unavailable",
-                "after": os.sched_getcpu() if hasattr(os, "sched_getcpu") else "unavailable",
+                "before": cpu_before,
+                "after": cpu_after,
                 "interpretation": (
                     "backend samples also record sched_getcpu at sample boundaries; the native "
                     "library does not silently discard migration or interrupt-contaminated traces"

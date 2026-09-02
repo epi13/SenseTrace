@@ -369,6 +369,75 @@ def _false_positive_rate(
     }
 
 
+def _replicate_quality(
+    *, statistics: np.ndarray, alpha: float, minimum_recommended: int
+) -> dict[str, Any]:
+    """Explain how finely a repeated control can resolve an empirical rate."""
+
+    count = int(np.sum(np.isfinite(statistics)))
+    resolution = float(1.0 / count) if count else float("nan")
+    poorly_resolved = count < minimum_recommended or (
+        count > 0 and resolution > max(alpha / 2.0, 1e-12)
+    )
+    return {
+        "replicates": count,
+        "target_alpha": alpha,
+        "empirical_rate_resolution": resolution,
+        "minimum_recommended_replicates": minimum_recommended,
+        "precision_warning": bool(poorly_resolved),
+        "interpretation": (
+            "pipeline_sanity_check: the empirical tail is coarse and should not be presented "
+            "as a high-precision false-positive estimate"
+            if poorly_resolved
+            else "quantitative_sensitivity_estimate: replicate count resolves the configured tail more finely"
+        ),
+    }
+
+
+def _record_statistics(
+    records: list[dict[str, Any]], *, field: str = "max_statistic"
+) -> np.ndarray:
+    return np.asarray(
+        [
+            record[field]
+            for record in records
+            if record.get("status") == "available" and np.isfinite(record.get(field, np.nan))
+        ],
+        dtype=np.float64,
+    )
+
+
+def _shuffled_false_positive_summary(
+    records: list[dict[str, Any]],
+    *,
+    critical_max_statistic: float,
+    source: str,
+    ensemble: str,
+    alpha: float,
+    minimum_recommended_null: int = 20,
+) -> dict[str, Any]:
+    """Summarize one explicitly named shuffled-control ensemble."""
+
+    statistics = _record_statistics(records)
+    positives = int(np.sum(statistics >= critical_max_statistic))
+    return {
+        "source": source,
+        "ensemble": ensemble,
+        "condition": "same-observation label permutation",
+        "rate": float(positives / len(statistics)) if len(statistics) else float("nan"),
+        "replicates": int(len(statistics)),
+        "positive_replicates": positives,
+        "wilson_interval_95": wilson_interval(positives, len(statistics))
+        if len(statistics)
+        else [float("nan"), float("nan")],
+        "statistics_quality": _replicate_quality(
+            statistics=statistics,
+            alpha=alpha,
+            minimum_recommended=minimum_recommended_null,
+        ),
+    }
+
+
 def _historical_investigation(
     null_metrics: dict[str, np.ndarray], null_max: np.ndarray
 ) -> list[dict[str, Any]]:
@@ -806,8 +875,14 @@ def run_native_sensitivity_calibration(
     if not magnitudes or magnitudes[0] != 0 or any(value < 0 for value in magnitudes):
         raise ValueError("native sensitivity magnitudes must include zero and be non-negative")
     dev_replicates = int(development_replicates or sensitivity.get("development_replicates", 3))
+    dev_null_replicates = int(
+        sensitivity.get("development_null_replicates", dev_replicates)
+    )
+    dev_shuffled_replicates = int(
+        sensitivity.get("development_shuffled_replicates", dev_replicates)
+    )
     fresh_replicates = int(validation_replicates or sensitivity.get("validation_replicates", 5))
-    if dev_replicates < 2 or fresh_replicates < 2:
+    if min(dev_replicates, dev_null_replicates, dev_shuffled_replicates, fresh_replicates) < 2:
         raise ValueError("native sensitivity development and validation replicates must be >= 2")
     kernel = NativeMeasurementKernel.load()
     if kernel is None or not kernel.supports_clflush:
@@ -831,6 +906,8 @@ def run_native_sensitivity_calibration(
         "magnitudes_cycles": magnitudes,
         "null_magnitude_cycles": 0,
         "development_replicates": dev_replicates,
+        "development_null_replicates": dev_null_replicates,
+        "development_shuffled_replicates": dev_shuffled_replicates,
         "fresh_validation_replicates": fresh_replicates,
         "holdout": "D_unseen_acquisition_session",
         "model_rule": "empirical maximum statistic across enabled model/metric summaries",
@@ -839,6 +916,7 @@ def run_native_sensitivity_calibration(
         "selection_rule": "smallest positive development magnitude with empirical power >= target_power",
         "fresh_validation_is_frozen": True,
         "shuffled_labels": "same-observation label permutation control, never a model feature",
+        "replicate_quality": "report empirical tail resolution and warn when null counts are coarse",
     }
     protocol_hash = hashlib.sha256(
         json.dumps(protocol, sort_keys=True, separators=(",", ":")).encode()
@@ -863,24 +941,27 @@ def run_native_sensitivity_calibration(
     journal.append("native_sensitivity_calibration_started", protocol_hash=protocol_hash)
 
     development: dict[str, Any] = {"null": [], "positive": {}, "shuffled": {}}
-    for replicate in range(dev_replicates):
+    for replicate in range(max(dev_replicates, dev_null_replicates, dev_shuffled_replicates)):
         replicate_seed = base_seed + 100003 * (replicate + 1)
-        null_config = _native_sensitivity_config(
-            config,
-            cycles=0,
-            namespace=f"native-sensitivity:development:null:{replicate:04d}",
-            seed=replicate_seed,
-        )
-        null_dir = run_dir / "development" / "null" / f"replicate-{replicate:04d}"
-        null_manifest = _materialize_native_sensitivity_dataset(
-            null_config, null_dir, condition="native_sensitivity_null", seed=replicate_seed
-        )
-        null_record = _evaluate_native_sensitivity_dataset(
-            null_config, null_dir, seed=replicate_seed
-        )
-        null_record["dataset"]["dataset_fingerprint"] = null_manifest["dataset_fingerprint"]
-        development["null"].append(null_record)
+        if replicate < dev_null_replicates:
+            null_config = _native_sensitivity_config(
+                config,
+                cycles=0,
+                namespace=f"native-sensitivity:development:null:{replicate:04d}",
+                seed=replicate_seed,
+            )
+            null_dir = run_dir / "development" / "null" / f"replicate-{replicate:04d}"
+            null_manifest = _materialize_native_sensitivity_dataset(
+                null_config, null_dir, condition="native_sensitivity_null", seed=replicate_seed
+            )
+            null_record = _evaluate_native_sensitivity_dataset(
+                null_config, null_dir, seed=replicate_seed
+            )
+            null_record["dataset"]["dataset_fingerprint"] = null_manifest["dataset_fingerprint"]
+            development["null"].append(null_record)
         for magnitude in magnitudes:
+            if replicate >= max(dev_replicates, dev_shuffled_replicates):
+                continue
             positive_dir = (
                 run_dir / "development" / f"injected-{magnitude:08d}" / f"replicate-{replicate:04d}"
             )
@@ -896,40 +977,41 @@ def run_native_sensitivity_calibration(
                 condition=f"native_sensitivity_injected_{magnitude}",
                 seed=replicate_seed + magnitude,
             )
-            positive_record = _evaluate_native_sensitivity_dataset(
-                positive_config, positive_dir, seed=replicate_seed + magnitude
-            )
-            positive_record["dataset"]["dataset_fingerprint"] = positive_manifest[
-                "dataset_fingerprint"
-            ]
-            positive_record["perturbation_cycles"] = magnitude
-            development["positive"].setdefault(str(magnitude), []).append(positive_record)
-            shuffled_dir = (
-                run_dir / "development" / f"shuffled-{magnitude:08d}" / f"replicate-{replicate:04d}"
-            )
-            shuffled_manifest = _materialize_label_permutation(
-                positive_dir,
-                shuffled_dir,
-                positive_config,
-                replicate_seed + magnitude + 7919,
-            )
-            shuffled_record = _evaluate_native_sensitivity_dataset(
-                positive_config, shuffled_dir, seed=replicate_seed + magnitude + 7919
-            )
-            shuffled_record["dataset"]["dataset_fingerprint"] = shuffled_manifest[
-                "dataset_fingerprint"
-            ]
-            shuffled_record["perturbation_cycles"] = magnitude
-            development["shuffled"].setdefault(str(magnitude), []).append(shuffled_record)
+            if replicate < dev_replicates:
+                positive_record = _evaluate_native_sensitivity_dataset(
+                    positive_config, positive_dir, seed=replicate_seed + magnitude
+                )
+                positive_record["dataset"]["dataset_fingerprint"] = positive_manifest[
+                    "dataset_fingerprint"
+                ]
+                positive_record["perturbation_cycles"] = magnitude
+                development["positive"].setdefault(str(magnitude), []).append(positive_record)
+            if replicate < dev_shuffled_replicates:
+                shuffled_dir = (
+                    run_dir / "development" / f"shuffled-{magnitude:08d}" / f"replicate-{replicate:04d}"
+                )
+                shuffled_manifest = _materialize_label_permutation(
+                    positive_dir,
+                    shuffled_dir,
+                    positive_config,
+                    replicate_seed + magnitude + 7919,
+                )
+                shuffled_record = _evaluate_native_sensitivity_dataset(
+                    positive_config, shuffled_dir, seed=replicate_seed + magnitude + 7919
+                )
+                shuffled_record["dataset"]["dataset_fingerprint"] = shuffled_manifest[
+                    "dataset_fingerprint"
+                ]
+                shuffled_record["perturbation_cycles"] = magnitude
+                development["shuffled"].setdefault(str(magnitude), []).append(shuffled_record)
 
-    null_stats = np.asarray(
-        [
-            record["max_statistic"]
-            for record in development["null"]
-            if record.get("status") == "available"
-        ],
-        dtype=np.float64,
-    )
+    null_stats = _record_statistics(development["null"])
+    development_shuffled_records = [
+        record
+        for records in development["shuffled"].values()
+        for record in records
+    ]
+    development_shuffled_stats = _record_statistics(development_shuffled_records)
     critical = float(np.quantile(null_stats, 1.0 - alpha)) if len(null_stats) else float("nan")
     dev_positive = {
         float(magnitude): records for magnitude, records in development["positive"].items()
@@ -1025,17 +1107,27 @@ def run_native_sensitivity_calibration(
         ],
         dtype=np.float64,
     )
-    fresh_shuffled_stats = np.asarray(
-        [
-            record["max_statistic"]
-            for records in fresh["shuffled"].values()
-            for record in records
-            if record.get("status") == "available"
-        ],
-        dtype=np.float64,
+    minimum_recommended_null = int(
+        sensitivity.get("minimum_recommended_null_replicates", 20)
+    )
+    development_shuffled_summary = _shuffled_false_positive_summary(
+        development_shuffled_records,
+        critical_max_statistic=critical,
+        source="development shuffled-label controls only",
+        ensemble="development",
+        alpha=alpha,
+        minimum_recommended_null=minimum_recommended_null,
+    )
+    fresh_shuffled_summary = _shuffled_false_positive_summary(
+        [record for records in fresh["shuffled"].values() for record in records],
+        critical_max_statistic=critical,
+        source="fresh/frozen shuffled-label controls only",
+        ensemble="fresh_frozen_validation",
+        alpha=alpha,
+        minimum_recommended_null=minimum_recommended_null,
     )
     report = {
-        "schema": "sensetrace.native-sensitivity-report.v1",
+        "schema": "sensetrace.native-sensitivity-report.v2",
         "status": "complete",
         "run_id": run_id,
         "protocol": {**protocol, "protocol_hash": protocol_hash},
@@ -1044,6 +1136,8 @@ def run_native_sensitivity_calibration(
             "null_max_statistic": null_stats.tolist(),
             "critical_max_statistic": critical,
             "false_positive_rate": {
+                "source": "development zero-magnitude null controls only",
+                "ensemble": "development",
                 "positive_replicates": int(np.sum(null_stats >= critical))
                 if len(null_stats)
                 else 0,
@@ -1056,11 +1150,18 @@ def run_native_sensitivity_calibration(
                 else [float("nan"), float("nan")],
             },
             "power_curve": power_curve,
-            "shuffled_false_positive_rate": {
-                "rate": float(np.mean(fresh_shuffled_stats >= critical))
-                if len(fresh_shuffled_stats)
-                else float("nan"),
-                "replicates": int(len(fresh_shuffled_stats)),
+            "shuffled_false_positive_rate": development_shuffled_summary,
+            "statistics_quality": {
+                "null": _replicate_quality(
+                    statistics=null_stats,
+                    alpha=alpha,
+                    minimum_recommended=minimum_recommended_null,
+                ),
+                "shuffled": _replicate_quality(
+                    statistics=development_shuffled_stats,
+                    alpha=alpha,
+                    minimum_recommended=minimum_recommended_null,
+                ),
             },
         },
         "frozen_selection": {
@@ -1071,20 +1172,33 @@ def run_native_sensitivity_calibration(
         },
         "fresh_frozen_validation": {
             "critical_max_statistic_from_development": critical,
+            "critical_value_source": "development zero-magnitude null ensemble",
             "power_curve": fresh_curve,
             "null_false_positive_rate": {
+                "source": "fresh/frozen zero-magnitude null controls only",
+                "ensemble": "fresh_frozen_validation",
                 "rate": float(np.mean(fresh_null_stats >= critical))
                 if len(fresh_null_stats)
                 else float("nan"),
                 "replicates": int(len(fresh_null_stats)),
             },
-            "shuffled_control_false_positive_rate": {
-                "rate": float(np.mean(fresh_shuffled_stats >= critical))
-                if len(fresh_shuffled_stats)
-                else float("nan"),
-                "replicates": int(len(fresh_shuffled_stats)),
+            "shuffled_control_false_positive_rate": fresh_shuffled_summary,
+            "statistics_quality": {
+                "null": _replicate_quality(
+                    statistics=fresh_null_stats,
+                    alpha=alpha,
+                    minimum_recommended=minimum_recommended_null,
+                ),
+                "shuffled": fresh_shuffled_summary["statistics_quality"],
             },
             "datasets_are_fresh_and_separately_seeded": True,
+        },
+        "replicate_counts": {
+            "development_positive_per_magnitude": dev_replicates,
+            "development_null": int(len(null_stats)),
+            "development_shuffled_total": int(len(development_shuffled_stats)),
+            "fresh_null": int(len(fresh_null_stats)),
+            "fresh_shuffled_total": fresh_shuffled_summary["replicates"],
         },
         "claim_boundary": (
             "This is a positive-control calibration of the native timing and analysis path. "

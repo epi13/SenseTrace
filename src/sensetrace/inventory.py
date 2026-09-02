@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from . import __version__
+from .acquisition.perf import discover_counter_capabilities
 
 
 def _command(command: list[str], *, timeout: float = 5.0) -> str | None:
@@ -249,6 +250,11 @@ def collect_inventory() -> dict[str, Any]:
         "performance_counters": {
             "perf_path": shutil.which("perf") or "unavailable",
             "provenance": "perf executable presence only; no event was interpreted as bit-state",
+            "capabilities": discover_counter_capabilities(
+                perf_path=shutil.which("perf"),
+                probe_hardware_events=True,
+            ),
+            "collection_scope": "discovery only; no unrelated process or system-wide counter collection",
         },
         "packages": packages,
         "sudo_noninteractive": os.geteuid() == 0 or _command_ok(["sudo", "-n", "true"]),

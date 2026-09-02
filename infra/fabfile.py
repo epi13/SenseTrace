@@ -109,6 +109,15 @@ def calibrate_native_sensitivity(
 
 
 @task
+def characterize_primitive(
+    c: Connection,
+    config: str = "configs/worker03.example.yaml",
+    output: str | None = None,
+) -> None:
+    print(_remote(c).characterize_primitive(config, output=output))
+
+
+@task
 def start(c: Connection) -> None:
     print(_remote(c).service_action("start"))
 
@@ -194,6 +203,7 @@ for _name in [
     "run_phase1a",
     "calibrate_phase0",
     "calibrate_native_sensitivity",
+    "characterize_primitive",
     "start",
     "stop",
     "restart",

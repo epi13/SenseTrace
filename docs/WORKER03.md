@@ -15,7 +15,7 @@ Inventory observed from the controller on 2026-08-31:
 - DIMM/SPD, memory frequency/timings, voltage sensors, and Linux `sensors` unavailable from the unprivileged session;
 - `/dev/watchdog`, `/dev/watchdog0`, and `/dev/watchdog1` exist; unprivileged sysfs identifies `watchdog0` as `intel_oc_wdt` (60 s) and `watchdog1` as `iTCO_wdt` (30 s), both inactive, with systemd watchdog use not enabled;
 - `kernel.panic=0`, `kernel.panic_on_oops=0`, `graphical.target`, and `powersave` CPU governors;
-- `sudo -n` requires a password, so the live deployment is currently user-scoped; the controller reports `user-fallback` and refuses to claim system-service or reboot persistence. RAPL exposes package/core/uncore/DRAM domain names but energy reads are unavailable to this user; `perf` is unavailable.
+- `sudo -n` requires a password, so the live deployment is currently user-scoped; the controller reports `user-fallback` and refuses to claim system-service or reboot persistence. RAPL exposes package/core/uncore/DRAM domain names but energy reads are unavailable to this user; the 2026-08-31 inventory reported `perf` unavailable. New inventories record the actual CPU model, PMU devices, and portable event names when readable rather than assuming event-name portability.
 
 The monitor is not part of the tested workflow. The SSH alias in the controller's `~/.ssh/config` is the normal management path.
 
@@ -177,6 +177,25 @@ The primary workstation should not be used for prolonged or intentionally destab
 Commodity-host measurements are the starting point. If Phase 1 produces evidence worth pursuing, the experiment may progress to tighter control with research hardware such as an FPGA-based memory controller and, later, richer electrical instrumentation.
 
 The worker-03 harness should therefore keep acquisition interfaces modular so the same dataset, split, validation, and model code can survive changes in measurement hardware.
+
+The acquisition implementation now makes that modularity explicit: a named
+measurement primitive separates target preparation, operation, access-state
+provenance, physical observation, audit metadata, and model-eligible features.
+The commodity baseline declares physical address and topology unsupported and
+its independent access-state oracle unavailable. A small characterization
+campaign must precede any new hidden-bit inference:
+
+```bash
+python3 -m sensetrace.cli host deploy worker-03
+python3 -m sensetrace.cli host characterize-primitive worker-03 \
+  --config configs/worker03.example.yaml \
+  --output /home/worker-03/.local/share/sensetrace/runs/primitive-characterization
+```
+
+The controller should record the returned commit, protocol/configuration
+hashes, boot ID, session/allocation IDs, CPU/PMU capability report, and dataset
+fingerprints. A permission failure is evidence of an unavailable oracle, not a
+reason to weaken worker security.
 
 ## Initial implementation milestones
 

@@ -36,11 +36,14 @@ Train and test data come from different collection sessions, preferably separate
 
 This tests session-specific drift and instrument artifacts.
 
-### Split E — unseen device
+### Split E — unseen OS boot
 
-One or more complete DIMMs/chips are absent from training and used only for final evaluation.
+Complete genuine OS boot groups are held out from each other and used only for
+final evaluation. SenseTrace requires at least three real boot groups before
+this split is available. This is not an unseen-device split; device-independent
+evidence requires a separately declared cross-device campaign.
 
-This is the strongest early test of a device-independent physical relationship.
+This is the strongest currently implemented commodity-host boot-boundary test.
 
 ## Forbidden shortcuts
 
@@ -179,6 +182,26 @@ Given that result, the next physical experiment changes the measurement
 primitive toward a controlled memory interface or hardware-counter access-state
 oracle before increasing Phase 1A sample counts.
 
+Sensitivity reports distinguish development shuffled-label controls from
+fresh/frozen shuffled-label controls by source ensemble. Replicate counts and
+the empirical tail resolution are reported; six-replicate estimates are
+pipeline sanity checks with broad Wilson intervals, not high-precision 5% tail
+certification. Configure separate development null and shuffled counts when
+needed with `development_null_replicates` and
+`development_shuffled_replicates`.
+
+## Measurement-primitive decision gates
+
+The characterization suite records the host CPU/PMU vocabulary and checks
+whether standard perf-visible events are discoverable without attaching to
+unrelated processes. It does not broaden perf permissions. A primitive may
+advance only when its null behavior, strong/weak controls, session/boot/order
+and allocation dependence, and oracle status are recorded. The current
+commodity result is **B — observable available but oracle weak**; a future
+worker result can become **A** only if a meaningful independent access-state
+oracle is actually demonstrated. Otherwise the valid outcome is **C** and the
+commodity Phase 1 line transitions toward controlled-memory-interface work.
+
 ## Multiple comparisons
 
 Searching hundreds of channels, windows, architectures, and timing settings can eventually produce an above-chance result by luck.
@@ -247,7 +270,8 @@ Use conservative language tied to the strongest split passed.
 | Above chance only on Split A | Pipeline signal; may be memorization |
 | Above chance on unseen locations | Candidate state-correlated channel |
 | Above chance on unseen regions and sessions | Stronger physical evidence |
-| Above chance on unseen device | Cross-device generalized evidence |
+| Above chance on unseen OS boot | Cross-boot evidence on the recorded host |
+| Above chance on unseen device | Cross-device generalized evidence only with a separate device campaign |
 | Replicated on new hardware/acquisition | Reproducible phenomenon |
 
 ## Failure is useful

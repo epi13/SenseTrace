@@ -13,6 +13,7 @@ from .calibration import (
     run_phase0_calibration,
     run_phase0_power_study,
 )
+from .characterization import run_measurement_primitive_characterization
 from .config import load_config, validate_config
 from .datasets import load_dataset
 from .host.client import RemoteHost
@@ -108,6 +109,14 @@ def build_parser() -> argparse.ArgumentParser:
     native_sensitivity.add_argument("--development-replicates", type=int)
     native_sensitivity.add_argument("--validation-replicates", type=int)
 
+    characterize = sub.add_parser("characterize", help="characterize a measurement primitive")
+    characterize_sub = characterize.add_subparsers(dest="characterize_command", required=True)
+    primitive = characterize_sub.add_parser(
+        "primitive", help="run null and positive-control primitive characterization"
+    )
+    primitive.add_argument("--config", default="configs/worker03.example.yaml")
+    primitive.add_argument("--output", default="runs/primitive-characterization")
+
     validate = sub.add_parser("validate", help="validate a dataset run directory")
     validate.add_argument("dataset")
     status = sub.add_parser("status", help="show local run status or remote host status")
@@ -196,6 +205,10 @@ def build_parser() -> argparse.ArgumentParser:
     remote_sensitivity.add_argument("--development-magnitudes", nargs="+", type=int)
     remote_sensitivity.add_argument("--development-replicates", type=int)
     remote_sensitivity.add_argument("--validation-replicates", type=int)
+    remote_characterize = host_sub.add_parser("characterize-primitive")
+    remote_characterize.add_argument("host", nargs="?", default="worker-03")
+    remote_characterize.add_argument("--config", default="configs/worker03.example.yaml")
+    remote_characterize.add_argument("--output")
     results = sub.add_parser("results", help="retrieve result artifacts")
     results_sub = results.add_subparsers(dest="results_command", required=True)
     latest = results_sub.add_parser("latest")
@@ -288,6 +301,13 @@ def main(argv: list[str] | None = None) -> int:
                 development_magnitudes=args.development_magnitudes,
                 development_replicates=args.development_replicates,
                 validation_replicates=args.validation_replicates,
+            )
+        )
+        return 0
+    if args.command == "characterize" and args.characterize_command == "primitive":
+        _json(
+            run_measurement_primitive_characterization(
+                validate_config(load_config(args.config)), args.output
             )
         )
         return 0
@@ -410,6 +430,11 @@ def main(argv: list[str] | None = None) -> int:
                     development_replicates=args.development_replicates,
                     validation_replicates=args.validation_replicates,
                 ),
+                end="",
+            )
+        elif args.host_command == "characterize-primitive":
+            print(
+                remote.characterize_primitive(args.config, output=args.output),
                 end="",
             )
         return 0

@@ -26,6 +26,7 @@ import numpy as np
 
 from .base import AcquisitionBackend, Sample
 from .native import NativeMeasurementKernel
+from .primitive import create_measurement_primitive
 
 
 def _cpu_frequency_regime() -> dict[str, object]:
@@ -123,6 +124,7 @@ class CommodityDramBackend(AcquisitionBackend):
     lock_memory: bool = True
     cache_control: str = "eviction_buffer"
     operation: str = "memory_read"
+    measurement_primitive: str = "commodity-clflush-timed-load"
     eviction_bytes: int = 4 * 1024 * 1024
     cpu_affinity: list[int] | None = None
     location_count: int | None = None
@@ -211,6 +213,13 @@ class CommodityDramBackend(AcquisitionBackend):
                 "cache_control=clflush requires a native x86 kernel with CLFLUSH support; "
                 "the fallback timing path cannot claim or perform CLFLUSH"
             )
+        self._measurement_primitive = create_measurement_primitive(
+            self.measurement_primitive,
+            self._native_kernel,
+            operation=self.operation,
+            cache_control=self.cache_control,
+            eviction=self._eviction,
+        )
         self._affinity_before: list[int] | None = None
         self._affinity_applied: list[int] | None = None
         if self.cpu_affinity is not None:
@@ -223,7 +232,7 @@ class CommodityDramBackend(AcquisitionBackend):
                 os.sched_setaffinity(0, requested)
                 self._affinity_applied = sorted(requested)
         self._timer_overhead_ns = self._calibrate_timer()
-        self._cache_provenance = self._describe_cache_control()
+        self._cache_provenance = self._measurement_primitive.cache_provenance()
         self._frequency_regime = _cpu_frequency_regime()
 
     def _make_labels(self) -> tuple[np.ndarray, np.ndarray]:
@@ -252,46 +261,6 @@ class CommodityDramBackend(AcquisitionBackend):
                     else np.asarray([1, 0], dtype=np.uint8)
                 )
         return labels, pair_order
-
-    def _describe_cache_control(self) -> dict[str, Any]:
-        if self.cache_control == "clflush":
-            return {
-                "method": "clflush",
-                "primitive": "_mm_clflush(address) followed by _mm_mfence() before each timed load",
-                "fences": [
-                    "LFENCE before RDTSC",
-                    "RDTSCP then LFENCE after load",
-                    "MFENCE after CLFLUSH",
-                ],
-                "guarantee": (
-                    "CLFLUSH is supported by the native x86 kernel and requests invalidation "
-                    "of the addressed cache line before the timed load"
-                ),
-                "limitations": [
-                    "does not prove that the load reached DRAM",
-                    "does not reveal a physical address, row, bank, subarray, chip, or DIMM",
-                    "does not guarantee absence of all coherence or prefetch effects",
-                    "valid only on the native kernel path when CPU support is reported",
-                ],
-                "eviction_bytes": 0,
-            }
-        if self.cache_control == "eviction_buffer":
-            return {
-                "method": "eviction_buffer",
-                "primitive": "best-effort sweep of a user-space eviction buffer",
-                "fences": [],
-                "guarantee": "best-effort cache eviction; does not prove DRAM access",
-                "limitations": ["cache hierarchy and replacement behavior are not controlled"],
-                "eviction_bytes": self.eviction_bytes,
-            }
-        return {
-            "method": "none",
-            "primitive": "no cache eviction before the timed load",
-            "fences": [],
-            "guarantee": "cache-hit control; no cache eviction is requested",
-            "limitations": ["the load may be satisfied by any level of the cache hierarchy"],
-            "eviction_bytes": 0,
-        }
 
     def _base_word(self, location: int, pair_index: int) -> int:
         rng = np.random.default_rng(
@@ -345,46 +314,16 @@ class CommodityDramBackend(AcquisitionBackend):
                 word = self._word_for(index, label)
                 self._buffer.write(buffer_index, word)
                 digital_value = self._buffer.read(buffer_index)
-            for _ in range(self.trace_length):
-                if self.operation == "memory_read" and self.cache_control == "eviction_buffer":
-                    self._evict_cache()
-                address = self._buffer.address + buffer_index * ctypes.sizeof(ctypes.c_uint64)
-                if self._native_kernel is not None:
-                    if self.operation == "idle":
-                        observed.append(float(self._native_kernel.idle_calibration(1)[0]))
-                    elif self.cache_control == "clflush":
-                        observed.append(
-                            float(
-                                self._native_kernel.measure_flushed(
-                                    address,
-                                    1,
-                                    extra_delay_cycles=(
-                                        self.timing_perturbation_cycles
-                                        if label == self.timing_perturbation_label
-                                        else 0
-                                    ),
-                                )[0]
-                            )
-                        )
-                    else:
-                        observed.append(
-                            float(
-                                self._native_kernel.measure_cached(
-                                    address,
-                                    1,
-                                    extra_delay_cycles=(
-                                        self.timing_perturbation_cycles
-                                        if label == self.timing_perturbation_label
-                                        else 0
-                                    ),
-                                )[0]
-                            )
-                        )
-                else:
-                    started = time.perf_counter_ns()
-                    if self.operation == "memory_read":
-                        self._buffer.read(buffer_index)
-                    observed.append(float(time.perf_counter_ns() - started))
+            address = self._buffer.address + buffer_index * ctypes.sizeof(ctypes.c_uint64)
+            primitive_observation = self._measurement_primitive.measure(
+                address,
+                self.operation,
+                lambda index=buffer_index: self._buffer.read(index),
+                self.trace_length,
+                perturbation_cycles=self.timing_perturbation_cycles,
+                perturbation_label_applied=label == self.timing_perturbation_label,
+            )
+            observed = primitive_observation.trace.tolist()
             if index < start_index:
                 continue
             yield Sample(
@@ -478,6 +417,15 @@ class CommodityDramBackend(AcquisitionBackend):
                         else "unavailable"
                     ),
                     "cache_control_primitive": self._cache_provenance["primitive"],
+                    "measurement_primitive": self._measurement_primitive.name,
+                    "measurement_primitive_capabilities": json.dumps(
+                        self._measurement_primitive.capabilities.as_dict(), sort_keys=True
+                    ),
+                    "access_state_oracle_provenance": json.dumps(
+                        primitive_observation.access_state.as_dict(), sort_keys=True
+                    ),
+                    "physical_observation_semantics": primitive_observation.physical_observation,
+                    "model_eligible_feature_policy": "trace-derived features only; primitive/audit metadata excluded",
                     "clflush_supported": (
                         self._native_kernel.supports_clflush
                         if self._native_kernel is not None
@@ -525,6 +473,7 @@ class CommodityDramBackend(AcquisitionBackend):
                 "limitations": "not a native timing kernel",
             },
             "cache_control_provenance": self._cache_provenance,
+            "measurement_primitive": self._measurement_primitive.describe(),
             "cpu_frequency_regime": self._frequency_regime,
             "configuration_hash": self.configuration_hash or "unavailable",
             "code_commit": self.code_commit or "unavailable",

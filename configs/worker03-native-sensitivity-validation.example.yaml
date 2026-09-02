@@ -23,6 +23,8 @@ acquisition:
 
 phase1a:
   status: native_sensitivity_calibration
+  protocol_version: phase1a-commodity-baseline-v1
+  measurement_primitive: commodity-clflush-timed-load
   location_count: 4
   trials_per_location: 32
   labels_per_location: 16
@@ -68,3 +70,4 @@ native_sensitivity:
   validation_replicates: 6
   alpha: 0.05
   target_power: 0.80
+  minimum_recommended_null_replicates: 20

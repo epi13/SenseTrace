@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from collections import Counter
 
 import numpy as np
@@ -7,10 +8,20 @@ import numpy as np
 from sensetrace.acquisition.commodity import CommodityDramBackend
 from sensetrace.acquisition.native import NativeMeasurementKernel
 from sensetrace.acquisition.synthetic import SyntheticBackend
-from sensetrace.calibration import run_native_sensitivity_calibration, run_phase0_calibration
+from sensetrace.calibration import (
+    _replicate_quality,
+    _shuffled_false_positive_summary,
+    run_native_sensitivity_calibration,
+    run_phase0_calibration,
+)
 from sensetrace.config import validate_config
 from sensetrace.metrics import max_statistic, monte_carlo_permutation_test, paired_delta_analysis
-from sensetrace.protocol import phase0_protocol, phase0_protocol_hash
+from sensetrace.protocol import (
+    phase0_protocol,
+    phase0_protocol_hash,
+    phase1a_commodity_baseline_protocol,
+    phase1a_commodity_baseline_protocol_hash,
+)
 from sensetrace.splits import phase1a_split_hierarchy
 
 
@@ -84,6 +95,60 @@ def test_phase0_v2_protocol_hash_is_frozen_and_power_study_is_development_only()
     assert phase0_protocol_hash(config) == phase0_protocol_hash(config)
     changed = {**config, "calibration": {**config["calibration"], "samples": 2000}}
     assert phase0_protocol_hash(changed) != phase0_protocol_hash(config)
+
+
+def test_native_sensitivity_shuffled_statistics_keep_ensemble_provenance_distinct():
+    development = [
+        {"status": "available", "max_statistic": 0.9},
+        {"status": "available", "max_statistic": 0.8},
+    ]
+    fresh = [
+        {"status": "available", "max_statistic": 0.1},
+        {"status": "available", "max_statistic": 0.2},
+    ]
+    development_summary = _shuffled_false_positive_summary(
+        development,
+        critical_max_statistic=0.5,
+        source="development shuffled-label controls only",
+        ensemble="development",
+        alpha=0.05,
+    )
+    fresh_summary = _shuffled_false_positive_summary(
+        fresh,
+        critical_max_statistic=0.5,
+        source="fresh/frozen shuffled-label controls only",
+        ensemble="fresh_frozen_validation",
+        alpha=0.05,
+    )
+    assert development_summary["rate"] == 1.0
+    assert fresh_summary["rate"] == 0.0
+    assert development_summary["ensemble"] != fresh_summary["ensemble"]
+    assert development_summary["source"] != fresh_summary["source"]
+
+
+def test_sensitivity_replicate_quality_warns_for_six_replicates():
+    quality = _replicate_quality(
+        statistics=np.zeros(6, dtype=np.float64), alpha=0.05, minimum_recommended=20
+    )
+    assert quality["precision_warning"] is True
+    assert quality["interpretation"].startswith("pipeline_sanity_check")
+
+
+def test_phase1a_commodity_baseline_protocol_hash_captures_observable_semantics():
+    config = _calibration_config()
+    protocol = phase1a_commodity_baseline_protocol(config)
+    assert protocol["version"] == "phase1a-commodity-baseline-v1"
+    assert protocol["measurement_primitive"]["capabilities"]["physical_address_information"] == (
+        "unsupported"
+    )
+    assert protocol["claim_boundaries"]["scientific_principle"].startswith("increasing N")
+    changed = {
+        **config,
+        "phase1a": {**config.get("phase1a", {}), "cache_control": "clflush"},
+    }
+    assert phase1a_commodity_baseline_protocol_hash(changed) != (
+        phase1a_commodity_baseline_protocol_hash(config)
+    )
 
 
 def test_synthetic_group_balance_and_seed_provenance():
@@ -168,6 +233,15 @@ def test_paired_backend_balances_each_location_and_exposes_native_provenance():
     assert hierarchy["A_repeated_trial_holdout"]["status"] == "available"
     assert hierarchy["B_unseen_location"]["status"] == "available"
     assert samples[0].metadata["label_semantics"] == "target bit equals label"
+    assert samples[0].metadata["measurement_primitive"] == "commodity-clflush-timed-load"
+    capabilities = json.loads(
+        str(samples[0].metadata["measurement_primitive_capabilities"])
+    )
+    assert capabilities["physical_address_information"] == "unsupported"
+    oracle = json.loads(
+        str(samples[0].metadata["access_state_oracle_provenance"])
+    )
+    assert oracle["status"] == "unavailable"
     assert (
         samples[0].metadata["acquisition_session_id"]
         == samples[-1].metadata["acquisition_session_id"]

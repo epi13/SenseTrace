@@ -823,6 +823,29 @@ class RemoteHost:
             raise RuntimeError(result.stderr or result.stdout)
         return result.stdout
 
+    def characterize_primitive(
+        self,
+        config: str | Path,
+        *,
+        output: str | None = None,
+    ) -> str:
+        """Run the non-inference primitive characterization on the worker."""
+
+        home = self._home()
+        venv = f"{home}/.local/share/sensetrace/venv/bin/sensetrace"
+        remote_config = f"{home}/.config/sensetrace/primitive-characterization.yaml"
+        self.connection.put(str(config), remote=remote_config)
+        destination = output or f"{home}/.local/share/sensetrace/runs/primitive-characterization"
+        result = self.run(
+            f"{venv} characterize primitive --config {quote(remote_config)} "
+            f"--output {quote(destination)}",
+            warn=True,
+            hide=True,
+        )
+        if not result.ok:
+            raise RuntimeError(result.stderr or result.stdout)
+        return result.stdout
+
     def verify_recovery(self) -> dict[str, Any]:
         home = self._home()
         output = f"{home}/.local/share/sensetrace/runs/recovery-check"

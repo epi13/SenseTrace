@@ -1,0 +1,70 @@
+# Small, predeclared native-path calibration campaign.  Its injected delay is
+# an instrumentation control and must never be interpreted as physical DRAM
+# evidence or combined with the Phase 1A commodity dataset.
+host:
+  name: worker-03
+  role: dedicated_experiment_host
+
+experiment:
+  name: worker03-native-sensitivity-validation
+  description: Frozen native timing-path sensitivity calibration with shuffled-label controls.
+  seed: 20260902
+
+data:
+  target_balance: 0.50
+  samples: 128
+  trace_channels: 1
+  trace_length: 32
+
+acquisition:
+  backend: commodity
+  shard_target_mb: 1
+  max_samples_per_shard: 128
+
+phase1a:
+  status: native_sensitivity_calibration
+  location_count: 4
+  trials_per_location: 32
+  labels_per_location: 16
+  samples: 128
+  trace_length: 32
+  pattern: single_bit
+  target_bit: 0
+  word_count: 64
+  lock_memory: false
+  cache_control: clflush
+  eviction_bytes: 1048576
+  cpu_affinity: null
+  ci_unit: acquisition_session_id
+  use_native_kernel: true
+  require_native_kernel: true
+  session_count: 4
+
+models:
+  logistic_regression:
+    enabled: true
+  boosted_trees:
+    enabled: true
+  tiny_mlp:
+    enabled: false
+  tiny_cnn:
+    enabled: false
+
+training:
+  seeds: [11, 23]
+  epochs: 10
+  early_stopping_patience: 2
+
+reporting:
+  ci_unit: acquisition_session_id
+  bootstrap_repetitions: 100
+  paired_repetitions: 500
+
+native_sensitivity:
+  protocol_version: native-sensitivity-protocol-v1
+  session_count: 4
+  development_magnitudes_cycles: [0, 32, 64, 128, 256, 512]
+  development_replicates: 6
+  validation_replicates: 6
+  alpha: 0.05
+  target_power: 0.80

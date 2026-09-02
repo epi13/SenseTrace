@@ -182,6 +182,12 @@ Given that result, the next physical experiment changes the measurement
 primitive toward a controlled memory interface or hardware-counter access-state
 oracle before increasing Phase 1A sample counts.
 
+The worker-03 characterization result is recorded in [measurement-primitive
+evidence](evidence/worker03-measurement-primitive-characterization-2026-09-02.md):
+the strong cache-path control was observed, but the independent access-state
+oracle remained unavailable because scoped PMU access was permission-denied.
+This is the recorded B outcome, not a hidden-bit result.
+
 Sensitivity reports distinguish development shuffled-label controls from
 fresh/frozen shuffled-label controls by source ensemble. Replicate counts and
 the empirical tail resolution are reported; six-replicate estimates are

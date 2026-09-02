@@ -25,6 +25,7 @@ from sensetrace.acquisition.primitive import (
 from sensetrace.characterization import (
     _contrast,
     _decision_evidence,
+    _operation_scoped_perf_summary,
     characterization_protocol,
     decide_characterization,
 )
@@ -190,6 +191,31 @@ def test_operation_scoped_reader_enables_only_around_callback_and_closes_fd(monk
     assert reader.provenance["scope"]["cpu_argument"] == -1
     assert reader.provenance["scope"]["system_wide"] is False
     assert reader.provenance["scope"]["inherit"] is False
+
+
+def test_characterization_retains_all_operation_scoped_perf_readings():
+    def observation(raw_count: int) -> str:
+        return (
+            '{"status":"complete","event":{"qualified_name":"cpu/cache-misses/"},'
+            f'"reading":{{"status":"complete","raw_count":{raw_count},'
+            '"scaled_count":' + str(float(raw_count)) + ',"time_enabled":10,'
+            '"time_running":10,"multiplexed":false}}'
+        )
+
+    summary = _operation_scoped_perf_summary(
+        [
+            {"operation_scoped_perf_observation": observation(3)},
+            {"operation_scoped_perf_observation": observation(7)},
+        ]
+    )
+    assert summary["status"] == "complete"
+    assert summary["observation_count"] == 2
+    assert summary["complete_reading_count"] == 2
+    assert summary["raw_counts"] == [3, 7]
+    assert summary["time_enabled"] == [10, 10]
+    assert summary["time_running"] == [10, 10]
+    assert summary["multiplexed"] == [False, False]
+    assert summary["raw_readings_retained"] is True
 
 
 def test_permission_denied_perf_probe_is_machine_readable(monkeypatch):

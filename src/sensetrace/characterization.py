@@ -99,6 +99,72 @@ def characterization_protocol(
     }
 
 
+def _operation_scoped_perf_summary(metadata: list[dict[str, Any]]) -> dict[str, Any]:
+    """Retain every per-operation counter read while factoring common provenance."""
+
+    observations: list[dict[str, Any]] = []
+    for item in metadata:
+        raw_value = item.get("operation_scoped_perf_observation")
+        if raw_value is None:
+            observations.append({"status": "not_configured"})
+            continue
+        try:
+            parsed = json.loads(str(raw_value))
+        except (TypeError, json.JSONDecodeError):
+            parsed = {"status": "malformed"}
+        observations.append(parsed if isinstance(parsed, dict) else {"status": "malformed"})
+    configured = [item for item in observations if item.get("status") != "not_configured"]
+    if not configured:
+        return {"status": "not_configured", "raw_observations_retained": True}
+    first = configured[0]
+    readings: list[dict[str, Any]] = []
+    for item in configured:
+        reading = item.get("reading")
+        if isinstance(reading, dict):
+            readings.append(reading)
+    raw_counts = [int(item["raw_count"]) for item in readings if item.get("raw_count") is not None]
+    scaled_counts = [
+        float(item["scaled_count"])
+        for item in readings
+        if item.get("scaled_count") is not None
+    ]
+    time_enabled = [
+        int(item["time_enabled"]) for item in readings if item.get("time_enabled") is not None
+    ]
+    time_running = [
+        int(item["time_running"]) for item in readings if item.get("time_running") is not None
+    ]
+    multiplexed = [bool(item["multiplexed"]) for item in readings if "multiplexed" in item]
+    return {
+        "status": "complete"
+        if len(configured) == len(metadata)
+        and len(readings) == len(configured)
+        and all(item.get("status") == "complete" for item in readings)
+        else "incomplete",
+        "event": first.get("event"),
+        "perf_event_attr": first.get("perf_event_attr"),
+        "scope": first.get("scope"),
+        "read_format": first.get("read_format"),
+        "read_format_fields": first.get("read_format_fields"),
+        "multiplexing": first.get("multiplexing"),
+        "errno": first.get("errno", 0),
+        "errno_name": first.get("errno_name", "none"),
+        "observation_count": len(observations),
+        "complete_reading_count": len(readings),
+        "first_reading": readings[0] if readings else None,
+        "reading": readings[0] if readings else None,
+        "raw_counts": raw_counts,
+        "scaled_counts": scaled_counts,
+        "time_enabled": time_enabled,
+        "time_running": time_running,
+        "multiplexed": multiplexed,
+        "raw_count_summary": summarize_measurements(np.asarray(raw_counts, dtype=np.float64))
+        if raw_counts
+        else None,
+        "raw_readings_retained": True,
+    }
+
+
 def _collect_backend(backend: AcquisitionBackend) -> dict[str, Any]:
     try:
         samples = list(backend.samples())
@@ -128,9 +194,7 @@ def _collect_backend(backend: AcquisitionBackend) -> dict[str, Any]:
             "primitive": str(metadata[0]["measurement_primitive"]),
             "capabilities": json.loads(str(metadata[0]["measurement_primitive_capabilities"])),
             "access_state_oracle": json.loads(str(metadata[0]["access_state_oracle_provenance"])),
-            "operation_scoped_perf": json.loads(
-                str(metadata[0].get("operation_scoped_perf_observation", '{"status":"not_configured"}'))
-            ),
+            "operation_scoped_perf": _operation_scoped_perf_summary(metadata),
             "configuration_hash": str(metadata[0].get("configuration_hash", "unavailable")),
             "code_commit": str(metadata[0].get("code_commit", "unavailable")),
             "protocol_hash": str(metadata[0].get("protocol_hash", "unavailable")),

@@ -123,6 +123,21 @@ def _group_key(metadata: dict[str, np.ndarray], index: int, keys: list[str]) -> 
     return "|".join(values)
 
 
+def _canonical_equivalence_signature(
+    metadata: dict[str, np.ndarray], keys: list[str], sample_count: int
+) -> tuple[int, ...]:
+    """Canonicalize grouping by first-seen membership, independent of labels."""
+
+    group_numbers: dict[str, int] = {}
+    signature: list[int] = []
+    for index in range(sample_count):
+        group = _group_key(metadata, index, keys)
+        if group not in group_numbers:
+            group_numbers[group] = len(group_numbers)
+        signature.append(group_numbers[group])
+    return tuple(signature)
+
+
 def grouped_split(
     metadata: dict[str, np.ndarray],
     *,
@@ -320,7 +335,7 @@ def validate_phase1a_split_hierarchy(
     sample_id_unique = len(sample_ids) == len(set(sample_ids))
     available: dict[str, Any] = {}
     partition_signatures: dict[str, tuple[str, ...]] = {}
-    grouping_signatures: dict[str, tuple[str, ...]] = {}
+    grouping_signatures: dict[str, tuple[int, ...]] = {}
     for name, record in hierarchy.items():
         if record.get("status") != "available":
             available[name] = {
@@ -351,8 +366,8 @@ def validate_phase1a_split_hierarchy(
             previous = group_to_partition.setdefault(group, part)
             if previous != part:
                 crossing_groups.append(list(group))
-        grouping_signature = tuple(
-            _group_key(metadata, index, resolved_keys) for index in range(len(sample_ids))
+        grouping_signature = _canonical_equivalence_signature(
+            metadata, resolved_keys, len(sample_ids)
         )
         partition_signature = tuple(str(value) for value in membership)
         grouping_signatures[name] = grouping_signature

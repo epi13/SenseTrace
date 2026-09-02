@@ -26,7 +26,12 @@ import numpy as np
 
 from .base import AcquisitionBackend, Sample
 from .native import NativeMeasurementKernel
-from .primitive import TimingPerturbationCalibration, create_measurement_primitive
+from .primitive import (
+    OperationScopedPerfOracle,
+    PrimitiveObservation,
+    TimingPerturbationCalibration,
+    create_measurement_primitive,
+)
 
 
 def _cpu_frequency_regime() -> dict[str, object]:
@@ -146,6 +151,9 @@ class CommodityDramBackend(AcquisitionBackend):
     host_inventory_snapshot: dict[str, Any] | None = None
     code_commit: str | None = None
     configuration_hash: str | None = None
+    protocol_identity: str | None = None
+    protocol_hash: str | None = None
+    scoped_perf_oracle: OperationScopedPerfOracle | None = field(default=None, repr=False)
     shared_buffer: ControlledMemoryBuffer | None = field(default=None, repr=False)
     shared_allocation_id: str | None = None
     _buffer: ControlledMemoryBuffer = field(init=False, repr=False)
@@ -348,14 +356,39 @@ class CommodityDramBackend(AcquisitionBackend):
                 self._buffer.write(buffer_index, word)
                 digital_value = self._buffer.read(buffer_index)
             address = self._buffer.address + buffer_index * ctypes.sizeof(ctypes.c_uint64)
-            primitive_observation = self._measurement_primitive.measure(
-                address,
-                self.operation,
-                lambda index=buffer_index: self._buffer.read(index),
-                self.trace_length,
-                perturbation_cycles=self.timing_perturbation_cycles,
-                perturbation_label_applied=label == self.timing_perturbation_label,
-            )
+            def controlled_measurement(
+                address: int = address,
+                buffer_index: int = buffer_index,
+                label: int = label,
+            ) -> PrimitiveObservation:
+                return self._measurement_primitive.measure(
+                    address,
+                    self.operation,
+                    lambda controlled_index=buffer_index: self._buffer.read(controlled_index),
+                    self.trace_length,
+                    perturbation_cycles=self.timing_perturbation_cycles,
+                    perturbation_label_applied=label == self.timing_perturbation_label,
+                )
+
+            scoped_perf_provenance: dict[str, Any] | None = None
+            if self.scoped_perf_oracle is not None:
+                primitive_observation, access_oracle, scoped_perf_provenance = (
+                    self.scoped_perf_oracle.observe(controlled_measurement)
+                )
+                if not isinstance(primitive_observation, PrimitiveObservation):
+                    raise RuntimeError("scoped perf oracle callback did not return a primitive observation")
+                primitive_observation = PrimitiveObservation(
+                    trace=primitive_observation.trace,
+                    access_state=access_oracle,
+                    physical_observation=primitive_observation.physical_observation,
+                    audit_metadata={
+                        **primitive_observation.audit_metadata,
+                        "operation_scoped_perf": scoped_perf_provenance,
+                    },
+                    model_eligible_features=primitive_observation.model_eligible_features,
+                )
+            else:
+                primitive_observation = controlled_measurement()
             observed = primitive_observation.trace.tolist()
             if index < start_index:
                 continue
@@ -477,6 +510,11 @@ class CommodityDramBackend(AcquisitionBackend):
                     "seed_id": f"commodity:{self.seed}",
                     "label_stream_fingerprint": hashlib.sha256(self._labels.tobytes()).hexdigest(),
                     "session_manifest_ref": f"sessions/{self.acquisition_session_id}/session.json",
+                    "protocol_identity": self.protocol_identity or "unavailable",
+                    "protocol_hash": self.protocol_hash or "unavailable",
+                    "operation_scoped_perf_observation": json.dumps(
+                        scoped_perf_provenance or {"status": "not_configured"}, sort_keys=True
+                    ),
                 },
             )
 
@@ -510,9 +548,16 @@ class CommodityDramBackend(AcquisitionBackend):
             },
             "cache_control_provenance": self._cache_provenance,
             "measurement_primitive": self._measurement_primitive.describe(),
+            "operation_scoped_perf_oracle": (
+                self.scoped_perf_oracle.description.as_dict()
+                if self.scoped_perf_oracle is not None
+                else {"status": "not_configured"}
+            ),
             "cpu_frequency_regime": self._frequency_regime,
             "configuration_hash": self.configuration_hash or "unavailable",
             "code_commit": self.code_commit or "unavailable",
+            "protocol_identity": self.protocol_identity or "unavailable",
+            "protocol_hash": self.protocol_hash or "unavailable",
             "timing_perturbation": {
                 "cycles": self.timing_perturbation_cycles,
                 "label": self.timing_perturbation_label,

@@ -99,6 +99,52 @@ class TimingPerturbationCalibration:
         }
 
 
+class OperationScopedPerfOracle:
+    """A partial access-path oracle for one SenseTrace-owned operation.
+
+    The oracle reports a hardware event delta and its complete perf provenance.
+    It deliberately does not translate a cache miss into DRAM, row, bank, or
+    hidden-bit semantics.
+    """
+
+    def __init__(self, event: Any) -> None:
+        self.event = event
+
+    @property
+    def description(self) -> AccessStateOracle:
+        event_name = getattr(self.event, "qualified_name", str(self.event))
+        return AccessStateOracle(
+            name=f"linux-perf:{event_name}",
+            strength="partial",
+            status="available",
+            observation=(
+                "operation-scoped hardware event count; supports only the event's documented "
+                "access-path statement"
+            ),
+            source="Linux perf_event_open on the SenseTrace-owned calling thread",
+            independent_of_latency=True,
+            model_feature_eligible=False,
+        )
+
+    def observe(self, controlled_operation: Any) -> tuple[Any, AccessStateOracle, dict[str, Any]]:
+        from .perf import OperationScopedPerfEvent
+
+        reader = OperationScopedPerfEvent(self.event)
+        result, reading = reader.measure(controlled_operation)
+        oracle = AccessStateOracle(
+            name=self.description.name,
+            strength=self.description.strength,
+            status="available" if reading.time_running > 0 else "unavailable",
+            observation=f"operation-scoped count={reading.raw_count}",
+            source=self.description.source,
+            independent_of_latency=True,
+            model_feature_eligible=False,
+        )
+        provenance = reader.provenance
+        provenance["reading"] = reading.as_dict()
+        return result, oracle, provenance
+
+
 @dataclass(frozen=True)
 class CharacterizationControl:
     """A primitive-owned non-hidden-bit characterization control."""
@@ -174,6 +220,16 @@ class MeasurementPrimitive(ABC):
         evaluates the resulting evidence.
         """
 
+        null_stability = {
+            "statistic": "median_of_replicate_sample_medians",
+            "spread_statistic": "median_absolute_deviation_of_replicate_sample_medians",
+            "relative_scale": "absolute_median_center",
+            "max_relative_deviation": 0.25,
+            "max_relative_mad": 0.10,
+            "minimum_complete_replicates": 3,
+            "insufficient_evidence_status": "insufficient_evidence",
+        }
+        null_stability.update(config.get("characterization", {}).get("null_stability", {}))
         return {
             "controls": [],
             "required_contrasts": [],
@@ -183,6 +239,7 @@ class MeasurementPrimitive(ABC):
                 "agreement_required": True,
                 "stability_required": True,
             },
+            "null_stability": null_stability,
             "replicate_matching": {
                 "target_stream": "primitive implementation must keep control seeds matched within a replicate",
                 "control_order": "engine randomizes control order and retains the order index",
@@ -346,6 +403,16 @@ class CommodityTimingPrimitive(MeasurementPrimitive):
         """Declare this primitive's controls and evidence gate."""
 
         characterization = config.get("characterization", {})
+        null_stability = {
+            "statistic": "median_of_replicate_sample_medians",
+            "spread_statistic": "median_absolute_deviation_of_replicate_sample_medians",
+            "relative_scale": "absolute_median_center",
+            "max_relative_deviation": 0.25,
+            "max_relative_mad": 0.10,
+            "minimum_complete_replicates": 3,
+            "insufficient_evidence_status": "insufficient_evidence",
+        }
+        null_stability.update(characterization.get("null_stability", {}))
         weak_levels = [
             int(value)
             for value in characterization.get("weak_positive_control_cycles", [0, 32, 64, 128])
@@ -400,6 +467,7 @@ class CommodityTimingPrimitive(MeasurementPrimitive):
                 "stability_required": True,
                 "minimum_strength": ["exact", "probabilistic", "partial"],
             },
+            "null_stability": null_stability,
             "replicate_matching": {
                 "target_stream": "same deterministic seed per control within a replicate",
                 "control_order": "randomized per replicate and retained as audit metadata",
@@ -435,6 +503,7 @@ class CommodityTimingPrimitive(MeasurementPrimitive):
         from ..config import config_fingerprint
         from ..runner import _git_commit
         from .commodity import CommodityDramBackend
+        from .perf import select_sysfs_event_encoding
 
         physical = config.get("phase1a", {})
         characterization = config.get("characterization", {})
@@ -452,6 +521,16 @@ class CommodityTimingPrimitive(MeasurementPrimitive):
         )
         location_count = int(characterization.get("location_count", 4))
         trials = int(characterization.get("trials_per_location", 16))
+        scoped_perf_oracle = None
+        scoped_perf_event = characterization.get("scoped_perf_event")
+        if scoped_perf_event:
+            event_name = str(scoped_perf_event)
+            event = (
+                select_sysfs_event_encoding("/sys", event_name)
+                if "/" in event_name
+                else event_name
+            )
+            scoped_perf_oracle = OperationScopedPerfOracle(event)
         return CommodityDramBackend(
             count=location_count * trials,
             trace_length=int(
@@ -479,6 +558,7 @@ class CommodityTimingPrimitive(MeasurementPrimitive):
             campaign_id="measurement-primitive-characterization",
             code_commit=_git_commit(),
             configuration_hash=config_fingerprint(config),
+            scoped_perf_oracle=scoped_perf_oracle,
         )
 
     def build_characterization_backend(

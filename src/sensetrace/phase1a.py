@@ -118,6 +118,7 @@ def _backend_from_config(
     physical = config.get("phase1a", {})
     if calibration_context is None:
         _validate_physical_phase1a_config(config)
+    protocol_identity, protocol_hash = _acquisition_protocol(config, calibration_context)
     return CommodityDramBackend(
         count=int(physical.get("samples", min(int(data.get("samples", 128)), 256))),
         trace_length=int(physical.get("trace_length", min(int(data.get("trace_length", 32)), 64))),
@@ -156,6 +157,8 @@ def _backend_from_config(
         host_inventory_snapshot=host_inventory_snapshot,
         code_commit=_git_commit(),
         configuration_hash=config_fingerprint(config),
+        protocol_identity=protocol_identity,
+        protocol_hash=protocol_hash,
     )
 
 
@@ -377,6 +380,9 @@ def _materialize_session(
         },
         acquisition_sessions=[session_record],
         campaign_id=campaign_id,
+        dataset_purpose=("physical_phase1a" if calibration_context is None else "calibration"),
+        protocol_identity=protocol_identity,
+        protocol_hash=protocol_hash,
     )
     completed_event = journal.append(
         "acquisition_session_completed",
@@ -441,6 +447,9 @@ def _materialize_session(
         },
         acquisition_sessions=[session_record],
         campaign_id=campaign_id,
+        dataset_purpose=("physical_phase1a" if calibration_context is None else "calibration"),
+        protocol_identity=protocol_identity,
+        protocol_hash=protocol_hash,
     )
 
 
@@ -555,6 +564,10 @@ def _materialize_label_permutation(
         _traces, _labels, _metadata, _shards, manifest = load_dataset(condition_dir)
         return manifest
     traces, labels, metadata, _shards, source_manifest = load_dataset(source_dir)
+    if source_manifest.get("dataset_purpose") == "physical_phase1a":
+        traces, labels, metadata, _shards, source_manifest = load_dataset(
+            source_dir, expected_purpose="physical_phase1a"
+        )
     permutation = np.arange(len(labels), dtype=np.int64)
     rng = np.random.default_rng(permutation_seed)
     strata_keys = list(config.get("calibration", {}).get("permutation_strata", ["location_id"]))
@@ -576,6 +589,29 @@ def _materialize_label_permutation(
     for index, (trace, label) in enumerate(zip(traces, permuted, strict=True)):
         writer.add(trace, int(label), {key: value[index] for key, value in metadata.items()})
     writer.finalize()
+    permutation_provenance: dict[str, Any] = {
+        "parent_dataset_fingerprint": source_manifest["dataset_fingerprint"],
+        "original_label_stream_fingerprint": source_manifest["label_stream_fingerprint"],
+        "permutation_seed": permutation_seed,
+        "permutation_reference": hashlib.sha256(
+            np.asarray(permutation, dtype=np.int64).tobytes()
+        ).hexdigest(),
+        "permutation_strata": strata_keys,
+        "only_changed_variable": "label association",
+        "source_manifest": source_manifest,
+        "protocol_identity": source_manifest.get("protocol_identity"),
+        "protocol_hash": source_manifest.get("protocol_hash"),
+    }
+    if source_manifest.get("dataset_purpose") == "physical_phase1a":
+        permutation_provenance["artificial_timing_perturbation"] = {
+            "allowed": False,
+            "timing_perturbation_cycles": 0,
+            "timing_perturbation_label": 1,
+            "label_correlated": False,
+            "applied": False,
+            "calibration_namespace": "forbidden",
+            "physical_phase1a_forbidden": True,
+        }
     return write_dataset_manifest(
         condition_dir,
         config=config,
@@ -583,19 +619,12 @@ def _materialize_label_permutation(
         shard_infos=validate_all_shards(condition_dir),
         label_stream_fingerprint=hashlib.sha256(permuted.tobytes()).hexdigest(),
         class_balance={"0": int(np.sum(permuted == 0)), "1": int(np.sum(permuted == 1))},
-        provenance={
-            "parent_dataset_fingerprint": source_manifest["dataset_fingerprint"],
-            "original_label_stream_fingerprint": source_manifest["label_stream_fingerprint"],
-            "permutation_seed": permutation_seed,
-            "permutation_reference": hashlib.sha256(
-                np.asarray(permutation, dtype=np.int64).tobytes()
-            ).hexdigest(),
-            "permutation_strata": strata_keys,
-            "only_changed_variable": "label association",
-            "source_manifest": source_manifest,
-        },
+        provenance=permutation_provenance,
         acquisition_sessions=source_manifest.get("acquisition_sessions", []),
         campaign_id=source_manifest.get("campaign_id"),
+        dataset_purpose=source_manifest.get("dataset_purpose", "generic"),
+        protocol_identity=source_manifest.get("protocol_identity"),
+        protocol_hash=source_manifest.get("protocol_hash"),
     )
 
 
@@ -612,7 +641,9 @@ def _claim_for_split(name: str) -> str:
 def _analyze_condition(
     condition_dir: Path, manifest: dict[str, Any], config: dict[str, Any]
 ) -> dict[str, Any]:
-    traces, labels, metadata, _shards, _loaded_manifest = load_dataset(condition_dir)
+    traces, labels, metadata, _shards, _loaded_manifest = load_dataset(
+        condition_dir, expected_purpose="physical_phase1a"
+    )
     hierarchy = phase1a_split_hierarchy(
         metadata,
         dataset_fingerprint=manifest["dataset_fingerprint"],

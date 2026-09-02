@@ -19,6 +19,27 @@ Inventory observed from the controller on 2026-08-31:
 
 The monitor is not part of the tested workflow. The SSH alias in the controller's `~/.ssh/config` is the normal management path.
 
+## Current scoped-PMU status (2026-09-02)
+
+The updated source was deployed from main merge `7387b57` with the existing
+`/etc/sensetrace/worker03.yaml` preserved; no `perf_event_paranoid`, capability,
+or other worker permission change was made. The system SenseTrace service is
+active and enabled. A fresh unprivileged inventory recorded
+`kernel.perf_event_paranoid=2`, effective capabilities `0x0000000000000000`,
+and successful calling-thread PMU capability probes. The CPU PMU exposes
+`cpu/cache-references/` (`type=4`, config `0x4f2e`) and
+`cpu/cache-misses/` (`type=4`, config `0x412e`); discovered uncore devices were
+not selected because their hardware scope is not a calling-thread scope.
+
+The bounded run is documented in
+[worker-03 scoped PMU characterization](evidence/worker03-scoped-perf-characterization-2026-09-02.md).
+It measured the selected event around each controlled operation with
+`inherit=0`, `cpu=-1`, kernel/hypervisor exclusion, disabled start,
+reset/enable/disable bracketing, explicit time-enabled/time-running reads, and
+deterministic close. The latency control and directional PMU contrast passed,
+but PMU null stability failed, so no hidden-bit run or larger-N campaign is
+authorized by this result.
+
 The experiment should not depend on the GPU. The initial model ladder is deliberately small enough to run on CPU, while the GPU may be used opportunistically where supported.
 
 ## Terminology
@@ -188,14 +209,14 @@ campaign must precede any new hidden-bit inference:
 ```bash
 python3 -m sensetrace.cli host deploy worker-03
 python3 -m sensetrace.cli host characterize-primitive worker-03 \
-  --config configs/worker03.example.yaml \
-  --output /home/worker-03/.local/share/sensetrace/runs/primitive-characterization
+  --config configs/worker03-scoped-perf-characterization.example.yaml \
+  --output /home/worker-03/.local/share/sensetrace/runs/scoped-perf-characterization-20260902-v3
 ```
 
 The controller should record the returned commit, protocol/configuration
-hashes, boot ID, session/allocation IDs, CPU/PMU capability report, and dataset
-fingerprints. A permission failure is evidence of an unavailable oracle, not a
-reason to weaken worker security.
+hashes, boot ID, session/allocation IDs, CPU/PMU capability report, and raw
+artifact hashes. A permission failure is evidence of an unavailable oracle,
+not a reason to weaken worker security.
 
 ## Initial implementation milestones
 

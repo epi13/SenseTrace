@@ -171,6 +171,7 @@ The purpose of the project is to characterize physical information channels in m
 - [worker-03 genuine multi-boot validation](docs/evidence/worker03-multiboot-validation-2026-09-01.md)
 - [worker-03 native sensitivity evidence](docs/evidence/native-sensitivity-worker03-2026-09-01.md)
 - [worker-03 measurement-primitive characterization](docs/evidence/worker03-measurement-primitive-characterization-2026-09-02.md)
+- [worker-03 scoped PMU characterization](docs/evidence/worker03-scoped-perf-characterization-2026-09-02.md)
 - [Native-path sensitivity decision](docs/ADR-010-native-path-sensitivity-calibration.md)
 - [Commodity Phase 1A baseline](docs/PHASE1A-COMMODITY-BASELINE-V1.md)
 - [Measurement primitives and access-state oracles](docs/ADR-011-measurement-primitives-and-access-state-oracles.md)
@@ -204,7 +205,10 @@ physical-address, row, bank, subarray, chip, or DIMM measurement.
 
 The current decision gate is conservative: the native path detects the
 artificial timing control, while the corrected physical three-boot result is
-near chance and the commodity primitive has no independent cache-level or DRAM
-event oracle. Do not increase commodity Phase 1A sample counts until a
-characterized primitive improves access-state provenance; if it cannot, move to
-controlled-memory-interface instrumentation.
+near chance. The worker-03 scoped `cpu/cache-misses/` reader opened and
+measured only around SenseTrace-owned operations, and its directional
+cache-path contrast repeated across three fresh allocations, but its PMU null
+stability failed the predeclared rule. The resulting decision is **B: observable
+available but oracle weak**. Do not increase commodity Phase 1A sample counts;
+first resolve the PMU null-stability limitation or move to controlled-memory-
+interface instrumentation.

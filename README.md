@@ -170,6 +170,7 @@ The purpose of the project is to characterize physical information channels in m
 - [Phase 1A split erratum](docs/evidence/phase1a-erratum-reanalysis-2026-09-01.md)
 - [worker-03 genuine multi-boot validation](docs/evidence/worker03-multiboot-validation-2026-09-01.md)
 - [worker-03 native sensitivity evidence](docs/evidence/native-sensitivity-worker03-2026-09-01.md)
+- [worker-03 measurement-primitive characterization](docs/evidence/worker03-measurement-primitive-characterization-2026-09-02.md)
 - [Native-path sensitivity decision](docs/ADR-010-native-path-sensitivity-calibration.md)
 - [Commodity Phase 1A baseline](docs/PHASE1A-COMMODITY-BASELINE-V1.md)
 - [Measurement primitives and access-state oracles](docs/ADR-011-measurement-primitives-and-access-state-oracles.md)

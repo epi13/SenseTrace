@@ -25,6 +25,7 @@ from sensetrace.acquisition.primitive import (
 from sensetrace.characterization import (
     _contrast,
     _decision_evidence,
+    _operation_scoped_perf_oracle_analysis,
     _operation_scoped_perf_summary,
     characterization_protocol,
     decide_characterization,
@@ -331,3 +332,46 @@ def test_contrast_pairs_only_matching_replicate_ids_and_reports_missing_side():
         {"replicate_id": "replicate-0002", "left_median": 30.0, "right_median": 45.0, "difference": 15.0},
     ]
     assert result["required_replicates_present"] is False
+
+
+def test_scoped_perf_oracle_reports_directional_agreement_and_null_stability():
+    def record(replicate_id: str, median: float) -> dict:
+        return {
+            "replicate_id": replicate_id,
+            "operation_scoped_perf": {
+                "status": "complete",
+                "raw_count_summary": {"median": median},
+            },
+        }
+
+    contract = {
+        "controls": [{"name": "null", "role": "null"}],
+        "required_contrasts": [
+            {
+                "left_control": "cached",
+                "right_control": "flushed",
+            }
+        ],
+        "null_stability": {
+            "max_relative_deviation": 0.25,
+            "max_relative_mad": 0.10,
+            "minimum_complete_replicates": 3,
+        },
+    }
+    analysis = _operation_scoped_perf_oracle_analysis(
+        {
+            "null": [record(f"replicate-{index:04d}", 1.0) for index in range(3)],
+            "cached": [record(f"replicate-{index:04d}", 4.0) for index in range(3)],
+            "flushed": [record(f"replicate-{index:04d}", 32.0) for index in range(3)],
+        },
+        contract,
+        3,
+    )
+    assert analysis["agreement"]["status"] == "pass"
+    assert analysis["agreement"]["confusion_matrix"] == {
+        "expected_right_above_left": {
+            "observed_right_above_left": 3,
+            "observed_right_not_above_left": 0,
+        }
+    }
+    assert analysis["stability_pass"] is True

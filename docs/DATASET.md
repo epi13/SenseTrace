@@ -35,8 +35,18 @@ Recommended metadata fields:
 | `timing_profile` | Acquisition timing configuration | Optional/encoded |
 | `channel_mask` | Which measurement channels are valid | No/direct loader use |
 | `seed_id` | Reproducibility reference, not raw secret/random state | No |
+| `measurement_primitive` | Named operation/observation implementation | No |
+| `measurement_primitive_capabilities` | Known/unknown/unsupported capability contract | No |
+| `access_state_oracle_provenance` | Independent-oracle status and strength | No |
+| `physical_observation_semantics` | Conservative description of what the trace measures | No |
 
 Exact physical topology fields may be unavailable on early hardware. Missing topology is acceptable, but the absence must be recorded because it limits which holdout claims can be made.
+
+Primitive provenance is a separate namespace from model features. An oracle may
+be exact, probabilistic, partial, or unavailable. A requested cache control is
+not evidence of the resulting physical memory layer. Addresses, allocation and
+session identities, oracle identity/results, and boot/order metadata remain
+audit-only unless a future protocol explicitly justifies an ablation.
 
 `location_id` and `cell_or_offset_id` are retained for compatibility with older
 datasets. In Phase 1A they are virtual buffer identifiers, not known physical

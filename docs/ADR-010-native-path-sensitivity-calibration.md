@@ -23,3 +23,9 @@ evidence of DRAM-state inference. The physical Phase 1A dataset is never
 modified or contaminated by calibration controls. A noisy or failed
 calibration is evidence to improve measurement fidelity, not a reason to
 increase physical sample counts blindly.
+
+The report schema now keeps development shuffled-label statistics separate from
+fresh/frozen shuffled-label statistics. The retained 2026-09-01 worker report
+has the same numeric rate for both ensembles, so its historical values remain
+unchanged; future reports name the source ensemble explicitly. Six-replicate
+tail estimates are marked as pipeline sanity checks with broad uncertainty.

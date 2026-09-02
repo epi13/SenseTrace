@@ -154,6 +154,20 @@ sensetrace host run-phase1a worker-03 \
 
 The safe backend uses an anonymous page-aligned buffer, records whether `mlock` actually succeeded, performs ordinary user-space writes and reads, and records raw native TSC-cycle timing traces when the native kernel is built. The ordinary digital read is audit-only and is not in the feature matrix. `CLFLUSH` is an explicit cache-line control; it does not prove a DRAM access. No physical address, row/bank identity, refresh disabling, voltage change, or disturbance loop is exposed. Phase 1A uses repeated paired locations: each location receives both target labels, and each pair shares all non-target bits.
 
+The commodity implementation is frozen as `phase1a-commodity-baseline-v1`; each
+run records its protocol hash. New primitives must use the same engine through
+the measurement-primitive factory and pass characterization before hidden-bit
+inference. Run the local suite with:
+
+```bash
+sensetrace characterize primitive --config configs/worker03.example.yaml \
+  --output runs/primitive-characterization
+```
+
+This command does not train a hidden-bit model. Its cached/CLFLUSH contrast is a
+cache-path control, and the current commodity access-state oracle is explicitly
+unavailable rather than inferred from latency.
+
 `phase1a.session_count` controls the number of independently started source
 sessions per acquired condition. It no longer divides one continuous stream
 into logical sessions. Use at least three sessions for D/E partitioning to have

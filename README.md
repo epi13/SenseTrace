@@ -137,7 +137,10 @@ SenseTrace/
 Synthetic/no-signal and intentionally leaked controls prove that the collection, splitting, training, and metrics pipeline behaves correctly.
 
 **Phase 1 — accessible DRAM observables**  
-Collect timing, refresh-age, environmental, and board-level measurements available without invasive chip modification.
+Freeze the commodity CLFLUSH/timed-load comparison as
+[`phase1a-commodity-baseline-v1`](docs/PHASE1A-COMMODITY-BASELINE-V1.md), then
+characterize a new measurement primitive with an independently auditable
+access-state oracle before attempting hidden-bit inference.
 
 **Phase 2 — controlled memory interface**  
 Use research hardware such as an FPGA-based memory controller where appropriate to gain tighter control over command timing and acquisition.
@@ -168,6 +171,8 @@ The purpose of the project is to characterize physical information channels in m
 - [worker-03 genuine multi-boot validation](docs/evidence/worker03-multiboot-validation-2026-09-01.md)
 - [worker-03 native sensitivity evidence](docs/evidence/native-sensitivity-worker03-2026-09-01.md)
 - [Native-path sensitivity decision](docs/ADR-010-native-path-sensitivity-calibration.md)
+- [Commodity Phase 1A baseline](docs/PHASE1A-COMMODITY-BASELINE-V1.md)
+- [Measurement primitives and access-state oracles](docs/ADR-011-measurement-primitives-and-access-state-oracles.md)
 - [Phase 0 v2 protocol](docs/PHASE0-PROTOCOL-V2.md)
 - [Architecture decisions](docs/ADR-001-storage-and-journal.md)
 
@@ -195,3 +200,10 @@ measurement. E is available only for genuinely disjoint OS boot groups; D
 remains the acquisition-session holdout. The Phase 0 v2 final gate passed under
 its frozen rule and authorized the safe worker campaign, which completed without producing a
 physical-address, row, bank, subarray, chip, or DIMM measurement.
+
+The current decision gate is conservative: the native path detects the
+artificial timing control, while the corrected physical three-boot result is
+near chance and the commodity primitive has no independent cache-level or DRAM
+event oracle. Do not increase commodity Phase 1A sample counts until a
+characterized primitive improves access-state provenance; if it cannot, move to
+controlled-memory-interface instrumentation.

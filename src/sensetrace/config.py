@@ -150,6 +150,20 @@ def validate_config(config: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(ci_unit, str) or (ci_unit != "sample" and not ci_unit):
         raise ConfigError("reporting.ci_unit must be sample or a metadata grouping field")
     if backend == "commodity":
+        protocol_version = _get(
+            config, "phase1a.protocol_version", "phase1a-commodity-baseline-v1"
+        )
+        if protocol_version != "phase1a-commodity-baseline-v1":
+            raise ConfigError(
+                "phase1a.protocol_version must be phase1a-commodity-baseline-v1"
+            )
+        primitive = _get(
+            config, "phase1a.measurement_primitive", "commodity-clflush-timed-load"
+        )
+        if primitive != "commodity-clflush-timed-load":
+            raise ConfigError(
+                "phase1a.measurement_primitive must be commodity-clflush-timed-load"
+            )
         pattern = _get(config, "phase1a.pattern", "single_bit")
         if pattern not in {"all_zero_one", "single_bit", "random_word"}:
             raise ConfigError("phase1a.pattern is not a supported safe memory pattern")
@@ -180,6 +194,44 @@ def validate_config(config: dict[str, Any]) -> dict[str, Any]:
         session_count = _get(config, "phase1a.session_count", 1)
         if not isinstance(session_count, int) or session_count < 1:
             raise ConfigError("phase1a.session_count must be a positive integer")
+    native_sensitivity = config.get("native_sensitivity", {})
+    if native_sensitivity and not isinstance(native_sensitivity, dict):
+        raise ConfigError("native_sensitivity must be a mapping")
+    for name in [
+        "development_replicates",
+        "development_null_replicates",
+        "development_shuffled_replicates",
+        "validation_replicates",
+        "minimum_recommended_null_replicates",
+    ]:
+        value = native_sensitivity.get(name) if isinstance(native_sensitivity, dict) else None
+        if value is not None and (not isinstance(value, int) or value < 1):
+            raise ConfigError(f"native_sensitivity.{name} must be a positive integer")
+    characterization = config.get("characterization", {})
+    if characterization and not isinstance(characterization, dict):
+        raise ConfigError("characterization must be a mapping")
+    if isinstance(characterization, dict):
+        replicates = characterization.get("replicates", 3)
+        if not isinstance(replicates, int) or replicates < 2:
+            raise ConfigError("characterization.replicates must be an integer >= 2")
+        location_count = characterization.get("location_count", 4)
+        trials = characterization.get("trials_per_location", 16)
+        if not isinstance(location_count, int) or location_count < 1:
+            raise ConfigError("characterization.location_count must be positive")
+        if not isinstance(trials, int) or trials < 4 or trials % 4:
+            raise ConfigError(
+                "characterization.trials_per_location must be a positive multiple of four"
+            )
+        weak_levels = characterization.get("weak_positive_control_cycles", [0, 32, 64, 128])
+        if (
+            not isinstance(weak_levels, list)
+            or not weak_levels
+            or any(not isinstance(value, int) or value < 0 for value in weak_levels)
+            or 0 not in weak_levels
+        ):
+            raise ConfigError(
+                "characterization.weak_positive_control_cycles must include non-negative zero"
+            )
     return config
 
 

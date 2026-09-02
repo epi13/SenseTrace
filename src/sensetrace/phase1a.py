@@ -22,6 +22,10 @@ from .journal import Journal
 from .metrics import paired_delta_analysis
 from .models import train_and_evaluate
 from .phase0 import _enabled_models
+from .protocol import (
+    phase1a_commodity_baseline_protocol,
+    phase1a_commodity_baseline_protocol_hash,
+)
 from .runner import _git_commit, new_run_id
 from .splits import (
     partition_indices,
@@ -85,6 +89,9 @@ def _backend_from_config(
         lock_memory=bool(physical.get("lock_memory", True)),
         cache_control=str(physical.get("cache_control", "eviction_buffer")),
         operation=str(physical.get("operation", "memory_read")),
+        measurement_primitive=str(
+            physical.get("measurement_primitive", "commodity-clflush-timed-load")
+        ),
         eviction_bytes=int(physical.get("eviction_bytes", 4 * 1024 * 1024)),
         cpu_affinity=physical.get("cpu_affinity"),
         location_count=(
@@ -212,6 +219,12 @@ def _materialize_session(
         session_started_at=session_started_at,
     )
     session_record = backend.session_provenance()
+    session_record.update(
+        {
+            "protocol_identity": phase1a_commodity_baseline_protocol(config)["version"],
+            "protocol_hash": phase1a_commodity_baseline_protocol_hash(config),
+        }
+    )
     if existing_record:
         session_record["restart_count"] = int(existing_record.get("restart_count", 0)) + 1
         session_record["prior_session_ledger"] = {
@@ -285,6 +298,8 @@ def _materialize_session(
             "backend": "CommodityDramBackend",
             "session_scope": "one independently started backend and newly allocated controlled buffer",
             "physical_topology": "unknown; virtual buffer locations only",
+            "protocol_identity": phase1a_commodity_baseline_protocol(config)["version"],
+            "protocol_hash": phase1a_commodity_baseline_protocol_hash(config),
         },
         acquisition_sessions=[session_record],
         campaign_id=campaign_id,
@@ -323,6 +338,8 @@ def _materialize_session(
             "backend": "CommodityDramBackend",
             "session_scope": "one independently started backend and newly allocated controlled buffer",
             "physical_topology": "unknown; virtual buffer locations only",
+            "protocol_identity": phase1a_commodity_baseline_protocol(config)["version"],
+            "protocol_hash": phase1a_commodity_baseline_protocol_hash(config),
         },
         acquisition_sessions=[session_record],
         campaign_id=campaign_id,
@@ -646,6 +663,8 @@ def run_phase1a_campaign(
     root = Path(output_root)
     run_id = run_id or new_run_id("phase1a")
     campaign_id = campaign_id or f"campaign-{run_id}"
+    protocol = phase1a_commodity_baseline_protocol(config)
+    protocol_hash = phase1a_commodity_baseline_protocol_hash(config)
     run_dir = root / run_id
     run_dir.mkdir(parents=True, exist_ok=False)
     _write_json(
@@ -658,6 +677,8 @@ def run_phase1a_campaign(
             "started_at": datetime.now(UTC).isoformat(),
             "code_commit": _git_commit(),
             "configuration_hash": config_fingerprint(config),
+            "protocol_version": protocol["version"],
+            "protocol_hash": protocol_hash,
             "claim_scope": "exploratory safe commodity-memory host observables only",
             "phase0_gate_report": str(phase0_report)
             if not isinstance(phase0_report, dict)
@@ -667,6 +688,7 @@ def run_phase1a_campaign(
     host_snapshot = collect_inventory()
     _write_json(run_dir / "host.json", host_snapshot)
     _write_json(run_dir / "config.json", normalized_config(config))
+    _write_json(run_dir / "protocol.json", {**protocol, "protocol_hash": protocol_hash})
     _write_json(
         run_dir / "campaign.json",
         {
@@ -676,6 +698,8 @@ def run_phase1a_campaign(
             "status": "active",
             "session_count_per_acquired_condition": _session_count(config),
             "source_manifests_preserved": True,
+            "protocol_version": protocol["version"],
+            "protocol_hash": protocol_hash,
             "acquisition_graph": "campaign -> boot -> acquisition session -> acquisition block -> virtual location -> pair -> trial",
         },
     )
@@ -737,10 +761,11 @@ def run_phase1a_campaign(
         )
     journal.append("campaign_completed", campaign_id=campaign_id, status="exploratory")
     final = {
-        "schema": "sensetrace.phase1a-report.v3",
+        "schema": "sensetrace.phase1a-report.v4",
         "run_id": run_id,
         "campaign_id": campaign_id,
         "status": "exploratory",
+        "protocol": {**protocol, "protocol_hash": protocol_hash},
         "conditions": result_conditions,
         "campaign": {
             "session_count_per_acquired_condition": _session_count(config),
@@ -748,6 +773,8 @@ def run_phase1a_campaign(
             "combined_dataset_provenance": "each combined condition manifest references every finalized source session manifest",
         },
         "measurement_provenance": {
+            "protocol_identity": protocol["version"],
+            "protocol_hash": protocol_hash,
             "backend": "CommodityDramBackend",
             "ordinary_read_value": "ground-truth verification only",
             "physical_address_or_row_claim": "not available",

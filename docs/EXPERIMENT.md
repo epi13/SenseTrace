@@ -108,6 +108,35 @@ Use non-invasive measurements and controllable DRAM conditions on owned research
 
 The priority is clean methodology rather than maximizing measurement depth.
 
+## Measurement primitive and access-state oracle
+
+Acquisition uses a named measurement-primitive interface. Target-state
+preparation, the operation under test, access-state/event provenance, physical
+observation, audit metadata, and model-eligible features are recorded as
+separate concepts. Primitive capabilities use explicit `known`, `unknown`, or
+`unsupported` values; unavailable physical topology is never inferred from a
+latency trace.
+
+An access-state oracle is independent evidence about the path, not a feature
+for the predictive model. Its strength is recorded as exact, probabilistic,
+partial, or unavailable. The commodity CLFLUSH/timed-load baseline currently
+has a requested cache-state control but no independent cache-level or DRAM
+oracle.
+
+Before hidden-bit inference, run the primitive characterization command. It
+tests null stability, cached versus requested-flush positive controls, an
+artificial weak-control curve, session/boot/allocation/order dependence, and
+oracle availability without training a hidden-bit model:
+
+```bash
+sensetrace characterize primitive \
+  --config configs/worker03.example.yaml \
+  --output runs/primitive-characterization
+```
+
+A strong control is a path sanity check. It does not establish physical DRAM
+access, row activation, or a hidden-bit channel.
+
 Phase 1A campaigns are composed of independently started acquisition sessions.
 An acquisition session has its own UUID, fresh controlled allocation, boot and
 host snapshot, timestamps, journal boundaries, label fingerprint, kernel/cache

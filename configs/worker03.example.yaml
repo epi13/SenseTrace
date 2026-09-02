@@ -38,6 +38,8 @@ acquisition:
 
 phase1a:
   status: exploratory
+  protocol_version: phase1a-commodity-baseline-v1
+  measurement_primitive: commodity-clflush-timed-load
   location_count: 128
   trials_per_location: 64
   labels_per_location: 32

@@ -1,9 +1,9 @@
 """Safe, scoped discovery of Linux performance-counter capabilities.
 
-Discovery is deliberately non-invasive.  It inspects the local PMU sysfs
+Discovery is deliberately non-invasive. It inspects the local PMU sysfs
 description and, when available, ``perf list`` output; it does not attach to
-unrelated processes or collect system-wide counters.  Actual event reads are
-left to a future primitive that can scope them to a SenseTrace-owned process.
+unrelated processes or collect system-wide counters. The reusable reader in
+this module accepts only a SenseTrace-owned calling-thread operation scope.
 """
 
 from __future__ import annotations
@@ -845,8 +845,9 @@ def discover_counter_capabilities(
             "reason": "capability discovery does not collect or multiplex counters",
         },
         "operation_scoped_read": {
-            "status": "not_implemented",
-            "reason": "no counter was read around a SenseTrace-owned operation",
+            "status": "implemented_not_run_by_discovery",
+            "scope": "calling thread only; cpu=-1; inherit=0; no system-wide or unrelated-process collection",
+            "reason": "capability discovery does not run an operation-scoped measurement",
         },
         "probe_policy": (
             "An opened_scoped_probe only opens and closes a generic event for the current "

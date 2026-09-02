@@ -20,3 +20,8 @@ class AcquisitionBackend:
 
     def samples(self, start_index: int = 0) -> Iterator[Sample]:
         raise NotImplementedError
+
+    def close(self) -> None:
+        """Release backend resources; backends without resources are no-ops."""
+
+        return None

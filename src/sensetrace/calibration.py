@@ -12,6 +12,7 @@ from typing import Any
 
 import numpy as np
 
+from .acquisition.primitive import TimingPerturbationCalibration
 from .acquisition.synthetic import SyntheticBackend
 from .audits import run_leakage_audits
 from .config import config_fingerprint
@@ -451,9 +452,7 @@ def _replicate_quality(
         "replicates": count,
         "target_alpha": alpha,
         "empirical_rate_resolution": resolution,
-        "empirical_p_value_resolution": (
-            float(1.0 / (count + 1)) if count else float("nan")
-        ),
+        "empirical_p_value_resolution": (float(1.0 / (count + 1)) if count else float("nan")),
         "minimum_recommended_replicates": minimum_recommended,
         "precision_warning": bool(poorly_resolved),
         "interpretation": (
@@ -487,8 +486,7 @@ def _record_statistics(
                 "statistic": record.get(field),
             }
             for index, record in enumerate(records)
-            if record.get("status") != "available"
-            or not finite_record(record)
+            if record.get("status") != "available" or not finite_record(record)
         ]
         count_mismatch = expected_count is not None and len(records) != expected_count
         if count_mismatch or failures:
@@ -748,6 +746,13 @@ def _materialize_native_sensitivity_dataset(
     from .phase1a import _materialize_session
 
     physical = config.get("phase1a", {})
+    calibration_context = TimingPerturbationCalibration(
+        namespace=str(
+            physical.get("calibration_namespace", "native-sensitivity-internal-calibration")
+        ),
+        cycles=int(physical.get("timing_perturbation_cycles", 0)),
+        label=int(physical.get("timing_perturbation_label", 1)),
+    )
     session_count = int(
         config.get("native_sensitivity", {}).get("session_count", physical.get("session_count", 4))
     )
@@ -765,6 +770,7 @@ def _materialize_native_sensitivity_dataset(
             session_index=session_index,
             session_id=session_id,
             host_inventory_snapshot=collect_inventory(),
+            calibration_context=calibration_context,
         )
         source_dirs.append(Path(materialized.pop("_materialized_source_dir", str(source_dir))))
     from .datasets import combine_datasets
@@ -876,7 +882,9 @@ def _timing_perturbation_observation(
 
     applied = np.asarray([as_bool(value) for value in applied_values], dtype=bool)
     if len(applied) != len(labels):
-        applied = labels == perturbation_label if requested_delay else np.zeros(len(labels), dtype=bool)
+        applied = (
+            labels == perturbation_label if requested_delay else np.zeros(len(labels), dtype=bool)
+        )
 
     rows_by_pair: dict[str, list[int]] = {}
     for index, pair in enumerate(pair_values):
@@ -1108,9 +1116,7 @@ def run_native_sensitivity_calibration(
             for value in (
                 development_magnitudes
                 if development_magnitudes is not None
-                else sensitivity.get(
-                    "development_magnitudes_cycles", [0, 32, 64, 128, 256, 512]
-                )
+                else sensitivity.get("development_magnitudes_cycles", [0, 32, 64, 128, 256, 512])
             )
         )
     )
@@ -1121,9 +1127,7 @@ def run_native_sensitivity_calibration(
         if development_replicates is not None
         else sensitivity.get("development_replicates", 3)
     )
-    dev_null_replicates = int(
-        sensitivity.get("development_null_replicates", dev_replicates)
-    )
+    dev_null_replicates = int(sensitivity.get("development_null_replicates", dev_replicates))
     dev_shuffled_replicates = int(
         sensitivity.get("development_shuffled_replicates", dev_replicates)
     )
@@ -1255,12 +1259,13 @@ def run_native_sensitivity_calibration(
                     "dataset_fingerprint"
                 ]
                 positive_record["perturbation_cycles"] = magnitude
-                development_positive_records.setdefault(str(magnitude), []).append(
-                    positive_record
-                )
+                development_positive_records.setdefault(str(magnitude), []).append(positive_record)
             if replicate < dev_shuffled_replicates:
                 shuffled_dir = (
-                    run_dir / "development" / f"shuffled-{magnitude:08d}" / f"replicate-{replicate:04d}"
+                    run_dir
+                    / "development"
+                    / f"shuffled-{magnitude:08d}"
+                    / f"replicate-{replicate:04d}"
                 )
                 shuffled_manifest = _materialize_label_permutation(
                     positive_dir,
@@ -1304,16 +1309,12 @@ def run_native_sensitivity_calibration(
         expected_count=len(magnitudes) * dev_shuffled_replicates,
         ensemble="development shuffled-label controls",
     )
-    threshold_calibration = _empirical_null_threshold(
-        development_null_statistics, alpha=alpha
-    )
+    threshold_calibration = _empirical_null_threshold(development_null_statistics, alpha=alpha)
     critical = float(threshold_calibration["critical_statistic"])
     dev_positive = {
         float(magnitude): development_positive_records[str(magnitude)] for magnitude in magnitudes
     }
-    power_curve = _sensitivity_curve(
-        dev_positive, critical_max_statistic=critical, alpha=alpha
-    )
+    power_curve = _sensitivity_curve(dev_positive, critical_max_statistic=critical, alpha=alpha)
     selected = next(
         (
             magnitude
@@ -1338,9 +1339,7 @@ def run_native_sensitivity_calibration(
     frozen_validation_magnitudes = tuple(frozen_levels)
     frozen_validation_null_records: list[dict[str, Any]] = []
     frozen_validation_positive_records: dict[str, list[dict[str, Any]]] = {}
-    frozen_validation_shuffled_records_by_magnitude: dict[
-        str, list[dict[str, Any]]
-    ] = {}
+    frozen_validation_shuffled_records_by_magnitude: dict[str, list[dict[str, Any]]] = {}
     for replicate in range(fresh_replicates):
         replicate_seed = base_seed + 9000001 + 100003 * replicate
         null_config = _native_sensitivity_config(
@@ -1443,9 +1442,7 @@ def run_native_sensitivity_calibration(
         critical_max_statistic=frozen_validation_critical,
         alpha=alpha,
     )
-    minimum_recommended_null = int(
-        sensitivity.get("minimum_recommended_null_replicates", 20)
-    )
+    minimum_recommended_null = int(sensitivity.get("minimum_recommended_null_replicates", 20))
     development_shuffled_summary = _shuffled_false_positive_summary(
         development_shuffled_records,
         critical_max_statistic=critical,
@@ -1514,9 +1511,7 @@ def run_native_sensitivity_calibration(
             expected_count=len(frozen_validation_magnitudes) * fresh_replicates,
         ),
     }
-    empirically_calibrated_floor = (
-        selected if threshold_calibration["alpha_supported"] else None
-    )
+    empirically_calibrated_floor = selected if threshold_calibration["alpha_supported"] else None
     report = {
         "schema": "sensetrace.native-sensitivity-report.v3",
         "status": "complete",

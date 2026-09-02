@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Sequence
 from pathlib import Path
 
 import numpy as np
@@ -79,7 +80,7 @@ def test_grouped_split_keeps_groups_together(tmp_path):
     assert set(np.concatenate(list(partitions.values()))) == set(range(40))
 
 
-def _boot_metadata(boot_ids: list[object]) -> dict[str, np.ndarray]:
+def _boot_metadata(boot_ids: Sequence[object]) -> dict[str, np.ndarray]:
     count = len(boot_ids)
     values = np.asarray([f"sample-{index}" for index in range(count)], dtype=object)
     return {
@@ -109,10 +110,21 @@ def test_e_unseen_boot_requires_explicit_complete_provenance_and_three_groups():
         "rows_excluded_from_e_analysis": 0,
         "invalid_provenance_policy": "fail closed; no analysis-time row filtering",
     }
-    partitions = partition_indices(_boot_metadata(["boot-a"] * 4 + ["boot-b"] * 4 + ["boot-c"] * 4), available["split"])
+    partitions = partition_indices(
+        _boot_metadata(["boot-a"] * 4 + ["boot-b"] * 4 + ["boot-c"] * 4), available["split"]
+    )
     assert all(len(indices) > 0 for indices in partitions.values())
     for indices in partitions.values():
-        assert len(set(_boot_metadata(["boot-a"] * 4 + ["boot-b"] * 4 + ["boot-c"] * 4)["boot_id"][indices])) == 1
+        assert (
+            len(
+                set(
+                    _boot_metadata(["boot-a"] * 4 + ["boot-b"] * 4 + ["boot-c"] * 4)["boot_id"][
+                        indices
+                    ]
+                )
+            )
+            == 1
+        )
 
     two_boots = phase1a_split_hierarchy(
         _boot_metadata(["boot-a"] * 4 + ["boot-b"] * 4), dataset_fingerprint="dataset", seed=3
@@ -123,16 +135,19 @@ def test_e_unseen_boot_requires_explicit_complete_provenance_and_three_groups():
 
 
 def test_e_unseen_boot_rejects_any_invalid_rows_even_with_three_valid_boots():
-    cases = [
+    cases: list[Sequence[object]] = [
         ["boot-a"] * 3 + ["boot-b"] * 3 + ["boot-c"] * 3 + ["unknown"],
-        ["boot-a"] * 3 + ["boot-b"] * 3 + ["boot-c"] * 3 + ["", None, "unavailable", "none", "null", "N/A", np.nan],
+        ["boot-a"] * 3
+        + ["boot-b"] * 3
+        + ["boot-c"] * 3
+        + ["", None, "unavailable", "none", "null", "N/A", np.nan],
         ["boot-a"] * 3 + ["boot-b"] * 3 + ["boot-c"] * 3 + ["unknown"] * 20,
     ]
     for boot_ids in cases:
         metadata = _boot_metadata(boot_ids)
-        result = phase1a_split_hierarchy(
-            metadata, dataset_fingerprint="dataset", seed=3
-        )["E_unseen_boot"]
+        result = phase1a_split_hierarchy(metadata, dataset_fingerprint="dataset", seed=3)[
+            "E_unseen_boot"
+        ]
         audit = result["boot_provenance"]
         assert result["status"] == "unavailable"
         assert audit["valid_rows"] == 9

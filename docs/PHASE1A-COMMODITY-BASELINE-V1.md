@@ -25,10 +25,13 @@ meaning:
   part of the protocol;
 - CLFLUSH means that invalidation was requested before the timed load. It does
   not establish DRAM access or physical row/bank/channel/topology identity.
+- Artificial label-correlated timing perturbation is forbidden: the physical
+  contract records `timing_perturbation_cycles=0`, a non-correlated/default
+  perturbation label, and no calibration namespace. The native sensitivity
+  calibration uses a separate explicit calibration context and identity.
 
 Changing one of those decisions changes the protocol hash and requires a new
 protocol identity or an explicit superseding protocol. Increasing `N` while
 leaving the uncertain observable unchanged is not, by itself, scientific
 progress. Historical runs and evidence are retained; new code does not rewrite
 their records.
-

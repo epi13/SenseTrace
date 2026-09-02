@@ -26,7 +26,7 @@ import numpy as np
 
 from .base import AcquisitionBackend, Sample
 from .native import NativeMeasurementKernel
-from .primitive import create_measurement_primitive
+from .primitive import TimingPerturbationCalibration, create_measurement_primitive
 
 
 def _cpu_frequency_regime() -> dict[str, object]:
@@ -135,6 +135,7 @@ class CommodityDramBackend(AcquisitionBackend):
     timing_perturbation_cycles: int = 0
     timing_perturbation_label: int = 1
     calibration_namespace: str | None = None
+    calibration_context: TimingPerturbationCalibration | None = None
     acquisition_session_id: str | None = None
     # Kept as an input alias so older callers can supply session_id while the
     # emitted contract uses acquisition_session_id explicitly.
@@ -145,7 +146,11 @@ class CommodityDramBackend(AcquisitionBackend):
     host_inventory_snapshot: dict[str, Any] | None = None
     code_commit: str | None = None
     configuration_hash: str | None = None
+    shared_buffer: ControlledMemoryBuffer | None = field(default=None, repr=False)
+    shared_allocation_id: str | None = None
     _buffer: ControlledMemoryBuffer = field(init=False, repr=False)
+    _owns_buffer: bool = field(init=False, repr=False)
+    _closed: bool = field(init=False, repr=False, default=False)
 
     name = "commodity-dram"
 
@@ -162,6 +167,30 @@ class CommodityDramBackend(AcquisitionBackend):
             raise ValueError("timing_perturbation_cycles must be non-negative")
         if self.timing_perturbation_label not in {0, 1}:
             raise ValueError("timing_perturbation_label must be 0 or 1")
+        if self.calibration_context is None:
+            if self.timing_perturbation_cycles != 0 or self.timing_perturbation_label != 1:
+                raise ValueError(
+                    "artificial timing perturbation is calibration-only; provide an explicit "
+                    "TimingPerturbationCalibration context"
+                )
+            if self.calibration_namespace is not None:
+                raise ValueError(
+                    "calibration_namespace is calibration-only; provide an explicit "
+                    "TimingPerturbationCalibration context"
+                )
+        else:
+            if (
+                self.timing_perturbation_cycles != 0
+                or self.timing_perturbation_label != 1
+                or self.calibration_namespace is not None
+            ):
+                raise ValueError(
+                    "legacy timing perturbation fields cannot be combined with an explicit "
+                    "calibration context"
+                )
+            self.timing_perturbation_cycles = self.calibration_context.cycles
+            self.timing_perturbation_label = self.calibration_context.label
+            self.calibration_namespace = self.calibration_context.namespace
         if not 0 <= self.target_bit < 64:
             raise ValueError("target_bit must be in [0, 63]")
         if self.eviction_bytes < 64:
@@ -196,8 +225,11 @@ class CommodityDramBackend(AcquisitionBackend):
         self.session_started_at = self.session_started_at or datetime.now(UTC).isoformat()
         self._boot_id_value = self._boot_id()
         self._host_inventory_snapshot = dict(self.host_inventory_snapshot or {})
-        self._buffer = ControlledMemoryBuffer(self.word_count, lock_memory=self.lock_memory)
-        self._allocation_id = f"buffer-{uuid.uuid4().hex}"
+        self._owns_buffer = self.shared_buffer is None
+        self._buffer = self.shared_buffer or ControlledMemoryBuffer(
+            self.word_count, lock_memory=self.lock_memory
+        )
+        self._allocation_id = self.shared_allocation_id or f"buffer-{uuid.uuid4().hex}"
         self._labels, self._pair_order = self._make_labels()
         self._word_rng = np.random.default_rng(self.seed + 1)
         self._eviction = bytearray(self.eviction_bytes)
@@ -208,7 +240,8 @@ class CommodityDramBackend(AcquisitionBackend):
         if self.cache_control == "clflush" and (
             self._native_kernel is None or not self._native_kernel.supports_clflush
         ):
-            self._buffer.close()
+            if self._owns_buffer:
+                self._buffer.close()
             raise RuntimeError(
                 "cache_control=clflush requires a native x86 kernel with CLFLUSH support; "
                 "the fallback timing path cannot claim or perform CLFLUSH"
@@ -438,6 +471,9 @@ class CommodityDramBackend(AcquisitionBackend):
                         and label == self.timing_perturbation_label
                     ),
                     "calibration_namespace": self.calibration_namespace or "not_calibration",
+                    "artificial_timing_perturbation_allowed": self.calibration_context is not None,
+                    "configuration_hash": self.configuration_hash or "unavailable",
+                    "code_commit": self.code_commit or "unavailable",
                     "seed_id": f"commodity:{self.seed}",
                     "label_stream_fingerprint": hashlib.sha256(self._labels.tobytes()).hexdigest(),
                     "session_manifest_ref": f"sessions/{self.acquisition_session_id}/session.json",
@@ -485,6 +521,13 @@ class CommodityDramBackend(AcquisitionBackend):
                     "timed-load path; delay_cycles is zero for the control"
                 ),
                 "namespace": self.calibration_namespace or "not_calibration",
+                "allowed": self.calibration_context is not None,
+                "physical_phase1a_forbidden": True,
+                "scope": (
+                    "explicit TimingPerturbationCalibration context"
+                    if self.calibration_context is not None
+                    else "physical zero only"
+                ),
             },
         }
 
@@ -513,7 +556,11 @@ class CommodityDramBackend(AcquisitionBackend):
         }
 
     def close(self) -> None:
-        self._buffer.close()
+        if self._closed:
+            return
+        if self._owns_buffer:
+            self._buffer.close()
+        self._closed = True
         if self._affinity_before is not None and hasattr(os, "sched_setaffinity"):
             os.sched_setaffinity(0, set(self._affinity_before))
 

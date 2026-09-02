@@ -150,20 +150,12 @@ def validate_config(config: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(ci_unit, str) or (ci_unit != "sample" and not ci_unit):
         raise ConfigError("reporting.ci_unit must be sample or a metadata grouping field")
     if backend == "commodity":
-        protocol_version = _get(
-            config, "phase1a.protocol_version", "phase1a-commodity-baseline-v1"
-        )
+        protocol_version = _get(config, "phase1a.protocol_version", "phase1a-commodity-baseline-v1")
         if protocol_version != "phase1a-commodity-baseline-v1":
-            raise ConfigError(
-                "phase1a.protocol_version must be phase1a-commodity-baseline-v1"
-            )
-        primitive = _get(
-            config, "phase1a.measurement_primitive", "commodity-clflush-timed-load"
-        )
+            raise ConfigError("phase1a.protocol_version must be phase1a-commodity-baseline-v1")
+        primitive = _get(config, "phase1a.measurement_primitive", "commodity-clflush-timed-load")
         if primitive != "commodity-clflush-timed-load":
-            raise ConfigError(
-                "phase1a.measurement_primitive must be commodity-clflush-timed-load"
-            )
+            raise ConfigError("phase1a.measurement_primitive must be commodity-clflush-timed-load")
         pattern = _get(config, "phase1a.pattern", "single_bit")
         if pattern not in {"all_zero_one", "single_bit", "random_word"}:
             raise ConfigError("phase1a.pattern is not a supported safe memory pattern")
@@ -173,6 +165,24 @@ def validate_config(config: dict[str, Any]) -> dict[str, Any]:
         operation = _get(config, "phase1a.operation", "memory_read")
         if operation not in {"memory_read", "idle"}:
             raise ConfigError("phase1a.operation must be memory_read or idle")
+        perturbation_cycles = _get(config, "phase1a.timing_perturbation_cycles", 0)
+        if not isinstance(perturbation_cycles, int) or perturbation_cycles < 0:
+            raise ConfigError("phase1a.timing_perturbation_cycles must be a non-negative integer")
+        if perturbation_cycles != 0:
+            raise ConfigError(
+                "phase1a.timing_perturbation_cycles is calibration-only and must be zero in "
+                "physical configurations"
+            )
+        perturbation_label = _get(config, "phase1a.timing_perturbation_label", 1)
+        if perturbation_label != 1:
+            raise ConfigError(
+                "phase1a.timing_perturbation_label must remain the default in physical Phase 1A"
+            )
+        if "calibration_namespace" in config.get("phase1a", {}):
+            raise ConfigError(
+                "phase1a.calibration_namespace is calibration-only and cannot appear in physical "
+                "Phase 1A"
+            )
         location_count = _get(config, "phase1a.location_count")
         trials_per_location = _get(config, "phase1a.trials_per_location", 64)
         if location_count is not None and (

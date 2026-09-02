@@ -13,6 +13,7 @@ import numpy as np
 from .config import config_fingerprint
 from .errors import IntegrityError, SchemaError
 from .hashing import sha256_bytes, sha256_json, sha256_text
+from .protocol import PHASE1A_COMMODITY_BASELINE_VERSION
 from .schema import SCHEMA_VERSION, FeaturePolicy
 from .storage import ShardInfo, dataset_fingerprint, load_shards
 
@@ -77,8 +78,77 @@ def load_dataset(
         raise IntegrityError("dataset fingerprint does not match finalized shard evidence")
     if manifest.get("rows") != len(labels):
         raise IntegrityError("dataset manifest row count does not match shards")
+    _validate_physical_timing_provenance(metadata, manifest, root)
     _validate_allocation_provenance(metadata, manifest, root)
     return traces, labels, metadata, shards, manifest
+
+
+def _validate_physical_timing_provenance(
+    metadata: dict[str, np.ndarray], manifest: dict[str, Any], source: Path
+) -> None:
+    """Fail closed when baseline evidence carries a calibration perturbation."""
+
+    provenance = manifest.get("provenance", {})
+    if not isinstance(provenance, dict):
+        provenance = {}
+    protocol_identity = manifest.get("protocol_identity") or provenance.get("protocol_identity")
+    if protocol_identity != PHASE1A_COMMODITY_BASELINE_VERSION:
+        return
+
+    violations: list[str] = []
+
+    def values(name: str) -> list[object]:
+        return list(np.asarray(metadata.get(name, []), dtype=object))
+
+    cycles = values("timing_perturbation_cycles")
+    for value in cycles:
+        try:
+            if int(str(value)) != 0:
+                violations.append(f"timing_perturbation_cycles={value}")
+        except (TypeError, ValueError):
+            violations.append(f"invalid timing_perturbation_cycles={value!r}")
+    labels = values("timing_perturbation_label")
+    if any(str(value) != "1" for value in labels):
+        violations.append("non-default timing_perturbation_label")
+
+    def is_true(value: object) -> bool:
+        return (
+            isinstance(value, (bool, np.bool_))
+            and bool(value)
+            or str(value).lower()
+            in {
+                "true",
+                "1",
+                "yes",
+            }
+        )
+
+    if any(is_true(value) for value in values("timing_perturbation_applied")):
+        violations.append("timing_perturbation_applied=true")
+    namespaces = values("calibration_namespace")
+    if any(
+        str(value) not in {"", "none", "not_calibration", "unavailable"} for value in namespaces
+    ):
+        violations.append("calibration namespace present")
+
+    timing_contract = provenance.get("artificial_timing_perturbation")
+    if isinstance(timing_contract, dict):
+        contract_cycles = timing_contract.get("timing_perturbation_cycles", 0)
+        try:
+            contract_nonzero = int(str(contract_cycles)) != 0
+        except (TypeError, ValueError):
+            contract_nonzero = True
+        if (
+            is_true(timing_contract.get("allowed"))
+            or is_true(timing_contract.get("applied"))
+            or contract_nonzero
+        ):
+            violations.append("manifest artificial-timing contract is not physical-zero")
+    if violations:
+        raise IntegrityError(
+            f"physical commodity dataset {source} contains calibration contamination: "
+            + ", ".join(sorted(set(violations)))
+        )
 
 
 def _validate_allocation_provenance(

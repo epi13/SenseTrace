@@ -163,8 +163,12 @@ def test_native_sensitivity_report_does_not_swap_development_and_fresh_shuffles(
         "sensetrace.acquisition.native.NativeMeasurementKernel.load",
         staticmethod(lambda: FakeKernel()),
     )
-    monkeypatch.setattr("sensetrace.calibration._materialize_native_sensitivity_dataset", fake_manifest)
-    monkeypatch.setattr("sensetrace.calibration._evaluate_native_sensitivity_dataset", fake_evaluate)
+    monkeypatch.setattr(
+        "sensetrace.calibration._materialize_native_sensitivity_dataset", fake_manifest
+    )
+    monkeypatch.setattr(
+        "sensetrace.calibration._evaluate_native_sensitivity_dataset", fake_evaluate
+    )
     monkeypatch.setattr("sensetrace.phase1a._materialize_label_permutation", fake_shuffle)
     report = run_native_sensitivity_calibration(
         {"experiment": {"seed": 7}, "native_sensitivity": {"alpha": 0.05}},
@@ -174,10 +178,7 @@ def test_native_sensitivity_report_does_not_swap_development_and_fresh_shuffles(
         validation_replicates=2,
     )
     assert report["development"]["shuffled_false_positive_rate"]["rate"] == 1.0
-    assert (
-        report["fresh_frozen_validation"]["shuffled_control_false_positive_rate"]["rate"]
-        == 0.0
-    )
+    assert report["fresh_frozen_validation"]["shuffled_control_false_positive_rate"]["rate"] == 0.0
     assert report["fresh_frozen_validation"]["threshold_reused_without_recalibration"] is True
 
 
@@ -316,13 +317,9 @@ def test_paired_backend_balances_each_location_and_exposes_native_provenance():
     assert hierarchy["B_unseen_location"]["status"] == "available"
     assert samples[0].metadata["label_semantics"] == "target bit equals label"
     assert samples[0].metadata["measurement_primitive"] == "commodity-clflush-timed-load"
-    capabilities = json.loads(
-        str(samples[0].metadata["measurement_primitive_capabilities"])
-    )
+    capabilities = json.loads(str(samples[0].metadata["measurement_primitive_capabilities"]))
     assert capabilities["physical_address_information"] == "unsupported"
-    oracle = json.loads(
-        str(samples[0].metadata["access_state_oracle_provenance"])
-    )
+    oracle = json.loads(str(samples[0].metadata["access_state_oracle_provenance"]))
     assert oracle["status"] == "unavailable"
     assert (
         samples[0].metadata["acquisition_session_id"]
@@ -406,7 +403,7 @@ def test_native_delayed_control_is_inside_the_timed_path():
     assert kernel.provenance()["delay_semantics"]["load_serialization"].startswith("LFENCE")
 
 
-def test_native_wrapper_uses_one_control_entry_point_for_zero_and_nonzero_delay():
+def test_native_wrapper_uses_one_control_entry_point_for_zero_and_nonzero_delay(monkeypatch):
     kernel = NativeMeasurementKernel.load()
     if kernel is None or not kernel.supports_clflush:
         return
@@ -416,7 +413,9 @@ def test_native_wrapper_uses_one_control_entry_point_for_zero_and_nonzero_delay(
         calls.append((function_name, extra_delay_cycles))
         return np.zeros(repetitions, dtype=np.float64)
 
-    kernel._measure = fake_measure
+    # This deliberately replaces the private dispatch hook to verify that
+    # both wrapper calls use the same exported control entry point.
+    monkeypatch.setattr(kernel, "_measure", fake_measure)
     address = kernel.calibration_address()
     kernel.measure_flushed(address, 1, extra_delay_cycles=0)
     kernel.measure_flushed(address, 1, extra_delay_cycles=256)
@@ -481,7 +480,10 @@ def test_native_sensitivity_calibration_separates_development_and_fresh_validati
     assert report["fresh_frozen_validation"]["datasets_are_fresh_and_separately_seeded"] is True
     assert report["fresh_frozen_validation"]["power_curve"]
     assert report["threshold_calibration"]["alpha_supported"] is False
-    assert report["pilot_detection_floor"] == report["frozen_selection"]["pilot_detection_floor_cycles"]
+    assert (
+        report["pilot_detection_floor"]
+        == report["frozen_selection"]["pilot_detection_floor_cycles"]
+    )
     assert report["empirically_alpha_calibrated_detection_floor"] is None
     assert report["fresh_frozen_validation"]["threshold_reused_without_recalibration"] is True
     assert report["ensemble_provenance"]["development_shuffled"]["ensemble"] == (

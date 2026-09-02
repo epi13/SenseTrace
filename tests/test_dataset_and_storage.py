@@ -4,6 +4,8 @@ import json
 
 import pytest
 
+from sensetrace.acquisition.commodity import CommodityDramBackend
+from sensetrace.acquisition.primitive import TimingPerturbationCalibration
 from sensetrace.acquisition.synthetic import SyntheticBackend
 from sensetrace.datasets import build_feature_matrix, load_dataset, write_dataset_manifest
 from sensetrace.errors import ForbiddenFeatureError, IntegrityError, SchemaError
@@ -80,3 +82,34 @@ def test_overlapping_finalized_ranges_are_rejected(tmp_path):
 
     with pytest.raises(IntegrityError, match="overlapping"):
         validate_all_shards(tmp_path)
+
+
+def test_baseline_loader_rejects_calibration_contamination(tmp_path):
+    backend = CommodityDramBackend(
+        count=4,
+        location_count=1,
+        trials_per_location=4,
+        trace_length=8,
+        word_count=4,
+        lock_memory=False,
+        cache_control="none",
+        use_native_kernel=False,
+        calibration_context=TimingPerturbationCalibration("contaminated", 32),
+    )
+    writer = ShardWriter(tmp_path, shard_target_mb=1, max_samples_per_shard=4)
+    try:
+        for sample in backend.samples():
+            writer.add(sample.trace, sample.label, sample.metadata)
+    finally:
+        backend.close()
+    writer.finalize()
+    write_dataset_manifest(
+        tmp_path,
+        config={"experiment": {"name": "contaminated", "seed": 1}},
+        condition="paired_single_bit",
+        shard_infos=[validate_shard(path) for path in sorted(tmp_path.glob("shard-*.npz"))],
+        label_stream_fingerprint="fixture",
+        provenance={"protocol_identity": "phase1a-commodity-baseline-v1"},
+    )
+    with pytest.raises(IntegrityError, match="calibration contamination"):
+        load_dataset(tmp_path)

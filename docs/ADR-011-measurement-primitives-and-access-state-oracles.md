@@ -24,10 +24,15 @@ by default.
 
 An access-state oracle is recorded separately from timing. Its strength is
 `exact`, `probabilistic`, `partial`, or `unavailable`; a requested cache state
-is not promoted to an independent oracle. Commodity PMU discovery is scoped to
-documenting the host's vocabulary and permission boundary. Future counter
-readers must scope collection to SenseTrace-owned processes/threads and must
-record permission failures without broadening host security policy.
+is not promoted to an independent oracle. Commodity PMU discovery documents
+the host vocabulary and permission boundary, while the optional
+`OperationScopedPerfEvent` reader measures one selected event only around one
+SenseTrace-owned calling-thread operation. It uses `inherit=0`, `cpu=-1`,
+disabled creation, reset/enable/disable around the callback, kernel and
+hypervisor exclusion, explicit read-format timing, and deterministic FD
+closure. Permission failures remain evidence; host security policy is not
+broadened to make a run work. Uncore devices are not used as though they were
+thread-scoped.
 
 Before hidden-bit inference, each new primitive must pass null, strong and weak
 positive controls, session/boot/order/allocation checks, and oracle-agreement
@@ -37,9 +42,10 @@ characterization gate.
 ## Consequence
 
 The current commodity primitive remains useful as a reproducible comparison
-baseline and instrumentation control. Its current decision is **B: observable
-available but oracle weak**. If local instrumentation cannot provide a
-meaningful independent access-state oracle, commodity Phase 1 should stop and
-the architecture should transition toward controlled-memory-interface research
-instead of scaling the same uncertain signal.
-
+baseline and instrumentation control. The worker-03 scoped cache-miss event
+provides partial, independent cache-path evidence, but its null PMU medians
+are not stable under the predeclared rule, so the current decision remains
+**B: observable available but oracle weak**. If the null instability cannot be
+resolved without weakening the scope or rule, commodity Phase 1 should stop
+and the architecture should transition toward controlled-memory-interface
+research instead of scaling the same uncertain signal.

@@ -270,6 +270,7 @@ def test_campaign_combination_preserves_source_manifests_and_sample_identity(tmp
         )
         assert manifest["rows"] == 2
         sources.append(source)
+    sources.reverse()
     combined = combine_datasets(
         sources,
         tmp_path / "combined",

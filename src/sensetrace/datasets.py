@@ -236,21 +236,35 @@ def combine_datasets(
             target
         )
         existing_ids.update(ensure_sample_ids(existing_metadata))
+    row_refs: list[tuple[str, int, int]] = []
+    source_ids: set[str] = set()
+    for dataset_index, (_traces, _labels, metadata, _shards, _manifest) in enumerate(loaded):
+        ids = ensure_sample_ids(metadata)
+        for row_index, sample_id in enumerate(ids):
+            if sample_id in source_ids:
+                raise IntegrityError(
+                    f"sample_id {sample_id!r} appears more than once across source datasets"
+                )
+            source_ids.add(sample_id)
+            row_refs.append((sample_id, dataset_index, row_index))
+    # Source session directories are not necessarily ordered by sample_id (the
+    # IDs include independently generated session UUIDs). Canonicalize the
+    # merged stream before writing so validate_all_shards can enforce its
+    # monotonic shard-boundary invariant without weakening that invariant.
+    row_refs.sort(key=lambda item: item[0])
+
     writer = ShardWriter(
         target,
         shard_target_mb=float(config.get("acquisition", {}).get("shard_target_mb", 512)),
         max_samples_per_shard=config.get("acquisition", {}).get("max_samples_per_shard"),
     )
-    for traces, labels, metadata, _shards, _manifest in loaded:
-        ids = ensure_sample_ids(metadata)
-        for index, sample_id in enumerate(ids):
-            if sample_id in existing_ids:
-                continue
-            row_metadata = {key: values[index] for key, values in metadata.items()}
-            info = writer.add(traces[index], int(labels[index]), row_metadata)
-            existing_ids.add(sample_id)
-            if info is not None:
-                pass
+    for sample_id, dataset_index, row_index in row_refs:
+        if sample_id in existing_ids:
+            continue
+        traces, labels, metadata, _shards, _manifest = loaded[dataset_index]
+        row_metadata = {key: values[row_index] for key, values in metadata.items()}
+        writer.add(traces[row_index], int(labels[row_index]), row_metadata)
+        existing_ids.add(sample_id)
     writer.finalize()
     shards = validate_all_shards(target)
     _combined_traces, combined_labels, _combined_metadata, _combined_shards = load_shards(target)

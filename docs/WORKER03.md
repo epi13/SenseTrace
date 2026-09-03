@@ -46,18 +46,23 @@ deterministic close. The latency control and directional PMU contrast passed,
 but PMU null stability failed, so no hidden-bit run or larger-N campaign is
 authorized by this result.
 
-The single authorized follow-up is frozen but not yet executed:
+The single authorized follow-up was executed under
 `configs/worker03-multiboot-scoped-perf-warmup.example.yaml`
-(characterization-v3, multiboot-v2) repeats the same
-three-boot design with a fixed allocation warmup (deterministic page touch
-plus 64 native dummy loads outside any PMU window), the identical null rule
-and decision tree, witness disabled, and acquisition-order PMU diagnostics
-retained without gate effect. The v2 gate requires observed native warmup
-compliance (`status complete` with `path native_cached_load` per replicate),
-not merely configured intent: Python fallback, unavailable kernel, failed or
-partial warmup, and missing executed provenance all fail closed to C, and the
-combiner validates each boot report against the authoritative frozen protocol
-before checking cross-boot agreement. Run it with:
+(characterization-v3, multiboot-v2). It used a fixed allocation warmup
+(deterministic page touch plus 64 native dummy loads outside any PMU window),
+the identical null rule and decision tree, witness disabled, and
+acquisition-order PMU diagnostics retained without gate effect. All nine
+replicates recorded native warmup compliance, but directional PMU agreement
+failed in boots 0 and 2 and pooled null stability failed. The final decision
+is **C: primitive unsuitable**; the commodity line is stopped. Full evidence
+is in [the warm-up-controlled characterization report](evidence/worker03-multiboot-scoped-perf-warmup-2026-09-03.md).
+
+The v2 gate requires observed native warmup compliance (`status complete` with
+`path native_cached_load` per replicate), not merely configured intent: Python
+fallback, unavailable kernel, failed or partial warmup, and missing executed
+provenance all fail closed to C, and the combiner validates each boot report
+against the authoritative frozen protocol before checking cross-boot agreement.
+The executed controller command was:
 
 ```bash
 python3 -m sensetrace.cli host characterize-multiboot worker-03 \
@@ -65,8 +70,8 @@ python3 -m sensetrace.cli host characterize-multiboot worker-03 \
   --output evidence/multiboot-warmup-20260904
 ```
 
-If that repeat also fails null stability, stop the commodity line and continue
-Phase 2 controlled-memory-interface work.
+Continue Phase 2 controlled-memory-interface work. No larger-N or hidden-bit
+campaign is authorized by this result.
 
 The experiment should not depend on the GPU. The initial model ladder is deliberately small enough to run on CPU, while the GPU may be used opportunistically where supported.
 

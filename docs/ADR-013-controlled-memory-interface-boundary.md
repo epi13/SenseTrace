@@ -6,13 +6,14 @@
 ## Context
 
 The genuine three-boot scoped-PMU campaign (2026-09-03) preserved decision B:
-the `cpu/cache-misses/` directional contrast reproduces 9/9 across boots, but
-the null is unstable within and across boots, characterized as a
-first-use-of-allocation cold transient. The commodity timed-load/CLFLUSH path
-must not be scaled further, and only one predeclared warm-up follow-up remains
-justifiable before the commodity line stops. SenseTrace therefore needs a
-clean research boundary for controlled memory hardware now, before any device
-is connected.
+the `cpu/cache-misses/` directional contrast reproduced 9/9 across boots, but
+the null was unstable within and across boots, characterized as a
+first-use-of-allocation cold transient. The one predeclared warm-up follow-up
+then completed under the frozen v2 gate: all warm-ups were native and all PMU
+reads were non-multiplexed, but directional agreement failed in two boots and
+the pooled null stability failed. The commodity timed-load/CLFLUSH path is now
+closed for scaling. SenseTrace therefore needs a clean research boundary for
+controlled memory hardware before any device is connected.
 
 ## Decision
 
@@ -62,5 +63,5 @@ reused; no separate scientific pipeline is forked.
 - The native and eBPF planes remain separate from this interface: neither can
   manufacture controlled command, refresh, trigger, channel, or topology
   provenance.
-- If the single predeclared warm-up characterization fails, the commodity
-  Phase 1 line stops and Phase 2 becomes the only physical path forward.
+- The warm-up characterization failed its frozen C gate, so the commodity
+  Phase 1 line stops and Phase 2 is the only physical path forward.

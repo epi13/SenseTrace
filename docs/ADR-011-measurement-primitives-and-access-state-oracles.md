@@ -43,9 +43,9 @@ characterization gate.
 
 The current commodity primitive remains useful as a reproducible comparison
 baseline and instrumentation control. The worker-03 scoped cache-miss event
-provides partial, independent cache-path evidence, but its null PMU medians
-are not stable under the predeclared rule, so the current decision remains
-**B: observable available but oracle weak**. If the null instability cannot be
-resolved without weakening the scope or rule, commodity Phase 1 should stop
-and the architecture should transition toward controlled-memory-interface
-research instead of scaling the same uncertain signal.
+provided partial, independent cache-path evidence, but its warm-up-controlled
+three-boot repeat failed the predeclared directional and null-stability gates.
+The current decision is therefore **C: primitive unsuitable**. Commodity Phase
+1 should stop and the architecture should transition toward
+controlled-memory-interface research instead of scaling the same uncertain
+signal.

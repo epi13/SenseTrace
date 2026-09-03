@@ -198,6 +198,7 @@ The purpose of the project is to characterize physical information channels in m
 - [worker-03 measurement-primitive characterization](docs/evidence/worker03-measurement-primitive-characterization-2026-09-02.md)
 - [worker-03 scoped PMU characterization](docs/evidence/worker03-scoped-perf-characterization-2026-09-02.md)
 - [worker-03 genuine multi-boot scoped-PMU characterization](docs/evidence/worker03-multiboot-scoped-perf-2026-09-03.md)
+- [worker-03 warm-up-controlled scoped-PMU characterization](docs/evidence/worker03-multiboot-scoped-perf-warmup-2026-09-03.md)
 - [worker-03 bounded eBPF witness pilot](docs/evidence/worker03-ebpf-witness-pilot-2026-09-03.md)
 - [Native-path sensitivity decision](docs/ADR-010-native-path-sensitivity-calibration.md)
 - [Commodity Phase 1A baseline](docs/PHASE1A-COMMODITY-BASELINE-V1.md)
@@ -235,23 +236,9 @@ physical-address, row, bank, subarray, chip, or DIMM measurement.
 The current decision gate is conservative: the native path detects the
 artificial timing control, while the corrected physical three-boot result is
 near chance. The worker-03 scoped `cpu/cache-misses/` reader opened and
-measured only around SenseTrace-owned operations. A frozen genuine three-boot
-repeat reproduced the directional cache-path contrast 9/9 with no
-multiplexing, but PMU null stability failed within and across boots; the
-instability is characterized as a first-use-of-allocation cold transient
-(order-0 controls inflated 9/9). The resulting decision is **B: observable
-available but oracle weak**. Do not increase commodity Phase 1A sample counts;
-the single predeclared warm-up follow-up is now frozen as
-`configs/worker03-multiboot-scoped-perf-warmup.example.yaml`
-(`measurement-primitive-characterization-v3` plus
-`measurement-primitive-multiboot-v2`: fixed page-touch plus 64 native dummy
-loads outside any PMU window, same null rule and decision tree, witness
-disabled, order-0 diagnostics retained without gate effect). The v2 gate
-requires observed native warmup execution per replicate; Python fallback
-cannot satisfy it, and the combiner validates each report against the
-authoritative frozen protocol (requested, executed, and compliance states are
-separate). Witness `required` is a runtime guarantee rejected by paths that
-collect no session. Controlled-hardware records reject placeholder required
-identities. Execute that
-bounded three-boot repeat before any larger-N or hidden-bit work, else
-continue controlled-memory-interface instrumentation (see ADR-013).
+measured only around SenseTrace-owned operations. The frozen warm-up-controlled
+three-boot repeat completed with native warm-up and no multiplexing, but the
+directional PMU contrast failed in two boots and the pooled null stability
+failed. The resulting decision is **C: primitive unsuitable**. Do not increase
+commodity Phase 1A sample counts or retune this gate; stop the commodity line
+and continue controlled-memory-interface instrumentation (see ADR-013).

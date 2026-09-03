@@ -35,6 +35,12 @@ def multiboot_protocol(config: dict[str, Any]) -> dict[str, Any]:
     characterization = config.get("characterization", {})
     replicates = int(characterization.get("replicates", 3))
     boots = int(characterization.get("multiboot_boots", 3))
+    configured_event = characterization.get("scoped_perf_event", MULTIBOOT_CANDIDATE_EVENT)
+    if configured_event != MULTIBOOT_CANDIDATE_EVENT:
+        raise ValueError(
+            "frozen multiboot candidate event must be "
+            f"{MULTIBOOT_CANDIDATE_EVENT!r}; got {configured_event!r}"
+        )
     return {
         "version": MULTIBOOT_PROTOCOL_VERSION,
         "candidate_event": MULTIBOOT_CANDIDATE_EVENT,
@@ -49,9 +55,7 @@ def multiboot_protocol(config: dict[str, Any]) -> dict[str, Any]:
             "location_count": int(characterization.get("location_count", 4)),
             "trials_per_location": int(characterization.get("trials_per_location", 16)),
             "trace_length": int(characterization.get("trace_length", 32)),
-            "scoped_perf_event": characterization.get(
-                "scoped_perf_event", MULTIBOOT_CANDIDATE_EVENT
-            ),
+            "scoped_perf_event": configured_event,
         },
         "null_stability_rule": dict(DEFAULT_NULL_STABILITY_RULE),
         "decision_tree": {
@@ -107,7 +111,7 @@ def _null_replicate_medians(report: dict[str, Any]) -> list[float]:
 
 
 def combine_multiboot_reports(
-    reports: list[dict[str, Any]], *, expected_boots: int = 3
+    reports: list[dict[str, Any]], *, expected_boots: int
 ) -> dict[str, Any]:
     """Combine one characterization report per genuine boot into a decision."""
     protocol_hashes = {
@@ -118,6 +122,19 @@ def combine_multiboot_reports(
     genuine_boots = [boot for boot in distinct_boots if boot not in {"unavailable", "unknown", ""}]
     boots_distinct = len(genuine_boots) == len(reports) == expected_boots
     protocol_agreement = len(protocol_hashes) == 1 and "unavailable" not in protocol_hashes
+    replicate_counts = {
+        report.get("protocol", {}).get("sample_design", {}).get("replicates") for report in reports
+    }
+    candidate_events = {
+        report.get("protocol", {}).get("sample_design", {}).get("scoped_perf_event")
+        for report in reports
+    }
+    replicate_design_agreement = (
+        len(replicate_counts) == 1
+        and None not in replicate_counts
+        and all(isinstance(value, int) and value >= 1 for value in replicate_counts)
+    )
+    candidate_event_enforced = candidate_events == {MULTIBOOT_CANDIDATE_EVENT}
     per_boot_agreement = []
     for report in reports:
         oracle = report.get("controls", {}).get("operation_scoped_perf_oracle", {})
@@ -135,7 +152,8 @@ def combine_multiboot_reports(
     all_medians: list[float] = []
     for report in reports:
         all_medians.extend(_null_replicate_medians(report))
-    expected_replicates = expected_boots * 3
+    replicates_per_boot = int(next(iter(replicate_counts))) if replicate_design_agreement else 0
+    expected_replicates = expected_boots * replicates_per_boot
     cross_boot_records = [
         {"status": "complete", "sample_median_summary": {"median": value}} for value in all_medians
     ]
@@ -149,15 +167,19 @@ def combine_multiboot_reports(
         f"replicate, pooled across {len(reports)} genuine boots"
     )
     directional_every_boot = bool(per_boot_agreement) and all(
-        item["status"] == "pass" and item["agreement_count"] == item["sample_count"] >= 3
+        item["status"] == "pass"
+        and item["agreement_count"] == item["sample_count"] == replicates_per_boot
         for item in per_boot_agreement
     )
-    multiplex_clean = all(
-        item.get("multiplex_veto") in {False, None} for item in per_boot_agreement
+    multiplex_clean = bool(per_boot_agreement) and all(
+        item.get("multiplex_veto") is False for item in per_boot_agreement
     )
-    # None means legacy telemetry absent; new runs must carry an explicit False.
     provenance_complete = bool(
-        boots_distinct and protocol_agreement and len(reports) == expected_boots
+        boots_distinct
+        and protocol_agreement
+        and replicate_design_agreement
+        and candidate_event_enforced
+        and len(reports) == expected_boots
     )
     cross_boot_stable = cross_boot_stability.get("status") == "pass"
     if not provenance_complete or not directional_every_boot:
@@ -185,6 +207,10 @@ def combine_multiboot_reports(
         "observed_reports": len(reports),
         "protocol_hashes": sorted(protocol_hashes),
         "protocol_agreement": protocol_agreement,
+        "replicates_per_boot": replicates_per_boot,
+        "replicate_design_agreement": replicate_design_agreement,
+        "candidate_events": sorted(str(value) for value in candidate_events),
+        "candidate_event_enforced": candidate_event_enforced,
         "boot_ids": boot_ids,
         "distinct_genuine_boot_ids": genuine_boots,
         "boots_distinct_and_genuine": boots_distinct,
@@ -203,8 +229,10 @@ def combine_multiboot_reports(
     }
 
 
-def write_combined_report(reports: list[dict[str, Any]], output: str | Path) -> dict[str, Any]:
-    combined = combine_multiboot_reports(reports)
+def write_combined_report(
+    reports: list[dict[str, Any]], output: str | Path, *, expected_boots: int
+) -> dict[str, Any]:
+    combined = combine_multiboot_reports(reports, expected_boots=expected_boots)
     destination = Path(output)
     destination.mkdir(parents=True, exist_ok=True)
     (destination / "multiboot-report.json").write_text(

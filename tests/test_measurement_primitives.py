@@ -299,7 +299,13 @@ def test_null_stability_rejects_extremely_drifting_finite_replicates():
     }
     evidence = _decision_evidence(
         contract,
-        {"null": [_replicate_record("replicate-0000", 10.0), _replicate_record("replicate-0001", 10.0), _replicate_record("replicate-0002", 100.0)]},
+        {
+            "null": [
+                _replicate_record("replicate-0000", 10.0),
+                _replicate_record("replicate-0001", 10.0),
+                _replicate_record("replicate-0002", 100.0),
+            ]
+        },
         {},
         3,
     )
@@ -328,8 +334,18 @@ def test_contrast_pairs_only_matching_replicate_ids_and_reports_missing_side():
     assert result["matched_replicate_ids"] == ["replicate-0000", "replicate-0002"]
     assert result["missing_right_replicate_ids"] == ["replicate-0001"]
     assert result["paired_differences"] == [
-        {"replicate_id": "replicate-0000", "left_median": 10.0, "right_median": 15.0, "difference": 5.0},
-        {"replicate_id": "replicate-0002", "left_median": 30.0, "right_median": 45.0, "difference": 15.0},
+        {
+            "replicate_id": "replicate-0000",
+            "left_median": 10.0,
+            "right_median": 15.0,
+            "difference": 5.0,
+        },
+        {
+            "replicate_id": "replicate-0002",
+            "left_median": 30.0,
+            "right_median": 45.0,
+            "difference": 15.0,
+        },
     ]
     assert result["required_replicates_present"] is False
 

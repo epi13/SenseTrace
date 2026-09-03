@@ -5,10 +5,19 @@ from __future__ import annotations
 import ctypes
 import hashlib
 import os
+import platform
+import time
 from pathlib import Path
 from typing import Any
 
 import numpy as np
+
+from .probe_contract import (
+    ProbeFailure,
+    ProbeImplementation,
+    ProbeRequest,
+    ProbeSampleRecord,
+)
 
 _CALIBRATION_VALUE: ctypes.c_uint64 | None = None
 
@@ -200,6 +209,140 @@ class NativeMeasurementKernel:
                 "the delayed control is an artificial instrumentation calibration, not a physical memory effect",
             ],
         }
+
+    def implementation_contract(self) -> ProbeImplementation:
+        """Describe this loaded artifact without implying hardware capability."""
+
+        provenance = self.provenance()
+        return ProbeImplementation(
+            implementation_id="sensetrace.native.measurement-kernel",
+            implementation_version=str(provenance["version"]),
+            backend_kind="native_shared_library",
+            artifact_sha256=str(provenance["library_sha256"]),
+            architecture=platform.machine() or "unavailable",
+            kernel_release=platform.release() or "unavailable",
+            compatibility_status=(
+                "available" if platform.machine() in {"x86_64", "i386", "i686"} else "unsupported"
+            ),
+            timing_source=str(provenance["timer_source"]),
+            result_units="TSC cycles",
+            provenance=provenance,
+            limitations=tuple(str(item) for item in provenance["limitations"]),
+        )
+
+    @staticmethod
+    def _cpu_id() -> int | None:
+        helper = getattr(os, "sched_getcpu", None)
+        if helper is not None:
+            try:
+                return int(helper())
+            except OSError:
+                pass
+        try:
+            libc = ctypes.CDLL(None, use_errno=True)
+            libc.sched_getcpu.argtypes = []
+            libc.sched_getcpu.restype = ctypes.c_int
+            value = int(libc.sched_getcpu())
+            return value if value >= 0 else None
+        except (AttributeError, OSError):
+            return None
+
+    def execute(self, request: ProbeRequest, *, address: int | None = None) -> ProbeSampleRecord:
+        """Execute one request through the stable probe contract.
+
+        Unsupported operations are returned as explicit evidence.  Runtime
+        failures are retained in the record instead of being mistaken for a
+        zero measurement.
+        """
+
+        request.validate()
+        implementation = self.implementation_contract()
+        requested_affinity_value = request.parameters.get("cpu_affinity")
+        requested_affinity = (
+            tuple(int(value) for value in requested_affinity_value)
+            if isinstance(requested_affinity_value, (list, tuple))
+            else None
+        )
+        try:
+            effective_affinity = tuple(sorted(os.sched_getaffinity(0)))
+        except (AttributeError, OSError):
+            effective_affinity = None
+        started = time.monotonic_ns()
+        cpu_before = self._cpu_id()
+        failure: ProbeFailure | None = None
+        raw_result: list[int | float] | None = None
+        status: str = "complete"
+        repetitions = int(request.parameters.get("repetitions", 1))
+        delay = int(request.parameters.get("extra_delay_cycles", 0))
+        try:
+            if request.operation == "cached_load":
+                if address is None:
+                    raise ValueError("cached_load requires an address")
+                raw_result = [
+                    int(value)
+                    for value in self.measure_cached(address, repetitions, extra_delay_cycles=delay)
+                ]
+            elif request.operation == "flushed_load":
+                if address is None:
+                    raise ValueError("flushed_load requires an address")
+                if not self.supports_clflush:
+                    status = "unsupported"
+                    failure = ProbeFailure(
+                        kind="unsupported_capability",
+                        capability="clflush",
+                        message="native library or CPU does not report CLFLUSH support",
+                    )
+                else:
+                    raw_result = [
+                        int(value)
+                        for value in self.measure_flushed(
+                            address, repetitions, extra_delay_cycles=delay
+                        )
+                    ]
+            elif request.operation == "timer_calibration":
+                raw_result = [int(value) for value in self.timer_calibration(repetitions)]
+            elif request.operation == "idle_calibration":
+                raw_result = [int(value) for value in self.idle_calibration(repetitions)]
+            else:
+                status = "unsupported"
+                failure = ProbeFailure(
+                    kind="unsupported_operation",
+                    capability=request.operation,
+                    message=f"native measurement kernel does not implement {request.operation!r}",
+                )
+        except (OSError, ValueError) as exc:
+            status = "failed"
+            failure = ProbeFailure(
+                kind="execution_failure",
+                message=str(exc),
+                errno=exc.errno if isinstance(exc, OSError) else None,
+            )
+        finished = time.monotonic_ns()
+        return ProbeSampleRecord(
+            implementation=implementation,
+            request=request,
+            status=status,  # type: ignore[arg-type]
+            monotonic_start_ns=started,
+            monotonic_end_ns=finished,
+            clock_domain="userspace CLOCK_MONOTONIC nanoseconds",
+            raw_result=raw_result,
+            result_units=implementation.result_units,
+            cpu_before=cpu_before,
+            cpu_after=self._cpu_id(),
+            requested_affinity=requested_affinity,
+            effective_affinity=effective_affinity,
+            failure=failure,
+            witness_correlation_ids=(request.correlation_id,) if request.correlation_id else (),
+            provenance={
+                "address_semantics": (
+                    "process virtual address passed to a CPU load primitive"
+                    if address is not None
+                    else "no address used"
+                ),
+                "physical_address": "unavailable",
+                "dram_topology": "unavailable",
+            },
+        )
 
 
 def summarize_measurements(values: np.ndarray) -> dict[str, Any]:

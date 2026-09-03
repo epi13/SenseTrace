@@ -205,6 +205,16 @@ Commodity-host measurements are the starting point. If Phase 1 produces evidence
 
 The worker-03 harness should therefore keep acquisition interfaces modular so the same dataset, split, validation, and model code can survive changes in measurement hardware.
 
+The optional witness plane uses Fedora's `bpftrace`, `bpftool`, and `clang`
+packages and temporary tracepoint attachments. Install them reproducibly with
+`sudo dnf install bpftrace bpftool clang`; no persistent BPF program or kernel
+setting is required. Before a
+pilot, run `sensetrace witness capabilities` and retain the result. Hooks absent
+from this kernel remain unsupported evidence, not zero-event observations. A
+bounded pilot may then use `sensetrace witness pilot --output <new-directory>
+--sudo`. It targets only the pilot process, unloads on shutdown, and does not
+alter the existing PMU campaign or authorize the warm-up repeat.
+
 The acquisition implementation now makes that modularity explicit: a named
 measurement primitive separates target preparation, operation, access-state
 provenance, physical observation, audit metadata, and model-eligible features.

@@ -134,10 +134,14 @@ def _operation_scoped_perf_summary(metadata: list[dict[str, Any]]) -> dict[str, 
             "raw_readings_retained": True,
         }
     readings: list[dict[str, Any]] = []
-    for item in configured:
+    aligned_readings: list[dict[str, Any] | None] = []
+    for item in observations:
         reading = item.get("reading")
         if isinstance(reading, dict):
             readings.append(reading)
+            aligned_readings.append(reading)
+        else:
+            aligned_readings.append(None)
     complete_readings = [item for item in readings if item.get("status") == "complete"]
     raw_counts = [int(item["raw_count"]) for item in readings if item.get("raw_count") is not None]
     complete_raw_counts = [
@@ -155,7 +159,7 @@ def _operation_scoped_perf_summary(metadata: list[dict[str, Any]]) -> dict[str, 
         int(item["time_running"]) for item in readings if item.get("time_running") is not None
     ]
     multiplexed = [bool(item["multiplexed"]) for item in readings if "multiplexed" in item]
-    multiplexed_fraction = float(sum(multiplexed) / len(multiplexed)) if multiplexed else 0.0
+    multiplexed_fraction = float(sum(multiplexed) / len(multiplexed)) if multiplexed else None
     not_running_count = sum(1 for item in readings if item.get("status") != "complete")
     return {
         "status": "complete"
@@ -178,6 +182,7 @@ def _operation_scoped_perf_summary(metadata: list[dict[str, Any]]) -> dict[str, 
         "multiplexed_fraction": multiplexed_fraction,
         "first_reading": readings[0] if readings else None,
         "reading": readings[0] if readings else None,
+        "per_operation_readings": aligned_readings,
         "raw_counts": raw_counts,
         "complete_raw_counts": complete_raw_counts,
         "scaled_counts": scaled_counts,
@@ -231,9 +236,10 @@ def _collect_backend(backend: AcquisitionBackend) -> dict[str, Any]:
                 "index": int(index),
                 "sample_median": float(medians[index]),
                 "pmu_raw_count": (
-                    int(operation_perf["raw_counts"][index])
-                    if index < len(operation_perf.get("raw_counts", []))
-                    and operation_perf.get("raw_counts", [])[index] is not None
+                    int(operation_perf["per_operation_readings"][index]["raw_count"])
+                    if index < len(operation_perf.get("per_operation_readings", []))
+                    and operation_perf["per_operation_readings"][index] is not None
+                    and operation_perf["per_operation_readings"][index].get("raw_count") is not None
                     else None
                 ),
                 "cpu_id": metadata[index].get("cpu_id"),
@@ -584,6 +590,8 @@ def _operation_scoped_perf_oracle_analysis(
     records_by_control: dict[str, list[dict[str, Any]]],
     contract: dict[str, Any],
     replicates: int,
+    *,
+    require_explicit_multiplex_telemetry: bool = False,
 ) -> dict[str, Any]:
     """Assess directional PMU agreement and null stability without hidden-bit labels."""
 
@@ -683,10 +691,15 @@ def _operation_scoped_perf_oracle_analysis(
         for control_name in (left_name, right_name, null_name)
         for record in records_by_control.get(control_name, [])
     ]
-    multiplex_telemetry_present = any(
-        isinstance(record.get("operation_scoped_perf"), dict)
-        and "multiplexed_fraction" in record["operation_scoped_perf"]
+    multiplex_values = [
+        operation["multiplexed_fraction"]
         for record in relevant_records
+        if isinstance((operation := record.get("operation_scoped_perf")), dict)
+        and isinstance(operation.get("multiplexed_fraction"), (int, float))
+    ]
+    multiplex_telemetry_present = bool(multiplex_values)
+    multiplex_telemetry_complete = bool(relevant_records) and len(multiplex_values) == len(
+        relevant_records
     )
     multiplexed_fraction = _operation_scoped_perf_multiplexed_fraction(relevant_records)
     scaled_cross_check_pass = (
@@ -694,7 +707,9 @@ def _operation_scoped_perf_oracle_analysis(
         if scaled_telemetry_present
         else True
     )
-    multiplex_veto = bool(multiplex_telemetry_present and multiplexed_fraction > 0.0)
+    multiplex_veto = bool(
+        not multiplex_telemetry_complete if require_explicit_multiplex_telemetry else False
+    ) or bool(multiplex_telemetry_present and multiplexed_fraction > 0.0)
     agreement_pass = (
         len(matched_ids) == len(expected_ids)
         and agreement_count == len(expected_ids)
@@ -718,7 +733,13 @@ def _operation_scoped_perf_oracle_analysis(
         else "not_evaluable_legacy_record",
         "multiplexed_fraction": multiplexed_fraction,
         "multiplex_telemetry_present": multiplex_telemetry_present,
+        "multiplex_telemetry_complete": multiplex_telemetry_complete,
         "multiplex_veto": multiplex_veto,
+        "multiplex_requirement": (
+            "explicit_telemetry_required"
+            if require_explicit_multiplex_telemetry
+            else "legacy_missing_telemetry_not_evaluable"
+        ),
         "confusion_matrix": {
             "expected_right_above_left": {
                 "observed_right_above_left": agreement_count,
@@ -942,7 +963,12 @@ def run_measurement_primitive_characterization(
             expected_replicate_ids=[f"replicate-{index:04d}" for index in range(replicates)],
         )
     operation_scoped_perf_oracle = _operation_scoped_perf_oracle_analysis(
-        records_by_control, contract, replicates
+        records_by_control,
+        contract,
+        replicates,
+        require_explicit_multiplex_telemetry=(
+            design.get("scoped_perf_event") not in {None, "", "not_configured"}
+        ),
     )
     oracle_agreement_by_replicate = {
         item["replicate_id"]: {

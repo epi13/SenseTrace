@@ -53,6 +53,11 @@ def build_parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="command", required=True)
     inventory = sub.add_parser("inventory", help="capture the local host inventory")
     inventory.add_argument("--json", action="store_true")
+    inventory.add_argument(
+        "--worker03",
+        action="store_true",
+        help="capture the exact-host worker-03 target contract non-destructively",
+    )
 
     run = sub.add_parser("run", help="execute an experiment")
     run_sub = run.add_subparsers(dest="run_command", required=True)
@@ -256,6 +261,17 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     if args.command == "inventory":
+        if args.worker03:
+            from .worker03 import collect_worker03_inventory
+
+            _json(
+                collect_worker03_inventory(
+                    native_library=Path(__file__).resolve().parents[2]
+                    / "native"
+                    / "libsensetrace_measurement.so"
+                )
+            )
+            return 0
         _json(collect_inventory())
         return 0
     if args.command == "run" and args.run_command == "phase0":

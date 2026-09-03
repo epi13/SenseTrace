@@ -2,6 +2,22 @@
 
 ## Purpose
 
+The current exact-host software target is `worker03-hardware-v1`. Capture its
+non-destructive contract with:
+
+```text
+sensetrace inventory --worker03 --json
+```
+
+The report separates frozen baseline values from observed values and returns
+`not_verified` when the current machine does not match. It records CPU feature
+flags, cache topology, microcode/TSC indicators, affinity, NUMA,
+frequency/turbo policy, kernel command line, hugepages, DMI/BIOS, DIMM/SPD,
+thermal data, and native probe artifact identity where observable. Missing
+fields remain unavailable and are not inferred. The fragmented receiver can
+be validated without live hardware; see
+[ADR-017](ADR-017-worker03-fragmented-evidence-receiver.md).
+
 `worker-03` is the intended dedicated SenseTrace acquisition and training host for early experiments. It can run long-duration experiments without interfering with the primary workstation and can be treated as disposable/recoverable research infrastructure when more aggressive DRAM tests are introduced.
 
 Inventory observed from the controller on 2026-08-31:

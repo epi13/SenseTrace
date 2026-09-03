@@ -7,19 +7,28 @@ import numpy as np
 import pytest
 
 from sensetrace.acquisition.controlled import (
+    CONTROLLED_CONFORMANCE_FAULTS,
     ControlledAcquisitionProvenance,
     ControlledCommand,
     ControlledCommandResult,
+    ControlledInterfaceAcquisitionBackend,
     ControlledMemoryTopology,
     ControlledTraceAcquisition,
     ControlledTraceChannel,
+    FaultInjectingControlledInterface,
+    RecoveryPolicy,
     SyntheticMockControlledBackend,
     SyntheticMockControlledInterface,
 )
 from sensetrace.config import validate_config
-from sensetrace.datasets import load_dataset, validate_physical_evidence_dataset
+from sensetrace.datasets import (
+    load_dataset,
+    validate_physical_evidence_dataset,
+    write_dataset_manifest,
+)
 from sensetrace.errors import ConfigError, IntegrityError
 from sensetrace.runner import AcquisitionRunner
+from sensetrace.storage import ShardWriter, validate_all_shards
 
 
 @pytest.mark.parametrize(
@@ -283,3 +292,243 @@ def test_frozen_commodity_gate_rejects_new_scaling_intent():
     }
     with pytest.raises(ConfigError, match="C_primitive_unsuitable"):
         validate_config(config)
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        lambda config: config["experiment"].update(seed=18),
+        lambda config: config["phase2"]["controlled_mock"].update(firmware_id="firmware-2"),
+        lambda config: config["phase2"]["controlled_mock"].update(target_id="target-2"),
+        lambda config: config["phase2"]["controlled_mock"].update(trace_length=16),
+        lambda config: config["experiment"].update(name="different-experiment"),
+    ],
+    ids=["seed", "firmware", "target", "trace-design", "experiment-config"],
+)
+def test_resume_rejects_any_changed_immutable_config_without_touching_evidence(tmp_path, change):
+    root = tmp_path / "run"
+    config = _mock_config()
+    AcquisitionRunner(config, root, run_id="phase2-run").run(stop_after=3)
+    before_config = (root / "config.json").read_bytes()
+    before_shards = {
+        path.name: (path.read_bytes(), path.with_suffix(".json").read_bytes())
+        for path in root.glob("shard-*.npz")
+    }
+    changed = json.loads(json.dumps(config))
+    change(changed)
+    changed = validate_config(changed)
+    with pytest.raises(RuntimeError, match="immutable run identity mismatch"):
+        AcquisitionRunner(changed, root, run_id="phase2-run").run()
+    assert (root / "config.json").read_bytes() == before_config
+    assert {
+        path.name: (path.read_bytes(), path.with_suffix(".json").read_bytes())
+        for path in root.glob("shard-*.npz")
+    } == before_shards
+
+
+def test_identical_mock_resume_is_allowed_and_generic_controlled_resume_is_not():
+    interface = SyntheticMockControlledInterface(
+        count=4,
+        trace_length=8,
+        seed=9,
+        target_id="mock-target",
+        firmware_id="mock-firmware",
+        controller_config_hash="config-hash",
+    )
+    backend = ControlledInterfaceAcquisitionBackend(
+        interface,
+        count=4,
+        trace_length=8,
+        labels=np.asarray([0, 1, 0, 1], dtype=np.uint8),
+        session_id="session-1",
+        allocation_id="allocation-1",
+        label_stream_fingerprint="labels",
+    )
+    try:
+        assert backend.recovery_policy.allow_resume is False
+        assert backend.recovery_policy.deterministic_replay is False
+        backend.recovery_policy = RecoveryPolicy(True, True, "accidentally permissive")
+        assert (
+            backend.validate_resume(
+                persisted_run={},
+                persisted_config={},
+                current_config={},
+                resume_index=1,
+            ).allowed
+            is False
+        )
+    finally:
+        backend.close()
+
+
+@pytest.mark.parametrize("fault", CONTROLLED_CONFORMANCE_FAULTS)
+def test_controller_conformance_faults_fail_closed_at_backend_boundary(fault):
+    delegate = SyntheticMockControlledInterface(
+        count=4,
+        trace_length=8,
+        seed=7,
+        target_id="mock-target",
+        firmware_id="mock-firmware",
+        controller_config_hash="config-hash",
+    )
+    interface = FaultInjectingControlledInterface(delegate, fault)
+    backend = ControlledInterfaceAcquisitionBackend(
+        interface,
+        count=4,
+        trace_length=8,
+        labels=np.asarray([0, 1, 0, 1], dtype=np.uint8),
+        session_id="session-1",
+        allocation_id="allocation-1",
+        label_stream_fingerprint="labels",
+    )
+    try:
+        with pytest.raises((RuntimeError, ValueError)):
+            list(backend.samples())
+    finally:
+        backend.close()
+
+
+def test_command_parameters_reject_nan_and_non_json_values():
+    with pytest.raises(ValueError, match="JSON-compatible"):
+        _command(parameters={"nan": float("nan")}).validate()
+    with pytest.raises(ValueError, match="JSON-compatible"):
+        _command(parameters={"object": object()}).validate()
+
+
+class _PhysicalContractInterface(SyntheticMockControlledInterface):
+    interface_name = "controlled-memory-interface-v1"
+    evidence_plane = "controlled_memory_interface_hardware"
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.session_id = "physical-controlled-session-1"
+        self.protocol_hash = "physical-protocol-hash-1"
+
+    def provenance(self):
+        return replace(
+            super().provenance(),
+            experiment_target_id="physical-target-1",
+            controller_firmware_id="physical-firmware-1",
+            device_identity="physical-device-1",
+            dimm_identity="physical-dimm-1",
+            calibration_state="calibration-state-1",
+            hardware_clock_id="physical-command-clock-1",
+            acquisition_trigger="physical-trigger-domain-1",
+            trigger_identity="physical-trigger-1",
+            timing_provenance="hardware command clock ticks",
+            refresh_relationship="controller refresh schedule-1",
+            command_provenance="hardware command log-1",
+            sampling_clock_id="physical-sampling-clock-1",
+        )
+
+    def topology_for(self, address_token):
+        return ControlledMemoryTopology(
+            source="controlled_hardware",
+            channel="channel-1",
+            rank="rank-1",
+            bank="bank-1",
+            row="row-1",
+            dimm="physical-dimm-1",
+        )
+
+    def acquire_trace(self, command, channels):
+        provenance = self.provenance()
+        result = ControlledTraceAcquisition(
+            acquisition_id=f"{self.session_id}:acquisition-{command.parameters['sample_index']:012d}",
+            trigger_id=provenance.trigger_identity,
+            trigger_hardware_ticks=command.issued_at_hardware_ticks,
+            hardware_clock_id=provenance.sampling_clock_id,
+            timing_uncertainty_ticks=0,
+            channels=tuple(
+                ControlledTraceChannel(
+                    channel_id=channel,
+                    channel_kind="analog",
+                    units="volts",
+                    sampling_clock_id=provenance.sampling_clock_id,
+                    calibration_id="calibration-id-1",
+                )
+                for channel in channels
+            ),
+            refresh_relationship=command.refresh_relationship,
+            command_sequence_id=command.command_sequence_id,
+        )
+        result.validate()
+        return result
+
+
+def _physical_fixture(tmp_path):
+    config = json.loads(json.dumps(_mock_config()))
+    config["acquisition"]["backend"] = "controlled_hardware"
+    config["phase2"] = {"controlled_hardware": {"adapter": "test-fixture"}}
+    config = validate_config(config)
+    interface = _PhysicalContractInterface(
+        count=4,
+        trace_length=8,
+        seed=5,
+        target_id="fixture-target",
+        firmware_id="fixture-firmware",
+        controller_config_hash="fixture-config-hash",
+    )
+    backend = ControlledInterfaceAcquisitionBackend(
+        interface,
+        count=4,
+        trace_length=8,
+        labels=np.asarray([0, 1, 0, 1], dtype=np.uint8),
+        session_id=interface.session_id,
+        allocation_id="physical-allocation-1",
+        label_stream_fingerprint="labels",
+    )
+    root = tmp_path / "physical"
+    root.mkdir(parents=True)
+    (root / "config.json").write_text(json.dumps(config, sort_keys=True))
+    writer = ShardWriter(root, max_samples_per_shard=2)
+    for sample in backend.samples():
+        writer.add(sample.trace, sample.label, sample.metadata)
+    writer.finalize()
+    manifest = write_dataset_manifest(
+        root,
+        config=config,
+        condition="null",
+        shard_infos=validate_all_shards(root),
+        label_stream_fingerprint="labels",
+        provenance=backend.manifest_provenance(condition="null"),
+        acquisition_sessions=[backend.session_provenance()],
+        dataset_purpose="physical_controlled_hardware",
+        protocol_identity=interface.interface_name,
+        protocol_hash=interface.protocol_hash,
+    )
+    return root, manifest
+
+
+def test_physical_contract_fixture_is_accepted_only_when_every_chain_is_consistent(tmp_path):
+    root, _manifest = _physical_fixture(tmp_path)
+    accepted = validate_physical_evidence_dataset(root)
+    assert accepted["dataset_purpose"] == "physical_controlled_hardware"
+
+
+@pytest.mark.parametrize(
+    "field",
+    [
+        "controlled_command_id",
+        "controlled_command_sequence_id",
+        "controlled_address_token",
+        "controlled_acquisition_id",
+        "controlled_topology_source",
+    ],
+)
+def test_physical_contract_rejects_flattened_provenance_tampering(tmp_path, field):
+    root, _manifest = _physical_fixture(tmp_path)
+    payload = next(root.glob("shard-*.npz"))
+    with np.load(payload, allow_pickle=False) as archive:
+        arrays = {key: archive[key] for key in archive.files}
+    arrays[field] = arrays[field].copy()
+    arrays[field][0] = "tampered-identity"
+    np.savez_compressed(payload, **arrays)
+    sidecar = payload.with_suffix(".json")
+    sidecar_record = json.loads(sidecar.read_text())
+    import hashlib
+
+    sidecar_record["sha256"] = hashlib.sha256(payload.read_bytes()).hexdigest()
+    sidecar.write_text(json.dumps(sidecar_record))
+    with pytest.raises(IntegrityError):
+        validate_physical_evidence_dataset(root)

@@ -204,3 +204,24 @@ because physical controlled-hardware evidence requires a distinct interface
 identity, purpose, and hardware-sourced topology. A successful dry-run proves
 software/evidence propagation and deterministic recovery, not a physical
 measurement channel.
+
+# Phase 2 physical controlled-hardware evidence
+
+Physical acceptance is governed by the versioned
+`physical-controlled-hardware-evidence-v1` contract. The validator requires
+the configured `controlled_hardware` backend, the real
+`controlled-memory-interface-v1` identity, the hardware evidence plane, a
+non-placeholder protocol hash, a satisfied fixed required-field set, and
+completed source session ledgers. It then reconstructs every serialized
+command result, command, provenance record, hardware topology, trace
+acquisition, and channel and checks their duplicated fields against the shard
+metadata, manifest, and ledger.
+
+Required physical identities fail closed when absent or when they contain
+placeholder, mock, synthetic, virtual, or derived values. Topology is valid
+only when the controlled interface supplies it with
+`source=controlled_hardware`; virtual addresses and opaque tokens cannot
+establish row, bank, channel, rank, device, or DIMM truth. The generic
+controlled backend is not resumable by default. A future physical adapter must
+explicitly implement recovery continuity validation and provide only the
+identities it can directly observe.

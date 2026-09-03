@@ -6,16 +6,30 @@ import json
 from collections.abc import Iterable
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal, cast
 
 import numpy as np
 
+from .acquisition.controlled import (
+    CONTROLLED_INTERFACE_VERSION,
+    PHYSICAL_CONTROLLED_EVIDENCE_CONTRACT_VERSION,
+    PHYSICAL_CONTROLLED_EVIDENCE_PLANE,
+    PHYSICAL_CONTROLLED_REQUIRED_METADATA_FIELDS,
+    ControlledAcquisitionProvenance,
+    ControlledCommand,
+    ControlledInterfaceCapabilities,
+    ControlledMemoryTopology,
+    ControlledTraceAcquisition,
+    ControlledTraceChannel,
+)
 from .config import config_fingerprint
 from .errors import IntegrityError, SchemaError
 from .hashing import sha256_bytes, sha256_json, sha256_text
 from .protocol import PHASE1A_COMMODITY_BASELINE_VERSION
 from .schema import SCHEMA_VERSION, FeaturePolicy
 from .storage import ShardInfo, dataset_fingerprint, load_shards
+
+PHYSICAL_CONTROLLED_REQUIRED_FIELDS = PHYSICAL_CONTROLLED_REQUIRED_METADATA_FIELDS
 
 
 def write_dataset_manifest(
@@ -61,6 +75,12 @@ def write_dataset_manifest(
         manifest["protocol_hash"] = str(effective_protocol_hash)
     if manifest_provenance:
         manifest["provenance"] = manifest_provenance
+        evidence_contract = manifest_provenance.get("physical_evidence_contract")
+        if isinstance(evidence_contract, dict):
+            manifest["physical_evidence_contract"] = evidence_contract
+        capabilities = manifest_provenance.get("capabilities")
+        if isinstance(capabilities, dict):
+            manifest["capabilities"] = capabilities
     if acquisition_sessions is not None:
         manifest["acquisition_sessions"] = acquisition_sessions
     if campaign_id is not None:
@@ -105,7 +125,7 @@ def load_dataset(
             expected_protocol_hash=expected_protocol_hash,
         )
     elif expected_purpose == "physical_controlled_hardware":
-        _validate_physical_controlled_dataset(metadata, manifest, root)
+        _validate_physical_controlled_dataset(traces, metadata, manifest, root)
     else:
         _validate_physical_timing_provenance(metadata, manifest, root)
         if expected_purpose is not None and manifest.get("dataset_purpose") != expected_purpose:
@@ -161,26 +181,416 @@ def _validate_phase2_mock_dataset(
 
 
 def _validate_physical_controlled_dataset(
-    metadata: dict[str, np.ndarray], manifest: dict[str, Any], source: Path
+    traces: np.ndarray,
+    metadata: dict[str, np.ndarray],
+    manifest: dict[str, Any],
+    source: Path,
 ) -> None:
-    """Physical gate: an explicit mock dataset can never satisfy it."""
+    """Validate the complete physical controlled-hardware evidence chain.
+
+    The manifest is a claim about the rows, not an authority that can upgrade
+    them. Every duplicated identity is checked against the serialized typed
+    objects and the session ledgers before this boundary returns successfully.
+    """
 
     if manifest.get("dataset_purpose") != "physical_controlled_hardware":
         raise IntegrityError(
             f"dataset {source} is not explicitly marked for physical controlled-hardware analysis"
         )
+    config_path = source / "config.json"
+    try:
+        persisted_config = json.loads(config_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise IntegrityError(
+            "physical controlled-hardware data requires readable config material"
+        ) from exc
+    if not isinstance(persisted_config, dict):
+        raise IntegrityError("physical controlled-hardware config material is malformed")
+    if config_fingerprint(persisted_config) != manifest.get("config_hash"):
+        raise IntegrityError("physical controlled-hardware config material disagrees with manifest")
+    acquisition_config = persisted_config.get("acquisition", {})
+    if (
+        not isinstance(acquisition_config, dict)
+        or acquisition_config.get("backend") != "controlled_hardware"
+    ):
+        raise IntegrityError(
+            "physical controlled-hardware data was not acquired by the hardware backend"
+        )
     provenance = manifest.get("provenance")
     if not isinstance(provenance, dict):
         raise IntegrityError("physical controlled-hardware data requires provenance")
-    if provenance.get("evidence_plane") == "controlled_memory_interface_mock":
-        raise IntegrityError("physical controlled-hardware validation rejects controlled mock data")
-    if provenance.get("interface_name") != "controlled-memory-interface-v1":
-        raise IntegrityError("physical controlled-hardware data has no real interface identity")
-    if any(
-        value != "controlled_hardware"
-        for value in _metadata_values(metadata, "controlled_topology_source")
+    contract = manifest.get("physical_evidence_contract")
+    if not isinstance(contract, dict):
+        raise IntegrityError("physical controlled-hardware data requires an evidence contract")
+    if contract.get("version") != PHYSICAL_CONTROLLED_EVIDENCE_CONTRACT_VERSION:
+        raise IntegrityError(
+            "physical controlled-hardware evidence contract version is unsupported"
+        )
+    if contract.get("status") != "satisfied":
+        raise IntegrityError("physical controlled-hardware evidence contract is not satisfied")
+    required_fields = contract.get("required_fields")
+    if (
+        not isinstance(required_fields, list)
+        or not all(isinstance(value, str) for value in required_fields)
+        or len(required_fields) != len(set(required_fields))
+        or {str(value) for value in required_fields} != PHYSICAL_CONTROLLED_REQUIRED_FIELDS
     ):
-        raise IntegrityError("physical controlled-hardware data lacks hardware-sourced topology")
+        raise IntegrityError("physical controlled-hardware required-field contract is incomplete")
+    if traces.ndim != 2 or not np.isfinite(traces).all():
+        raise IntegrityError(
+            "physical controlled-hardware trace payload is not finite and two-dimensional"
+        )
+
+    identity = manifest.get("protocol_identity")
+    protocol_hash = manifest.get("protocol_hash")
+    if identity != CONTROLLED_INTERFACE_VERSION:
+        raise IntegrityError("physical controlled-hardware data has no real interface identity")
+    _physical_identity(protocol_hash, "manifest protocol hash")
+    expected_provenance = {
+        "dataset_purpose": "physical_controlled_hardware",
+        "interface_name": CONTROLLED_INTERFACE_VERSION,
+        "protocol_identity": identity,
+        "protocol_hash": protocol_hash,
+        "evidence_plane": PHYSICAL_CONTROLLED_EVIDENCE_PLANE,
+    }
+    for field, expected in expected_provenance.items():
+        if provenance.get(field) != expected:
+            raise IntegrityError(f"manifest and provenance disagree on {field}")
+    if provenance.get("physical_evidence_contract") != contract:
+        raise IntegrityError("manifest and provenance evidence contracts disagree")
+    capabilities_record = provenance.get("capabilities")
+    if not isinstance(capabilities_record, dict):
+        raise IntegrityError("physical controlled-hardware data requires a capability snapshot")
+    try:
+        capabilities = ControlledInterfaceCapabilities(**capabilities_record)
+        capabilities.validate()
+    except (TypeError, ValueError) as exc:
+        raise IntegrityError(f"physical controller capability snapshot is invalid: {exc}") from exc
+    if (
+        capabilities.interface_name != identity
+        or capabilities.protocol_hash != protocol_hash
+        or "read" not in capabilities.supported_command_kinds
+        or capabilities.topology_source != "controlled_hardware"
+    ):
+        raise IntegrityError("physical controller capabilities contradict the evidence contract")
+    if provenance.get("capabilities") != manifest.get("capabilities"):
+        raise IntegrityError("manifest and provenance capability snapshots disagree")
+    if (
+        not isinstance(provenance.get("claim_boundary"), str)
+        or not provenance["claim_boundary"].strip()
+    ):
+        raise IntegrityError(
+            "physical controlled-hardware data requires an explicit claim boundary"
+        )
+
+    ledgers = manifest.get("acquisition_sessions")
+    if (
+        not isinstance(ledgers, list)
+        or not ledgers
+        or any(not isinstance(item, dict) for item in ledgers)
+    ):
+        raise IntegrityError("physical controlled-hardware data requires source session ledgers")
+    ledger_by_session: dict[str, dict[str, Any]] = {}
+    ledger_fields = (
+        "interface_name",
+        "evidence_plane",
+        "protocol_identity",
+        "protocol_hash",
+        "experiment_target_id",
+        "controller_firmware_id",
+        "controller_config_hash",
+        "device_identity",
+        "dimm_identity",
+        "calibration_state",
+        "hardware_clock_id",
+        "sampling_clock_id",
+        "acquisition_trigger",
+        "trigger_identity",
+        "acquisition_configuration_hash",
+        "timing_provenance",
+        "refresh_relationship",
+        "command_provenance",
+    )
+    for ledger in ledgers:
+        session_id = ledger.get("acquisition_session_id")
+        if not isinstance(session_id, str) or not session_id.strip():
+            raise IntegrityError("physical session ledger lacks acquisition session identity")
+        if ledger.get("status") != "completed":
+            raise IntegrityError(
+                "physical controlled-hardware data references an incomplete session"
+            )
+        allocation = ledger.get("allocation_id")
+        _physical_identity(allocation, f"session {session_id} allocation identity")
+        for field in ledger_fields:
+            if ledger.get(field) != provenance.get(field):
+                raise IntegrityError(f"session ledger disagrees with manifest on {field}")
+            _physical_identity(ledger.get(field), f"session {session_id} {field}")
+        if ledger.get("capabilities") != capabilities_record:
+            raise IntegrityError(
+                f"session {session_id} capability snapshot disagrees with manifest"
+            )
+        if session_id in ledger_by_session:
+            raise IntegrityError(f"duplicate physical acquisition session ledger {session_id}")
+        ledger_by_session[session_id] = ledger
+
+    for field in PHYSICAL_CONTROLLED_REQUIRED_FIELDS:
+        _metadata_values(metadata, field)
+    row_count = len(traces)
+    row_values = {
+        field: _metadata_values(metadata, field) for field in PHYSICAL_CONTROLLED_REQUIRED_FIELDS
+    }
+    if any(len(values) != row_count for values in row_values.values()):
+        raise IntegrityError("physical controlled-hardware metadata row counts disagree")
+
+    for index in range(row_count):
+        command = _decode_controlled_command(row_values["controlled_command"][index])
+        typed_provenance = _decode_controlled_provenance(row_values["controlled_provenance"][index])
+        topology = _decode_controlled_topology(row_values["controlled_topology"][index])
+        acquisition = _decode_controlled_acquisition(
+            row_values["controlled_trace_acquisition"][index]
+        )
+        result = _decode_controlled_result(row_values["controlled_result"][index])
+        _validate_physical_row(
+            index,
+            row_values,
+            command,
+            typed_provenance,
+            topology,
+            acquisition,
+            result,
+            protocol_hash=str(protocol_hash),
+            ledger_by_session=ledger_by_session,
+        )
+
+
+def _physical_identity(value: object, field: str) -> str:
+    if not isinstance(value, str) or not value.strip():
+        raise IntegrityError(f"physical evidence {field} is missing")
+    if value != value.strip():
+        raise IntegrityError(f"physical evidence {field} has surrounding whitespace")
+    normalized = value.strip().lower()
+    if normalized in {"unavailable", "unknown", "none", "null", "n/a"}:
+        raise IntegrityError(f"physical evidence {field} is an unavailable placeholder")
+    if any(token in normalized for token in ("mock", "synthetic", "virtual", "derived")):
+        raise IntegrityError(f"physical evidence {field} uses a synthetic identity")
+    return value
+
+
+def _decode_json_object(value: object, field: str) -> dict[str, Any]:
+    if isinstance(value, dict):
+        return value
+    try:
+        decoded = json.loads(str(value))
+    except (TypeError, json.JSONDecodeError) as exc:
+        raise IntegrityError(f"physical evidence {field} is not valid JSON") from exc
+    if not isinstance(decoded, dict):
+        raise IntegrityError(f"physical evidence {field} must be a JSON object")
+    return decoded
+
+
+def _decode_controlled_command(value: object) -> ControlledCommand:
+    try:
+        command = ControlledCommand(**_decode_json_object(value, "command"))
+        command.validate()
+        return command
+    except (TypeError, ValueError) as exc:
+        raise IntegrityError(f"physical evidence command contract is invalid: {exc}") from exc
+
+
+def _decode_controlled_provenance(value: object) -> ControlledAcquisitionProvenance:
+    try:
+        provenance = ControlledAcquisitionProvenance(**_decode_json_object(value, "provenance"))
+        provenance.validate()
+        return provenance
+    except (TypeError, ValueError) as exc:
+        raise IntegrityError(f"physical evidence provenance contract is invalid: {exc}") from exc
+
+
+def _decode_controlled_topology(value: object) -> ControlledMemoryTopology:
+    try:
+        topology = ControlledMemoryTopology(**_decode_json_object(value, "topology"))
+        topology.validate()
+        return topology
+    except (TypeError, ValueError) as exc:
+        raise IntegrityError(f"physical evidence topology contract is invalid: {exc}") from exc
+
+
+def _decode_controlled_acquisition(value: object) -> ControlledTraceAcquisition:
+    record = _decode_json_object(value, "trace acquisition")
+    channels = record.get("channels")
+    if not isinstance(channels, list):
+        raise IntegrityError("physical evidence trace acquisition channels are malformed")
+    try:
+        record["channels"] = tuple(ControlledTraceChannel(**item) for item in channels)
+        acquisition = ControlledTraceAcquisition(**record)
+        acquisition.validate()
+        return acquisition
+    except (TypeError, ValueError) as exc:
+        raise IntegrityError(
+            f"physical evidence trace acquisition contract is invalid: {exc}"
+        ) from exc
+
+
+def _decode_controlled_result(value: object):
+    record = _decode_json_object(value, "command result")
+    command = _decode_controlled_command(record.get("command"))
+    provenance = _decode_controlled_provenance(record.get("provenance"))
+    topology = _decode_controlled_topology(record.get("topology"))
+    acquisition_record = record.get("acquisition")
+    acquisition = (
+        None
+        if acquisition_record is None
+        else _decode_controlled_acquisition(json.dumps(acquisition_record, sort_keys=True))
+    )
+    try:
+        from .acquisition.controlled import ControlledCommandResult
+
+        status_value = record.get("status")
+        completed_value = record.get("completed_at_hardware_ticks")
+        if status_value not in {"complete", "unsupported", "failed"}:
+            raise ValueError("unsupported command result status")
+        if isinstance(completed_value, bool) or not isinstance(completed_value, int):
+            raise ValueError("invalid command result completion timing")
+        result = ControlledCommandResult(
+            command=command,
+            status=cast(Literal["complete", "unsupported", "failed"], status_value),
+            topology=topology,
+            provenance=provenance,
+            completed_at_hardware_ticks=completed_value,
+            acquisition=acquisition,
+            failure=record.get("failure"),
+        )
+        result.validate()
+        return result
+    except (TypeError, ValueError) as exc:
+        raise IntegrityError(
+            f"physical evidence command result contract is invalid: {exc}"
+        ) from exc
+
+
+def _validate_physical_row(
+    index: int,
+    values: dict[str, list[str]],
+    command: ControlledCommand,
+    provenance: ControlledAcquisitionProvenance,
+    topology: ControlledMemoryTopology,
+    acquisition: ControlledTraceAcquisition,
+    result: Any,
+    *,
+    protocol_hash: str,
+    ledger_by_session: dict[str, dict[str, Any]],
+) -> None:
+    if topology.source != "controlled_hardware":
+        raise IntegrityError(f"physical row {index} lacks hardware-sourced topology")
+    topology_fields = {key: value for key, value in topology.as_dict().items() if key != "source"}
+    if not any(
+        isinstance(value, str)
+        and value.strip().lower() not in {"unavailable", "unknown", "none", "null", "n/a"}
+        for value in topology_fields.values()
+    ):
+        raise IntegrityError(f"physical row {index} has no concrete hardware topology")
+    if (
+        result.command.as_dict() != command.as_dict()
+        or result.provenance.as_dict() != provenance.as_dict()
+        or result.topology.as_dict() != topology.as_dict()
+        or result.acquisition is None
+        or result.acquisition.as_dict() != acquisition.as_dict()
+    ):
+        raise IntegrityError(
+            f"physical row {index} serialized objects disagree with command result"
+        )
+    for field, value in {
+        "target": provenance.experiment_target_id,
+        "firmware": provenance.controller_firmware_id,
+        "controller config": provenance.controller_config_hash,
+        "device": provenance.device_identity,
+        "dimm": provenance.dimm_identity,
+        "calibration": provenance.calibration_state,
+        "command clock": provenance.hardware_clock_id,
+        "sampling clock": provenance.sampling_clock_id,
+        "trigger": provenance.trigger_identity,
+        "acquisition config": provenance.acquisition_configuration_hash,
+        "timing": provenance.timing_provenance,
+        "refresh": provenance.refresh_relationship,
+        "command provenance": provenance.command_provenance,
+    }.items():
+        _physical_identity(value, f"row {index} {field}")
+    for field, expected in {
+        "controlled_interface_name": CONTROLLED_INTERFACE_VERSION,
+        "controlled_protocol_hash": protocol_hash,
+        "controlled_target_id": provenance.experiment_target_id,
+        "controller_firmware_id": provenance.controller_firmware_id,
+        "controller_config_hash": provenance.controller_config_hash,
+        "controlled_command_id": command.command_id,
+        "controlled_command_sequence_id": command.command_sequence_id,
+        "controlled_address_token": command.address_token,
+        "controlled_command_clock_id": provenance.hardware_clock_id,
+        "controlled_acquisition_id": acquisition.acquisition_id,
+        "controlled_sampling_clock_id": acquisition.hardware_clock_id,
+        "controlled_trigger_identity": acquisition.trigger_id,
+        "controlled_topology_source": topology.source,
+        "controlled_timing_provenance": provenance.timing_provenance,
+        "controlled_refresh_relationship": provenance.refresh_relationship,
+        "controlled_command_provenance": provenance.command_provenance,
+        "controlled_acquisition_configuration_hash": provenance.acquisition_configuration_hash,
+        "controlled_calibration_state": provenance.calibration_state,
+        "controlled_calibration_id": acquisition.channels[0].calibration_id,
+        "device_id": provenance.device_identity,
+        "dimm_identity": provenance.dimm_identity,
+    }.items():
+        if values[field][index] != expected:
+            raise IntegrityError(f"physical row {index} duplicated provenance disagrees on {field}")
+        _physical_identity(values[field][index], f"row {index} {field}")
+    if provenance.command_sequence_id != command.command_sequence_id:
+        raise IntegrityError(f"physical row {index} command sequence disagrees with provenance")
+    if command.command_clock_id != provenance.hardware_clock_id:
+        raise IntegrityError(f"physical row {index} command clock disagrees with provenance")
+    if acquisition.command_sequence_id != command.command_sequence_id:
+        raise IntegrityError(f"physical row {index} acquisition sequence disagrees with command")
+    if acquisition.trigger_id != provenance.trigger_identity:
+        raise IntegrityError(f"physical row {index} trigger identity disagrees with provenance")
+    if acquisition.refresh_relationship != provenance.refresh_relationship:
+        raise IntegrityError(f"physical row {index} refresh relationship disagrees with provenance")
+    try:
+        channel_ids = json.loads(values["controlled_trace_channel_ids"][index])
+    except json.JSONDecodeError as exc:
+        raise IntegrityError(f"physical row {index} channel identity JSON is malformed") from exc
+    expected_channel_ids = [channel.channel_id for channel in acquisition.channels]
+    if channel_ids != expected_channel_ids:
+        raise IntegrityError(f"physical row {index} trace channel identities disagree")
+    for channel in acquisition.channels:
+        _physical_identity(channel.channel_id, f"row {index} channel identity")
+        _physical_identity(channel.units, f"row {index} channel units")
+        _physical_identity(channel.sampling_clock_id, f"row {index} channel sampling clock")
+        _physical_identity(channel.calibration_id, f"row {index} channel calibration")
+    if values["acquisition_session_id"][index] not in ledger_by_session:
+        raise IntegrityError(f"physical row {index} has no matching source session ledger")
+    _physical_identity(values["acquisition_session_id"][index], f"row {index} acquisition session")
+    _physical_identity(values["allocation_id"][index], f"row {index} allocation")
+    ledger = ledger_by_session[values["acquisition_session_id"][index]]
+    if values["allocation_id"][index] != ledger.get("allocation_id"):
+        raise IntegrityError(
+            f"physical row {index} allocation disagrees with source session ledger"
+        )
+    for field in (
+        "experiment_target_id",
+        "controller_firmware_id",
+        "controller_config_hash",
+        "device_identity",
+        "dimm_identity",
+        "calibration_state",
+        "hardware_clock_id",
+        "sampling_clock_id",
+        "trigger_identity",
+        "acquisition_configuration_hash",
+        "timing_provenance",
+        "refresh_relationship",
+        "command_provenance",
+    ):
+        if provenance.as_dict()[field] != ledger.get(field):
+            raise IntegrityError(
+                f"physical row {index} provenance disagrees with source session ledger"
+            )
 
 
 def validate_physical_evidence_dataset(

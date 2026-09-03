@@ -1,5 +1,21 @@
 # SenseTrace Validation and Anti-Leakage Rules
 
+## Bounded-memory validation
+
+Metadata string columns use the smallest lossless NumPy Unicode width inferred
+from each column. Fixed `U65536` columns are forbidden: they reserve
+gigabytes before NPZ compression on ordinary Phase 0 datasets. Fragmented
+evidence uses append-only JSONL shards and bounded batch iteration. Run:
+
+```text
+make test-bounded
+```
+
+The runner executes every `tests/test_*.py` module exactly once in a fresh
+process, sets BLAS/OpenMP thread counts to one, writes logs to temporary disk,
+and reports each module's peak RSS. This is process isolation for allocator
+stability, not test skipping or coverage reduction.
+
 ## Why validation is the experiment
 
 For SenseTrace, a model score is meaningful only if the split and controls rule out easier explanations. Repeated measurements of the same memory locations can create strong fingerprints unrelated to the current stored state.

@@ -16,11 +16,11 @@ from abc import ABC, abstractmethod
 from collections.abc import Iterator
 from dataclasses import asdict, dataclass, field, replace
 from datetime import UTC, datetime
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 import numpy as np
 
-from .base import AcquisitionBackend, RecoveryPolicy, Sample
+from .base import AcquisitionBackend, RecoveryDecision, RecoveryPolicy, Sample
 
 TopologySource = Literal["controlled_hardware", "unavailable"]
 CommandStatus = Literal["complete", "unsupported", "failed"]
@@ -28,6 +28,44 @@ ChannelKind = Literal["analog", "digital"]
 
 _PLACEHOLDERS = frozenset({"", "unavailable", "unknown", "none", "null", "n/a"})
 _COMMAND_KINDS = frozenset({"activate", "read", "write", "precharge", "refresh", "idle"})
+
+CONTROLLED_INTERFACE_VERSION = "controlled-memory-interface-v1"
+MOCK_CONTROLLED_INTERFACE_VERSION = "controlled-memory-interface-mock-v1"
+PHYSICAL_CONTROLLED_EVIDENCE_CONTRACT_VERSION = "physical-controlled-hardware-evidence-v1"
+PHYSICAL_CONTROLLED_EVIDENCE_PLANE = "controlled_memory_interface_hardware"
+PHYSICAL_CONTROLLED_REQUIRED_METADATA_FIELDS = frozenset(
+    {
+        "controlled_interface_name",
+        "controlled_protocol_hash",
+        "controlled_target_id",
+        "controller_firmware_id",
+        "controller_config_hash",
+        "controlled_command",
+        "controlled_result",
+        "controlled_command_id",
+        "controlled_command_sequence_id",
+        "controlled_address_token",
+        "controlled_command_clock_id",
+        "controlled_acquisition_id",
+        "controlled_sampling_clock_id",
+        "controlled_trigger_identity",
+        "controlled_trace_channel_ids",
+        "controlled_topology",
+        "controlled_topology_source",
+        "controlled_provenance",
+        "controlled_trace_acquisition",
+        "controlled_timing_provenance",
+        "controlled_refresh_relationship",
+        "controlled_command_provenance",
+        "controlled_acquisition_configuration_hash",
+        "controlled_calibration_state",
+        "controlled_calibration_id",
+        "device_id",
+        "dimm_identity",
+        "acquisition_session_id",
+        "allocation_id",
+    }
+)
 
 
 def _identity(value: object, field_name: str, *, allow_placeholder: bool = False) -> str:
@@ -355,10 +393,45 @@ class ControlledCommandResult:
         return asdict(self)
 
 
+@dataclass(frozen=True)
+class ControlledInterfaceCapabilities:
+    """Versioned capability snapshot supplied by a controller adapter."""
+
+    interface_name: str
+    protocol_hash: str
+    supported_command_kinds: tuple[str, ...]
+    channel_ids: tuple[str, ...]
+    topology_source: TopologySource
+
+    def validate(self) -> None:
+        _identity(self.interface_name, "controlled capability interface")
+        _identity(self.protocol_hash, "controlled capability protocol hash")
+        if not self.supported_command_kinds or any(
+            kind not in _COMMAND_KINDS for kind in self.supported_command_kinds
+        ):
+            raise ValueError("controlled capabilities contain unsupported command kinds")
+        if len(set(self.channel_ids)) != len(self.channel_ids) or not self.channel_ids:
+            raise ValueError("controlled capabilities require unique channel IDs")
+        for channel_id in self.channel_ids:
+            _identity(channel_id, "controlled capability channel ID")
+        if self.topology_source not in {"controlled_hardware", "unavailable"}:
+            raise ValueError("controlled capabilities contain an unsupported topology source")
+
+    def as_dict(self) -> dict[str, Any]:
+        self.validate()
+        return asdict(self)
+
+
 class ControlledMemoryInterface(ABC):
     """Abstract boundary for a future controlled memory controller."""
 
-    interface_name = "controlled-memory-interface-v1"
+    interface_name = CONTROLLED_INTERFACE_VERSION
+    evidence_plane = PHYSICAL_CONTROLLED_EVIDENCE_PLANE
+
+    @abstractmethod
+    def capabilities(self) -> ControlledInterfaceCapabilities:
+        """Return the adapter's immutable protocol and acquisition capabilities."""
+        raise NotImplementedError
 
     @abstractmethod
     def provenance(self) -> ControlledAcquisitionProvenance:
@@ -390,14 +463,198 @@ class ControlledMemoryInterface(ABC):
         return None
 
 
+CONTROLLED_CONFORMANCE_FAULTS = (
+    "wrong_command_id",
+    "wrong_sequence_id",
+    "trigger_before_command",
+    "trigger_after_completion",
+    "wrong_trigger_identity",
+    "command_clock_mismatch",
+    "sampling_clock_mismatch",
+    "stale_acquisition",
+    "duplicate_channel_ids",
+    "missing_calibration_id",
+    "malformed_channel_kind",
+    "unsupported_with_acquisition",
+    "unsupported_reported_complete",
+    "failed_with_acquisition",
+    "complete_without_acquisition",
+    "trace_shape_mismatch",
+    "changed_controller_config",
+    "changed_firmware_identity",
+    "changed_target_identity",
+    "topology_without_hardware_source",
+    "hardware_topology_without_concrete_fields",
+    "virtual_address_derived_topology",
+    "replayed_earlier_command",
+    "controller_shutdown",
+)
+
+
+@dataclass
+class FaultInjectingControlledInterface(ControlledMemoryInterface):
+    """Fault-injectable adapter used by the controller conformance tests.
+
+    Faults are applied after the delegate has produced a valid response. This
+    keeps each case close to a real adapter bug and ensures the backend, rather
+    than the mock, is tested as the first defensive boundary.
+    """
+
+    delegate: ControlledMemoryInterface
+    fault: str
+
+    def __post_init__(self) -> None:
+        if self.fault not in CONTROLLED_CONFORMANCE_FAULTS:
+            raise ValueError(f"unknown controlled conformance fault {self.fault!r}")
+        self.interface_name = self.delegate.interface_name
+        self.evidence_plane = self.delegate.evidence_plane
+        self.protocol_hash = getattr(self.delegate, "protocol_hash", "unavailable")
+        self._issue_count = 0
+        self._last_result: ControlledCommandResult | None = None
+
+    def provenance(self) -> ControlledAcquisitionProvenance:
+        return self.delegate.provenance()
+
+    def capabilities(self) -> ControlledInterfaceCapabilities:
+        return self.delegate.capabilities()
+
+    def topology_for(self, address_token: str) -> ControlledMemoryTopology:
+        if self.fault == "topology_without_hardware_source":
+            return ControlledMemoryTopology(source="unavailable", row="row-claimed")
+        if self.fault == "hardware_topology_without_concrete_fields":
+            return ControlledMemoryTopology(source="controlled_hardware")
+        if self.fault == "virtual_address_derived_topology":
+            return ControlledMemoryTopology(
+                source="controlled_hardware", row="derived-from-virtual-address"
+            )
+        return self.delegate.topology_for(address_token)
+
+    def acquire_trace(
+        self, command: ControlledCommand, channels: tuple[str, ...]
+    ) -> ControlledTraceAcquisition:
+        return self.delegate.acquire_trace(command, channels)
+
+    def issue(self, command: ControlledCommand) -> ControlledCommandResult:
+        if self.fault == "controller_shutdown":
+            raise RuntimeError("controller shut down unexpectedly")
+        if self.fault == "replayed_earlier_command" and self._last_result is not None:
+            return self._last_result
+        result = self.delegate.issue(command)
+        if result.acquisition is None:
+            raise RuntimeError("conformance delegate returned no acquisition")
+        acquisition = result.acquisition
+        self._issue_count += 1
+        fault = self.fault
+        if fault == "stale_acquisition" and self._last_result is not None:
+            result = replace(result, acquisition=self._last_result.acquisition)
+        elif fault == "wrong_command_id":
+            result = replace(result, command=replace(result.command, command_id="wrong-command"))
+        elif fault == "wrong_sequence_id":
+            result = replace(
+                result, command=replace(result.command, command_sequence_id="wrong-sequence")
+            )
+        elif fault == "trigger_before_command":
+            result = replace(
+                result,
+                acquisition=replace(
+                    acquisition, trigger_hardware_ticks=result.command.issued_at_hardware_ticks - 1
+                ),
+            )
+        elif fault == "trigger_after_completion":
+            result = replace(
+                result,
+                acquisition=replace(
+                    acquisition, trigger_hardware_ticks=result.completed_at_hardware_ticks + 1
+                ),
+            )
+        elif fault == "wrong_trigger_identity":
+            result = replace(
+                result, provenance=replace(result.provenance, trigger_identity="wrong-trigger")
+            )
+        elif fault == "command_clock_mismatch":
+            result = replace(
+                result, command=replace(result.command, command_clock_id="wrong-command-clock")
+            )
+        elif fault == "sampling_clock_mismatch":
+            result = replace(
+                result,
+                acquisition=replace(
+                    acquisition,
+                    channels=tuple(
+                        replace(channel, sampling_clock_id="wrong-sampling-clock")
+                        for channel in acquisition.channels
+                    ),
+                ),
+            )
+        elif fault == "duplicate_channel_ids":
+            channel = acquisition.channels[0]
+            result = replace(result, acquisition=replace(acquisition, channels=(channel, channel)))
+        elif fault == "missing_calibration_id":
+            result = replace(
+                result,
+                acquisition=replace(
+                    acquisition,
+                    channels=tuple(
+                        replace(channel, calibration_id="unavailable")
+                        for channel in acquisition.channels
+                    ),
+                ),
+            )
+        elif fault == "malformed_channel_kind":
+            result = replace(
+                result,
+                acquisition=replace(
+                    acquisition,
+                    channels=tuple(
+                        replace(channel, channel_kind=cast(Any, "malformed"))
+                        for channel in acquisition.channels
+                    ),
+                ),
+            )
+        elif fault == "unsupported_with_acquisition":
+            result = replace(result, status="unsupported", failure="unsupported command")
+        elif fault == "unsupported_reported_complete":
+            result = replace(result, status="complete", failure="unsupported command")
+        elif fault == "failed_with_acquisition":
+            result = replace(result, status="failed", failure="controller command failed")
+        elif fault == "complete_without_acquisition":
+            result = replace(result, acquisition=None)
+        elif fault == "changed_controller_config" and self._issue_count > 1:
+            result = replace(
+                result,
+                provenance=replace(result.provenance, controller_config_hash="changed-config"),
+            )
+        elif fault == "changed_firmware_identity" and self._issue_count > 1:
+            result = replace(
+                result,
+                provenance=replace(result.provenance, controller_firmware_id="changed-firmware"),
+            )
+        elif fault == "changed_target_identity" and self._issue_count > 1:
+            result = replace(
+                result, provenance=replace(result.provenance, experiment_target_id="changed-target")
+            )
+        self._last_result = result
+        return result
+
+    def read_trace(self, acquisition: ControlledTraceAcquisition) -> np.ndarray:
+        if self.fault == "trace_shape_mismatch":
+            return np.asarray([0.0], dtype=np.float32)
+        return self.delegate.read_trace(acquisition)
+
+    def close(self) -> None:
+        self.delegate.close()
+
+
 class ControlledInterfaceAcquisitionBackend(AcquisitionBackend):
     """Adapt a validated controller lifecycle to SenseTrace ``Sample`` rows."""
 
     name = "controlled"
     recovery_policy = RecoveryPolicy(
-        allow_resume=True,
-        deterministic_replay=True,
-        continuity_requirement="deterministic logical interface session identity",
+        allow_resume=False,
+        deterministic_replay=False,
+        continuity_requirement=(
+            "controlled hardware must explicitly prove controller/session/target continuity"
+        ),
     )
 
     def __init__(
@@ -418,13 +675,108 @@ class ControlledInterfaceAcquisitionBackend(AcquisitionBackend):
         self.acquisition_session_id = session_id
         self._allocation_id = allocation_id
         self.label_stream_fingerprint = label_stream_fingerprint
+        self._initial_provenance: dict[str, str] | None = None
+
+    @staticmethod
+    def _immutable_provenance(provenance: ControlledAcquisitionProvenance) -> dict[str, str]:
+        values = provenance.as_dict()
+        values.pop("command_sequence_id", None)
+        return values
+
+    def recovery_identity(self) -> dict[str, Any]:
+        provenance = self.interface.provenance()
+        provenance.validate()
+        capabilities = self.interface.capabilities()
+        capabilities.validate()
+        return {
+            "backend": self.name,
+            "interface_name": self.interface.interface_name,
+            "evidence_plane": self.interface.evidence_plane,
+            "session_id": self.acquisition_session_id,
+            "allocation_id": self._allocation_id,
+            "provenance": self._immutable_provenance(provenance),
+            "capabilities": capabilities.as_dict(),
+        }
+
+    def session_provenance(self, *, status: str = "completed") -> dict[str, Any]:
+        provenance = self.interface.provenance()
+        provenance.validate()
+        capabilities = self.interface.capabilities()
+        capabilities.validate()
+        return {
+            "acquisition_session_id": self.acquisition_session_id,
+            "allocation_id": self._allocation_id,
+            "status": status,
+            "interface_name": self.interface.interface_name,
+            "evidence_plane": self.interface.evidence_plane,
+            "protocol_identity": self.interface.interface_name,
+            "protocol_hash": getattr(self.interface, "protocol_hash", "unavailable"),
+            "dataset_purpose": (
+                "physical_controlled_hardware"
+                if self.interface.evidence_plane == PHYSICAL_CONTROLLED_EVIDENCE_PLANE
+                else "phase2_mock_controlled"
+            ),
+            "capabilities": capabilities.as_dict(),
+            **provenance.as_dict(),
+        }
+
+    def manifest_provenance(self, *, condition: str) -> dict[str, Any]:
+        provenance = self.interface.provenance().as_dict()
+        capabilities = self.interface.capabilities().as_dict()
+        physical = self.interface.evidence_plane == PHYSICAL_CONTROLLED_EVIDENCE_PLANE
+        purpose = "physical_controlled_hardware" if physical else "phase2_mock_controlled"
+        return {
+            "backend": self.name,
+            "interface_name": self.interface.interface_name,
+            "protocol_identity": self.interface.interface_name,
+            "protocol_hash": getattr(self.interface, "protocol_hash", "unavailable"),
+            "dataset_purpose": purpose,
+            "evidence_plane": self.interface.evidence_plane,
+            "claim_boundary": (
+                "controlled-interface trace; claims limited to supplied hardware contract"
+                if physical
+                else "software/evidence contract only; no physical DRAM claim"
+            ),
+            "physical_evidence_contract": {
+                "version": PHYSICAL_CONTROLLED_EVIDENCE_CONTRACT_VERSION,
+                "status": "satisfied" if physical else "not_satisfied; nonphysical evidence plane",
+                "required_fields": sorted(PHYSICAL_CONTROLLED_REQUIRED_METADATA_FIELDS),
+            },
+            "controller_configuration_hash": provenance["controller_config_hash"],
+            "condition": condition,
+            "provenance_contract": provenance,
+            "capabilities": capabilities,
+            **provenance,
+            "recovery": {
+                "policy": {
+                    "allow_resume": self.recovery_policy.allow_resume,
+                    "deterministic_replay": self.recovery_policy.deterministic_replay,
+                    "continuity_requirement": self.recovery_policy.continuity_requirement,
+                },
+                "session_identity": self.acquisition_session_id,
+                "deterministic": self.recovery_policy.deterministic_replay,
+            },
+        }
 
     def samples(self, start_index: int = 0) -> Iterator[Sample]:
         if start_index < 0 or start_index > self.count:
             raise ValueError("start_index outside controlled dataset")
+        capabilities = self.interface.capabilities()
+        capabilities.validate()
+        if capabilities.interface_name != self.interface.interface_name:
+            raise ValueError("controlled capabilities disagree with interface identity")
+        if capabilities.protocol_hash != getattr(self.interface, "protocol_hash", "unavailable"):
+            raise ValueError("controlled capabilities disagree with protocol identity")
+        if "read" not in capabilities.supported_command_kinds:
+            raise RuntimeError("controlled interface does not advertise read-command support")
         for index in range(start_index, self.count):
             interface_provenance = self.interface.provenance()
             interface_provenance.validate()
+            immutable_provenance = self._immutable_provenance(interface_provenance)
+            if self._initial_provenance is None:
+                self._initial_provenance = immutable_provenance
+            elif immutable_provenance != self._initial_provenance:
+                raise RuntimeError("controlled interface changed immutable provenance mid-session")
             sequence_id = f"{self.acquisition_session_id}:sequence-{index:012d}"
             command = ControlledCommand(
                 command_id=f"{self.acquisition_session_id}:command-{index:012d}",
@@ -439,11 +791,22 @@ class ControlledInterfaceAcquisitionBackend(AcquisitionBackend):
             )
             result = self.interface.issue(command)
             result.validate()
+            if result.command.as_dict() != command.as_dict():
+                raise ValueError("controlled interface returned a result for a different command")
+            result_immutable_provenance = self._immutable_provenance(result.provenance)
+            if result_immutable_provenance != immutable_provenance:
+                raise ValueError("controlled result changed immutable controller provenance")
+            expected_topology = self.interface.topology_for(command.address_token)
+            expected_topology.validate()
+            if result.topology.as_dict() != expected_topology.as_dict():
+                raise ValueError("controlled result topology disagrees with token lookup")
             if result.status != "complete" or result.acquisition is None:
                 raise RuntimeError(f"controlled interface could not complete sample {index}")
             trace = np.asarray(self.interface.read_trace(result.acquisition), dtype=np.float32)
             if trace.ndim != 1 or len(trace) != self.trace_length:
                 raise ValueError("controlled interface returned a trace with the wrong shape")
+            if not np.isfinite(trace).all():
+                raise ValueError("controlled interface returned non-finite trace values")
             provenance = result.provenance
             topology = result.topology
             acquisition = result.acquisition
@@ -473,8 +836,11 @@ class ControlledInterfaceAcquisitionBackend(AcquisitionBackend):
                     "controlled_command_id": command.command_id,
                     "controlled_command_sequence_id": command.command_sequence_id,
                     "controlled_address_token": command.address_token,
+                    "controlled_command": json.dumps(command.as_dict(), sort_keys=True),
+                    "controlled_result": json.dumps(result.as_dict(), sort_keys=True),
                     "controlled_command_clock_id": provenance.hardware_clock_id,
                     "controlled_sampling_clock_id": acquisition.hardware_clock_id,
+                    "controlled_acquisition_id": acquisition.acquisition_id,
                     "controlled_trigger_identity": acquisition.trigger_id,
                     "controlled_trace_channel_ids": json.dumps(
                         [channel.channel_id for channel in acquisition.channels]
@@ -488,8 +854,18 @@ class ControlledInterfaceAcquisitionBackend(AcquisitionBackend):
                     "controlled_timing_provenance": provenance.timing_provenance,
                     "controlled_refresh_relationship": provenance.refresh_relationship,
                     "controlled_command_provenance": provenance.command_provenance,
+                    "controlled_protocol_hash": (
+                        getattr(self.interface, "protocol_hash", "unavailable")
+                    ),
+                    "controlled_target_id": provenance.experiment_target_id,
                     "controller_firmware_id": provenance.controller_firmware_id,
                     "controller_config_hash": provenance.controller_config_hash,
+                    "controlled_acquisition_configuration_hash": (
+                        provenance.acquisition_configuration_hash
+                    ),
+                    "controlled_calibration_state": provenance.calibration_state,
+                    "controlled_calibration_id": acquisition.channels[0].calibration_id,
+                    "dimm_identity": provenance.dimm_identity,
                     "label_stream_fingerprint": self.label_stream_fingerprint,
                     "measurement_primitive": (
                         "controlled-memory-interface-mock"
@@ -522,7 +898,9 @@ class SyntheticMockControlledInterface(ControlledMemoryInterface):
     target_id: str
     firmware_id: str
     controller_config_hash: str
-    interface_name = "controlled-memory-interface-mock-v1"
+    interface_name = MOCK_CONTROLLED_INTERFACE_VERSION
+    evidence_plane = "controlled_memory_interface_mock"
+    protocol_hash: str = ""
 
     def __post_init__(self) -> None:
         if (
@@ -538,6 +916,7 @@ class SyntheticMockControlledInterface(ControlledMemoryInterface):
         _identity(self.target_id, "mock target identity")
         _identity(self.firmware_id, "mock firmware identity")
         _identity(self.controller_config_hash, "mock controller configuration hash")
+        self.protocol_hash = self.controller_config_hash
         material = json.dumps(
             {
                 "count": self.count,
@@ -572,6 +951,23 @@ class SyntheticMockControlledInterface(ControlledMemoryInterface):
             refresh_relationship="synthetic/no-refresh-schedule",
             command_provenance="synthetic operation identity; no DRAM command issued",
             sampling_clock_id="mock-sampling-clock",
+        )
+
+    def capabilities(self) -> ControlledInterfaceCapabilities:
+        return ControlledInterfaceCapabilities(
+            interface_name=self.interface_name,
+            protocol_hash=self.protocol_hash,
+            supported_command_kinds=("read",),
+            channel_ids=(
+                "mock-synthetic-channel-0"
+                if "mock" in self.interface_name
+                else "controlled-channel-0",
+            ),
+            topology_source=(
+                "unavailable"
+                if self.evidence_plane == "controlled_memory_interface_mock"
+                else "controlled_hardware"
+            ),
         )
 
     def topology_for(self, address_token: str) -> ControlledMemoryTopology:
@@ -616,7 +1012,10 @@ class SyntheticMockControlledInterface(ControlledMemoryInterface):
             raise ValueError("mock controlled commands require an integer sample_index")
         if sample_index < 0 or sample_index >= self.count:
             raise ValueError("mock controlled command sample_index is outside the dataset")
-        acquisition = self.acquire_trace(command, ("mock-synthetic-channel-0",))
+        channel_id = (
+            "mock-synthetic-channel-0" if "mock" in self.interface_name else "controlled-channel-0"
+        )
+        acquisition = self.acquire_trace(command, (channel_id,))
         trace_seed_material = (
             f"{self.seed}:{self.interface_name}:{self.controller_config_hash}:{sample_index}"
         ).encode()
@@ -658,6 +1057,11 @@ class SyntheticMockControlledBackend(ControlledInterfaceAcquisitionBackend):
     firmware_id: str = "mock-controller-firmware-v0"
     controller_config_hash: str = "mock-config-unavailable"
     name: str = "controlled_mock"
+    recovery_policy = RecoveryPolicy(
+        allow_resume=True,
+        deterministic_replay=True,
+        continuity_requirement="deterministic logical mock session identity",
+    )
 
     def __post_init__(self) -> None:
         if (
@@ -711,6 +1115,31 @@ class SyntheticMockControlledBackend(ControlledInterfaceAcquisitionBackend):
         self._labels = labels
         self._started_at = datetime.now(UTC).isoformat()
 
+    def validate_resume(
+        self,
+        *,
+        persisted_run: dict[str, Any],
+        persisted_config: dict[str, Any],
+        current_config: dict[str, Any],
+        resume_index: int,
+    ) -> RecoveryDecision:
+        del persisted_config, current_config
+        expected = json.loads(
+            json.dumps(persisted_run.get("backend_identity"), sort_keys=True, allow_nan=False)
+        )
+        actual = json.loads(json.dumps(self.recovery_identity(), sort_keys=True, allow_nan=False))
+        if expected != actual:
+            return RecoveryDecision(
+                False,
+                "deterministic mock backend identity differs from the persisted run identity",
+                {"persisted": expected, "current": actual},
+            )
+        return RecoveryDecision(
+            True,
+            "deterministic mock configuration and logical session identity match",
+            {"backend_identity": actual, "resume_from_sample": resume_index},
+        )
+
     def topology_for_virtual_offset(self, _offset: int) -> ControlledMemoryTopology:
         """Virtual offsets carry no physical topology. Always unavailable."""
         return self.interface.topology_for(f"{self.acquisition_session_id}:virtual-token")
@@ -729,10 +1158,24 @@ class SyntheticMockControlledBackend(ControlledInterfaceAcquisitionBackend):
             "allocation_id": self._allocation_id,
             "status": status,
             "interface_name": self.interface.interface_name,
+            "evidence_plane": self.interface.evidence_plane,
+            "protocol_identity": self.interface.interface_name,
+            "protocol_hash": getattr(self.interface, "protocol_hash", "unavailable"),
+            "dataset_purpose": "phase2_mock_controlled",
             "controller_firmware_id": provenance.controller_firmware_id,
             "controller_config_hash": provenance.controller_config_hash,
+            "experiment_target_id": provenance.experiment_target_id,
             "device_identity": provenance.device_identity,
             "dimm_identity": provenance.dimm_identity,
+            "calibration_state": provenance.calibration_state,
+            "hardware_clock_id": provenance.hardware_clock_id,
+            "sampling_clock_id": provenance.sampling_clock_id,
+            "acquisition_trigger": provenance.acquisition_trigger,
+            "trigger_identity": provenance.trigger_identity,
+            "acquisition_configuration_hash": provenance.acquisition_configuration_hash,
+            "timing_provenance": provenance.timing_provenance,
+            "refresh_relationship": provenance.refresh_relationship,
+            "command_provenance": provenance.command_provenance,
             "topology_source": "unavailable",
             "physical_topology": "unavailable; mock has no physical topology source",
             "started_at": self._started_at,
@@ -752,6 +1195,10 @@ class SyntheticMockControlledBackend(ControlledInterfaceAcquisitionBackend):
             "protocol_hash": self.controller_config_hash,
             "dataset_purpose": "phase2_mock_controlled",
             "evidence_plane": "controlled_memory_interface_mock",
+            "physical_evidence_contract": {
+                "version": PHYSICAL_CONTROLLED_EVIDENCE_CONTRACT_VERSION,
+                "status": "not_satisfied; mock evidence plane",
+            },
             "claim_boundary": "software/evidence contract only; no physical DRAM claim",
             "topology": {
                 "source": "unavailable",

@@ -8,7 +8,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from .base import AcquisitionBackend, RecoveryPolicy, Sample
+from .base import AcquisitionBackend, RecoveryDecision, RecoveryPolicy, Sample
 
 
 def balanced_labels(count: int, seed: int) -> np.ndarray:
@@ -131,6 +131,21 @@ class SyntheticBackend(AcquisitionBackend):
             rng.shuffle(local)
             labels[start:stop] = local
         return labels
+
+    def validate_resume(
+        self,
+        *,
+        persisted_run: dict[str, object],
+        persisted_config: dict[str, object],
+        current_config: dict[str, object],
+        resume_index: int,
+    ) -> RecoveryDecision:
+        del persisted_run, persisted_config, current_config
+        return RecoveryDecision(
+            True,
+            "deterministic synthetic seed and dataset identity are explicitly replayable",
+            {"resume_from_sample": resume_index, "synthetic_dataset_id": self.synthetic_dataset_id},
+        )
 
     def samples(self, start_index: int = 0) -> Iterator[Sample]:
         if start_index < 0 or start_index > self.count:

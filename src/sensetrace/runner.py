@@ -16,18 +16,23 @@ from .acquisition.base import AcquisitionBackend
 from .acquisition.commodity import CommodityDramBackend
 from .acquisition.controlled import SyntheticMockControlledBackend
 from .acquisition.synthetic import SyntheticBackend
-from .config import config_fingerprint
+from .config import config_fingerprint, normalized_config
 from .datasets import write_dataset_manifest
+from .errors import IntegrityError, JournalCorruptionError
 from .hashing import sha256_json
 from .inventory import collect_inventory
 from .journal import Journal
 from .safety import storage_status
 from .storage import (
     ShardWriter,
+    list_finalized_shards,
     quarantine_invalid_shards,
     quarantine_temporary_shards,
     validate_all_shards,
+    validate_shard,
 )
+
+RUN_RESUME_CONTRACT_VERSION = "sensetrace-resume-contract-v1"
 
 
 def _git_commit() -> str:
@@ -135,9 +140,11 @@ class AcquisitionRunner:
             permute_seed=int(self.config.get("experiment", {}).get("seed", 1337)) + 7919,
         )
 
-    def _resume_index(self) -> tuple[int, list[str]]:
-        quarantined_paths = quarantine_temporary_shards(self.run_dir)
-        quarantined_paths.extend(quarantine_invalid_shards(self.run_dir))
+    def _resume_index(self, *, quarantine: bool = True) -> tuple[int, list[str]]:
+        quarantined_paths: list[Path] = []
+        if quarantine:
+            quarantined_paths = quarantine_temporary_shards(self.run_dir)
+            quarantined_paths.extend(quarantine_invalid_shards(self.run_dir))
         infos = validate_all_shards(self.run_dir)
         next_index = 0
         if infos:
@@ -148,6 +155,115 @@ class AcquisitionRunner:
                 next_index = sum(info.rows for info in infos)
         return next_index, [path.name for path in quarantined_paths]
 
+    def _preview_resume_index(self) -> int:
+        """Find the valid finalized prefix without mutating shards.
+
+        This is intentionally tolerant of a damaged tail: the normal recovery
+        pass quarantines that tail only after run and backend identity checks
+        have succeeded.
+        """
+
+        infos = []
+        for path in list_finalized_shards(self.run_dir):
+            try:
+                infos.append(validate_shard(path))
+            except IntegrityError:
+                continue
+        previous_last: str | None = None
+        for info in infos:
+            if previous_last is not None and info.first_sample_id <= previous_last:
+                raise IntegrityError("finalized shards have overlapping or unsorted sample ranges")
+            previous_last = info.last_sample_id
+        if not infos:
+            return 0
+        try:
+            return int(infos[-1].last_sample_id.rsplit("-", 1)[1]) + 1
+        except (IndexError, ValueError):
+            return sum(info.rows for info in infos)
+
+    def _append_recovery_refusal(self, **payload: Any) -> None:
+        """Append a refusal only when the journal is itself append-safe."""
+
+        try:
+            journal_state = self.journal.read()
+            if journal_state.trailing_partial:
+                return
+            self.journal.append("recovery_refused", run_id=self.run_id, **payload)
+        except (JournalCorruptionError, OSError):
+            return
+
+    def _load_or_create_run_identity(
+        self, *, config_hash: str, condition: str, amplitude: float | None
+    ) -> tuple[dict[str, Any], bool]:
+        run_path = self.run_dir / "run.json"
+        config_path = self.run_dir / "config.json"
+        if run_path.exists():
+            try:
+                run_record = json.loads(run_path.read_text(encoding="utf-8"))
+                persisted_config = json.loads(config_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError) as exc:
+                self._append_recovery_refusal(reason=f"unreadable immutable run identity: {exc}")
+                raise RuntimeError(
+                    "cannot recover this run because its immutable run identity is unreadable; "
+                    "create a new run directory"
+                ) from exc
+            persisted_hash = run_record.get("configuration_hash")
+            material_hash = (
+                config_fingerprint(persisted_config) if isinstance(persisted_config, dict) else None
+            )
+            saved_parameters = run_record.get("run_parameters")
+            current_parameters = {"condition": condition, "amplitude": amplitude}
+            mismatches: list[str] = []
+            if run_record.get("schema") != "sensetrace.run.v1":
+                mismatches.append("unsupported run identity schema")
+            if run_record.get("run_id") != self.run_id:
+                mismatches.append("run_id")
+            if persisted_hash != config_hash:
+                mismatches.append("configuration_hash")
+            if material_hash != persisted_hash:
+                mismatches.append("persisted config material")
+            if saved_parameters != current_parameters:
+                mismatches.append("run parameters")
+            if mismatches:
+                reason = "immutable run identity mismatch: " + ", ".join(mismatches)
+                self._append_recovery_refusal(
+                    reason=reason,
+                    decision="refused; create a new acquisition run directory/identity",
+                    persisted_configuration_hash=persisted_hash,
+                    current_configuration_hash=config_hash,
+                )
+                raise RuntimeError(
+                    f"{reason}; existing evidence is untouched; create a new run directory"
+                )
+            return run_record, True
+
+        if any(self.run_dir.iterdir()):
+            self._append_recovery_refusal(
+                reason="run evidence exists without an immutable run.json identity",
+                decision="refused; create a new acquisition run directory/identity",
+            )
+            raise RuntimeError(
+                "run evidence exists without an immutable run identity; create a new run directory"
+            )
+
+        run_record = {
+            "schema": "sensetrace.run.v1",
+            "run_id": self.run_id,
+            "status": "active",
+            "started_at": datetime.now(UTC).isoformat(),
+            "code_commit": _git_commit(),
+            "configuration_hash": config_hash,
+            "resume_contract_version": RUN_RESUME_CONTRACT_VERSION,
+            "run_parameters": {"condition": condition, "amplitude": amplitude},
+            "host_id": collect_inventory().get("host_id", "unavailable"),
+        }
+        _write_json(run_path, run_record)
+        _write_json(config_path, normalized_config(self.config))
+        (self.run_dir / "host.json").write_text(
+            json.dumps(collect_inventory(), indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        )
+        return run_record, False
+
     def run(
         self,
         *,
@@ -157,42 +273,55 @@ class AcquisitionRunner:
     ) -> dict[str, Any]:
         self.run_dir.mkdir(parents=True, exist_ok=True)
         config_hash = config_fingerprint(self.config)
-        if not (self.run_dir / "run.json").exists():
-            _write_json(
-                self.run_dir / "run.json",
-                {
-                    "schema": "sensetrace.run.v1",
-                    "run_id": self.run_id,
-                    "status": "active",
-                    "started_at": datetime.now(UTC).isoformat(),
-                    "code_commit": _git_commit(),
-                    "configuration_hash": config_hash,
-                    "host_id": collect_inventory().get("host_id", "unavailable"),
-                },
-            )
-            (self.run_dir / "host.json").write_text(
-                json.dumps(collect_inventory(), indent=2, sort_keys=True) + "\n", encoding="utf-8"
-            )
-        (self.run_dir / "config.json").write_text(
-            json.dumps(self.config, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        run_record, resuming_existing_run = self._load_or_create_run_identity(
+            config_hash=config_hash, condition=condition, amplitude=amplitude
         )
         journal_state = self.journal.recover()
-        start_index, quarantined = self._resume_index()
+        preview_index = self._preview_resume_index()
         backend = self._backend(condition=condition, amplitude=amplitude)
-        if start_index and not backend.recovery_policy.allow_resume:
-            self.journal.append(
-                "recovery_refused",
-                run_id=self.run_id,
-                resume_from_sample=start_index,
+        backend_identity = json.loads(
+            json.dumps(backend.recovery_identity(), sort_keys=True, allow_nan=False)
+        )
+        persisted_identity = run_record.get("backend_identity")
+        if resuming_existing_run and persisted_identity != backend_identity:
+            self._append_recovery_refusal(
+                resume_from_sample=preview_index,
+                backend=backend.name,
+                reason="backend/controller identity differs from the persisted run identity",
+                persisted_backend_identity=persisted_identity,
+                current_backend_identity=backend_identity,
+                decision="refused; create a new acquisition run directory/identity",
+            )
+            backend.close()
+            raise RuntimeError(
+                f"{backend.name} backend identity differs from the persisted run; "
+                "existing evidence is untouched; create a new run directory"
+            )
+        decision = backend.validate_resume(
+            persisted_run=run_record,
+            persisted_config=json.loads((self.run_dir / "config.json").read_text(encoding="utf-8")),
+            current_config=self.config,
+            resume_index=preview_index,
+        )
+        if preview_index and not decision.allowed:
+            self._append_recovery_refusal(
+                resume_from_sample=preview_index,
                 backend=backend.name,
                 deterministic_replay=backend.recovery_policy.deterministic_replay,
                 continuity_requirement=backend.recovery_policy.continuity_requirement,
+                reason=decision.reason,
+                continuity_evidence=decision.continuity_evidence,
                 decision="fail_closed; start a new acquisition session/run with a fresh identity",
             )
             backend.close()
             raise RuntimeError(
-                f"{backend.name} acquisition cannot resume finalized shards in place"
+                f"{backend.name} acquisition cannot resume finalized shards in place: "
+                f"{decision.reason}; create a new run directory"
             )
+        if not resuming_existing_run:
+            run_record["backend_identity"] = backend_identity
+            _write_json(self.run_dir / "run.json", run_record)
+        start_index, quarantined = self._resume_index()
         self.journal.append(
             "recovery_started",
             run_id=self.run_id,

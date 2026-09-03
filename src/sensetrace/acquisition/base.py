@@ -15,8 +15,22 @@ class Sample:
     metadata: dict[str, object]
 
 
+@dataclass(frozen=True)
+class RecoveryPolicy:
+    """Backend recovery contract used by the runner instead of backend names."""
+
+    allow_resume: bool
+    deterministic_replay: bool
+    continuity_requirement: str
+
+
 class AcquisitionBackend:
     name = "abstract"
+    recovery_policy = RecoveryPolicy(
+        allow_resume=False,
+        deterministic_replay=False,
+        continuity_requirement="backend has not declared resumable identity continuity",
+    )
 
     def samples(self, start_index: int = 0) -> Iterator[Sample]:
         raise NotImplementedError

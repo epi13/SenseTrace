@@ -168,7 +168,7 @@ characterize a new measurement primitive with an independently auditable
 access-state oracle before attempting hidden-bit inference.
 
 **Phase 2 — controlled memory interface**  
-Use research hardware such as an FPGA-based memory controller where appropriate to gain tighter control over command timing and acquisition.
+Use research hardware such as an FPGA-based memory controller where appropriate to gain tighter control over command timing and acquisition. The software spine is executable before hardware is connected: run [`configs/phase2-controlled-mock.example.yaml`](configs/phase2-controlled-mock.example.yaml) with the `controlled_mock` backend. It exercises the controller interface, command/trace provenance binding, ordinary shard persistence, journaling, deterministic recovery, and manifest validation. Its topology is explicitly unavailable and its dataset purpose is `phase2_mock_controlled`; it cannot satisfy a physical controlled-hardware evidence gate. A successful mock run proves the software/evidence contract only, not a physical DRAM information channel.
 
 **Phase 3 — deeper physical instrumentation**  
 Investigate richer electrical traces on owned lab hardware when instrumentation makes this scientifically justified.
@@ -200,11 +200,13 @@ The purpose of the project is to characterize physical information channels in m
 - [worker-03 genuine multi-boot scoped-PMU characterization](docs/evidence/worker03-multiboot-scoped-perf-2026-09-03.md)
 - [worker-03 warm-up-controlled scoped-PMU characterization](docs/evidence/worker03-multiboot-scoped-perf-warmup-2026-09-03.md)
 - [worker-03 bounded eBPF witness pilot](docs/evidence/worker03-ebpf-witness-pilot-2026-09-03.md)
+- [Phase 2 controlled mock vertical dry-run](docs/evidence/phase2-controlled-mock-dry-run-2026-09-03.md)
 - [Native-path sensitivity decision](docs/ADR-010-native-path-sensitivity-calibration.md)
 - [Commodity Phase 1A baseline](docs/PHASE1A-COMMODITY-BASELINE-V1.md)
 - [Measurement primitives and access-state oracles](docs/ADR-011-measurement-primitives-and-access-state-oracles.md)
 - [Phase 2 controlled-memory-interface boundary](docs/ADR-013-controlled-memory-interface-boundary.md)
 - [Native probe and eBPF witness planes](docs/ADR-014-native-probe-and-ebpf-witness-planes.md)
+- [Phase 2 controlled acquisition spine](docs/ADR-015-phase2-controlled-acquisition-spine.md)
 - [Phase 0 v2 protocol](docs/PHASE0-PROTOCOL-V2.md)
 - [Architecture decisions](docs/ADR-001-storage-and-journal.md)
 
@@ -242,3 +244,10 @@ directional PMU contrast failed in two boots and the pooled null stability
 failed. The resulting decision is **C: primitive unsuitable**. Do not increase
 commodity Phase 1A sample counts or retune this gate; stop the commodity line
 and continue controlled-memory-interface instrumentation (see ADR-013).
+
+The Phase 2 mock controller is available for deterministic vertical dry-runs
+through the same controller-facing interface a future real adapter must use.
+Mock controller configuration, command sequence, trigger and clock identities,
+trace channels, unavailable topology, recovery policy, and claim boundary are
+persisted in ordinary SenseTrace samples and manifests. This is a software and
+evidence-contract test, never physical DRAM evidence.

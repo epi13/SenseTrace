@@ -24,7 +24,7 @@ from typing import Any
 
 import numpy as np
 
-from .base import AcquisitionBackend, Sample
+from .base import AcquisitionBackend, RecoveryPolicy, Sample
 from .native import NativeMeasurementKernel
 from .primitive import (
     OperationScopedPerfOracle,
@@ -184,6 +184,11 @@ class CommodityDramBackend(AcquisitionBackend):
     _closed: bool = field(init=False, repr=False, default=False)
 
     name = "commodity-dram"
+    recovery_policy = RecoveryPolicy(
+        allow_resume=False,
+        deterministic_replay=False,
+        continuity_requirement="fresh physical allocation and session provenance required",
+    )
 
     def __post_init__(self) -> None:
         if self.count < 2 or self.trace_length < 1:

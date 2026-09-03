@@ -38,12 +38,13 @@ Phase 2 work starts from `src/sensetrace/acquisition/controlled.py`:
   topology field with any other source raises; deriving topology from a
   virtual address raises unconditionally. No virtual-to-physical synthesis is
   possible through this interface.
-- `SyntheticMockControlledBackend` implements the data contract (grouped
-  samples, label fingerprints, session/allocation provenance, unknown-device
-  topology) with generated random traces labeled synthetic, so dataset, split,
-  validation, model, journaling, and recovery code paths can be tested before
-  hardware arrives. Its observation semantics say "synthetic mock trace" and
-  it can never produce a physical claim.
+- `SyntheticMockControlledInterface` emulates the controller lifecycle and
+  `ControlledInterfaceAcquisitionBackend` adapts its validated command results
+  and trace payloads into ordinary SenseTrace samples. The resulting
+  `SyntheticMockControlledBackend` preserves grouped samples, label
+  fingerprints, session/allocation provenance, unknown-device topology, and
+  deterministic recovery. Its observation semantics say "synthetic mock
+  trace" and it can never produce a physical claim.
 - Synthetic traces and logical sample identities are deterministic functions of
   `(seed, sample_index, operation_identity)`. Reconstructing the backend and
   resuming at index N therefore produces the same remaining sequence as an

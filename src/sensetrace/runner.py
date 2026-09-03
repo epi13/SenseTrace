@@ -12,9 +12,13 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from .acquisition.base import AcquisitionBackend
 from .acquisition.commodity import CommodityDramBackend
+from .acquisition.controlled import SyntheticMockControlledBackend
 from .acquisition.synthetic import SyntheticBackend
 from .config import config_fingerprint
+from .datasets import write_dataset_manifest
+from .hashing import sha256_json
 from .inventory import collect_inventory
 from .journal import Journal
 from .safety import storage_status
@@ -68,12 +72,17 @@ class AcquisitionRunner:
 
     def _backend(
         self, *, start_index: int = 0, condition: str = "null", amplitude: float | None = None
-    ) -> SyntheticBackend | CommodityDramBackend:
+    ) -> AcquisitionBackend:
         data = self.config.get("data", {})
         controls = self.config.get("controls", {}).get("injected_weak_signal", {})
         acquisition = self.config.get("acquisition", {})
-        if str(acquisition.get("backend", "synthetic")) == "commodity":
+        backend_name = str(acquisition.get("backend", "synthetic"))
+        if backend_name == "commodity":
             physical = self.config.get("phase1a", {})
+            if physical.get("campaign_intent", "historical_reproduction") == "current_scaling":
+                raise RuntimeError(
+                    "current commodity scaling is closed by the frozen C_primitive_unsuitable gate"
+                )
             return CommodityDramBackend(
                 count=int(physical.get("samples", min(int(data.get("samples", 128)), 256))),
                 trace_length=int(
@@ -88,6 +97,26 @@ class AcquisitionRunner:
                 operation=str(physical.get("operation", "memory_read")),
                 eviction_bytes=int(physical.get("eviction_bytes", 4 * 1024 * 1024)),
                 cpu_affinity=physical.get("cpu_affinity"),
+            )
+        if backend_name == "controlled_mock":
+            mock = self.config.get("phase2", {}).get("controlled_mock", {})
+            if not isinstance(mock, dict):
+                raise RuntimeError("phase2.controlled_mock configuration is not a mapping")
+            count = int(mock.get("count", data.get("samples", 64)))
+            trace_length = int(mock.get("trace_length", data.get("trace_length", 32)))
+            controller_config_hash = sha256_json(mock)
+            return SyntheticMockControlledBackend(
+                count=count,
+                trace_length=trace_length,
+                seed=int(mock.get("seed", self.config.get("experiment", {}).get("seed", 1337))),
+                target_id=str(mock.get("target_id", "mock-controlled-target-0000")),
+                firmware_id=str(mock.get("firmware_id", "mock-controller-firmware-v0")),
+                controller_config_hash=controller_config_hash,
+            )
+        if backend_name == "controlled_hardware":
+            raise RuntimeError(
+                "controlled_hardware is an explicit future adapter boundary; no real controller "
+                "adapter is registered"
             )
         return SyntheticBackend(
             count=int(data.get("samples", 1000)),
@@ -149,19 +178,20 @@ class AcquisitionRunner:
         )
         journal_state = self.journal.recover()
         start_index, quarantined = self._resume_index()
-        if (
-            str(self.config.get("acquisition", {}).get("backend", "synthetic")) == "commodity"
-            and start_index
-        ):
+        backend = self._backend(condition=condition, amplitude=amplitude)
+        if start_index and not backend.recovery_policy.allow_resume:
             self.journal.append(
-                "commodity_recovery_refused",
+                "recovery_refused",
                 run_id=self.run_id,
                 resume_from_sample=start_index,
-                decision="fail_closed; start a new acquisition session/run with a fresh allocation",
+                backend=backend.name,
+                deterministic_replay=backend.recovery_policy.deterministic_replay,
+                continuity_requirement=backend.recovery_policy.continuity_requirement,
+                decision="fail_closed; start a new acquisition session/run with a fresh identity",
             )
+            backend.close()
             raise RuntimeError(
-                "commodity acquisition cannot resume finalized shards in place: "
-                "start a new run/session so a fresh allocation cannot share the old identity"
+                f"{backend.name} acquisition cannot resume finalized shards in place"
             )
         self.journal.append(
             "recovery_started",
@@ -177,7 +207,6 @@ class AcquisitionRunner:
             signal.SIGTERM: signal.signal(signal.SIGTERM, self._handle_signal),
             signal.SIGINT: signal.signal(signal.SIGINT, self._handle_signal),
         }
-        backend = self._backend(condition=condition, amplitude=amplitude)
         writer = ShardWriter(
             self.run_dir,
             shard_target_mb=float(self.config.get("acquisition", {}).get("shard_target_mb", 512)),
@@ -232,6 +261,49 @@ class AcquisitionRunner:
                 }
             )
             _write_json(run_path, run_record)
+            if not interrupted:
+                finalized = validate_all_shards(self.run_dir)
+                provenance_factory = getattr(backend, "manifest_provenance", None)
+                manifest_provenance = (
+                    provenance_factory(condition=condition)
+                    if provenance_factory is not None
+                    else None
+                )
+                session_factory = getattr(backend, "session_provenance", None)
+                sessions = (
+                    [session_factory(status="completed")] if session_factory is not None else None
+                )
+                manifest = write_dataset_manifest(
+                    self.run_dir,
+                    config=self.config,
+                    condition=condition,
+                    shard_infos=finalized,
+                    label_stream_fingerprint=str(
+                        getattr(backend, "label_stream_fingerprint", "unavailable")
+                    ),
+                    provenance=manifest_provenance,
+                    acquisition_sessions=sessions,
+                    dataset_purpose=(
+                        manifest_provenance.get("dataset_purpose")
+                        if isinstance(manifest_provenance, dict)
+                        else None
+                    ),
+                    protocol_identity=(
+                        manifest_provenance.get("protocol_identity")
+                        if isinstance(manifest_provenance, dict)
+                        else None
+                    ),
+                    protocol_hash=(
+                        manifest_provenance.get("protocol_hash")
+                        if isinstance(manifest_provenance, dict)
+                        else None
+                    ),
+                )
+                self.journal.append(
+                    "dataset_manifest_written",
+                    dataset_fingerprint=manifest["dataset_fingerprint"],
+                    dataset_purpose=manifest.get("dataset_purpose"),
+                )
         finally:
             close = getattr(backend, "close", None)
             if close is not None:

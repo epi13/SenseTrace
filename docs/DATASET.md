@@ -187,3 +187,20 @@ Every published or compared dataset should have a stable fingerprint derived fro
 ## Sensitive data policy
 
 Initial and baseline datasets use generated random target patterns. Do not collect unrelated application memory, credentials, personal data, or third-party content for SenseTrace experiments.
+
+# Phase 2 controlled mock datasets
+
+The `controlled_mock` acquisition backend uses the ordinary SenseTrace NPZ
+shards and dataset manifest. Its manifest has dataset purpose
+`phase2_mock_controlled`, protocol identity
+`controlled-memory-interface-mock-v1`, and provenance identifying the hashed
+mock controller configuration. Every row retains the opaque command token,
+command sequence, trigger, command/sampling clocks, trace channel identity,
+and an explicit `controlled_topology_source=unavailable` value.
+
+This backend is a contract emulator only. It does not know or infer physical
+DRAM topology, and `validate_physical_evidence_dataset()` rejects its manifest
+because physical controlled-hardware evidence requires a distinct interface
+identity, purpose, and hardware-sourced topology. A successful dry-run proves
+software/evidence propagation and deterministic recovery, not a physical
+measurement channel.

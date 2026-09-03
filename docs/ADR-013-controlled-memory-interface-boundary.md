@@ -29,6 +29,9 @@ Phase 2 work starts from `src/sensetrace/acquisition/controlled.py`:
   command-sequence identity, and at least one `ControlledTraceChannel` with
   channel kind, units, clock, and calibration identity. A future implementation
   cannot return an anonymous waveform and call it controlled evidence.
+  Required identities reject placeholder values (`""`, `"unavailable"`,
+  `"unknown"`); synthetic/mock evidence uses explicit synthetic identities
+  rather than generic missing-value placeholders.
 - `ControlledMemoryTopology` carries row/bank/channel/rank/device/DIMM fields
   that are valid **only** with `source="controlled_hardware"`. Any concrete
   topology field with any other source raises; deriving topology from a

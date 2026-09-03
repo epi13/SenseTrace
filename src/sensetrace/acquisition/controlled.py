@@ -155,16 +155,15 @@ class ControlledTraceChannel:
     calibration_id: str
 
     def validate(self) -> None:
-        if any(
-            not value
-            for value in (
-                self.channel_id,
-                self.units,
-                self.sampling_clock_id,
-                self.calibration_id,
-            )
-        ):
-            raise ValueError("controlled trace channel identity is incomplete")
+        required = {
+            "channel_id": self.channel_id,
+            "units": self.units,
+            "sampling_clock_id": self.sampling_clock_id,
+            "calibration_id": self.calibration_id,
+        }
+        missing = sorted(key for key, value in required.items() if _is_missing_identity(value))
+        if missing:
+            raise ValueError(f"controlled trace channel identity is missing {missing}")
 
 
 @dataclass(frozen=True)
@@ -181,23 +180,24 @@ class ControlledTraceAcquisition:
     command_sequence_id: str
 
     def validate(self) -> None:
-        if not self.acquisition_id or not self.trigger_id or not self.hardware_clock_id:
-            raise ValueError("controlled trace acquisition identity is incomplete")
+        required_identities = {
+            "acquisition_id": self.acquisition_id,
+            "trigger_id": self.trigger_id,
+            "hardware_clock_id": self.hardware_clock_id,
+            "refresh_relationship": self.refresh_relationship,
+            "command_sequence_id": self.command_sequence_id,
+        }
+        missing = sorted(
+            key for key, value in required_identities.items() if _is_missing_identity(value)
+        )
+        if missing:
+            raise ValueError(f"controlled trace acquisition identity is missing {missing}")
         if self.trigger_hardware_ticks < 0 or self.timing_uncertainty_ticks < 0:
             raise ValueError("controlled trace timing values must be non-negative")
         if not self.channels:
             raise ValueError(
                 "controlled trace acquisition requires at least one identified channel"
             )
-        trace_provenance = {
-            "refresh_relationship": self.refresh_relationship,
-            "command_sequence_id": self.command_sequence_id,
-        }
-        missing = sorted(
-            key for key, value in trace_provenance.items() if _is_missing_identity(value)
-        )
-        if missing:
-            raise ValueError(f"controlled trace provenance is missing {missing}")
         for channel in self.channels:
             channel.validate()
 
@@ -349,7 +349,7 @@ class SyntheticMockControlledBackend(AcquisitionBackend):
                 acquisition_configuration_hash=self.controller_config_hash,
                 trigger_identity=f"mock-trigger-{index:012d}",
                 timing_provenance="synthetic index domain; no hardware timing",
-                refresh_relationship="synthetic/unavailable",
+                refresh_relationship="synthetic/no-refresh-schedule",
                 command_provenance="synthetic operation identity; no DRAM command issued",
             )
             provenance.validate()
@@ -367,7 +367,7 @@ class SyntheticMockControlledBackend(AcquisitionBackend):
                 hardware_clock_id="mock-index-clock",
                 timing_uncertainty_ticks=0,
                 channels=(channel,),
-                refresh_relationship="synthetic/unavailable",
+                refresh_relationship="synthetic/no-refresh-schedule",
                 command_sequence_id="synthetic-no-command",
             )
             yield Sample(

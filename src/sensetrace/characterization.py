@@ -46,6 +46,9 @@ DEFAULT_ALLOCATION_WARMUP: dict[str, Any] = {
     "dummy_loads": 0,
 }
 
+WARMUP_NATIVE_PATH = "native_cached_load"
+WARMUP_COMPLIANT_STATUS = "complete"
+
 
 def parse_allocation_warmup(config: dict[str, Any]) -> dict[str, Any]:
     """Return the frozen allocation-warmup design with fail-closed validation.
@@ -78,46 +81,118 @@ def parse_allocation_warmup(config: dict[str, Any]) -> dict[str, Any]:
 
 
 def run_allocation_warmup(
-    buffer: Any, kernel: NativeMeasurementKernel | None, warmup: dict[str, Any]
+    buffer: Any,
+    kernel: NativeMeasurementKernel | None,
+    warmup: dict[str, Any],
+    *,
+    allow_python_fallback: bool = False,
 ) -> dict[str, Any]:
-    """Execute the frozen warmup on a fresh allocation; never inside a PMU window."""
+    """Execute the frozen warmup on a fresh allocation; never inside a PMU window.
 
-    if not warmup.get("enabled", False):
-        return {"enabled": False, "status": "disabled"}
-    provenance: dict[str, Any] = {"enabled": True}
-    if warmup.get("touch_pages", True):
+    Requested design and executed behavior are recorded separately. The frozen
+    multiboot-v2 gate requires observed native execution
+    (``status == "complete"`` with ``path == "native_cached_load"``); any
+    Python fallback, unavailable kernel, failure, or partial execution is
+    explicit and never masquerades as compliant. Exploratory callers may pass
+    ``allow_python_fallback=True`` to retain the legacy fallback path, which
+    is then labeled ``fallback_complete`` and rejected by the v2 validator.
+    """
+
+    requested = {
+        "enabled": bool(warmup.get("enabled", False)),
+        "touch_pages": bool(warmup.get("touch_pages", True)),
+        "dummy_loads": int(warmup.get("dummy_loads", 0)),
+    }
+    if not requested["enabled"]:
+        return {"enabled": False, "status": "disabled", "requested": requested}
+    provenance: dict[str, Any] = {"enabled": True, "requested": requested}
+    if requested["touch_pages"]:
         touch = buffer.warmup_touch()
         provenance["page_touch"] = touch
     else:
         provenance["page_touch"] = {"status": "skipped"}
-    requested = int(warmup.get("dummy_loads", 0))
+    dummy_requested = requested["dummy_loads"]
     executed = 0
     path = "none_requested"
-    if requested > 0:
+    status = WARMUP_COMPLIANT_STATUS
+    error: str | None = None
+    if dummy_requested > 0:
         address = int(buffer.address)
-        if kernel is not None:
-            try:
-                kernel.measure_cached(address, requested)
-                executed = requested
-                path = "native_cached_load"
-            except (OSError, ValueError):
-                for index in range(requested):
+        if kernel is None:
+            if allow_python_fallback:
+                for index in range(dummy_requested):
                     buffer.read(index % buffer.word_count)
-                executed = requested
-                path = "python_read_fallback_after_native_failure"
+                executed = dummy_requested
+                path = "python_read_fallback_no_native_kernel"
+                status = "fallback_complete"
+            else:
+                path = "unavailable_no_native_kernel"
+                status = "unavailable"
+                error = "native measurement kernel is unavailable for frozen warmup"
         else:
-            for index in range(requested):
-                buffer.read(index % buffer.word_count)
-            executed = requested
-            path = "python_read_fallback_no_native_kernel"
+            try:
+                kernel.measure_cached(address, dummy_requested)
+                executed = dummy_requested
+                path = WARMUP_NATIVE_PATH
+                status = WARMUP_COMPLIANT_STATUS
+            except (OSError, ValueError) as exc:
+                if allow_python_fallback:
+                    for index in range(dummy_requested):
+                        buffer.read(index % buffer.word_count)
+                    executed = dummy_requested
+                    path = "python_read_fallback_after_native_failure"
+                    status = "fallback_complete"
+                    error = str(exc)
+                else:
+                    path = "failed_native_warmup"
+                    status = "failed"
+                    error = str(exc)
     provenance["dummy_loads"] = {
-        "requested": requested,
+        "requested": dummy_requested,
         "executed": executed,
         "path": path,
     }
-    provenance["status"] = "complete"
+    if error is not None:
+        provenance["error"] = error
+    provenance["status"] = status
     provenance["pmu_window"] = "none; warmup runs outside any operation-scoped perf window"
     return provenance
+
+
+def is_native_warmup_compliant(
+    executed: dict[str, Any] | None, required: dict[str, Any]
+) -> tuple[bool, str]:
+    """Check executed warmup provenance against the frozen required design."""
+
+    if executed is None or not isinstance(executed, dict):
+        return False, "executed warmup provenance is missing"
+    if not required.get("enabled", False):
+        return False, "frozen design requires warmup enabled"
+    if not executed.get("enabled", False):
+        return False, "executed warmup is not enabled"
+    if executed.get("status") != WARMUP_COMPLIANT_STATUS:
+        return False, f"executed warmup status is {executed.get('status')!r}, not 'complete'"
+    requested = executed.get("requested")
+    if not isinstance(requested, dict) or any(
+        requested.get(key) != required.get(key) for key in ("enabled", "touch_pages", "dummy_loads")
+    ):
+        return False, f"executed requested design {requested!r} differs from frozen {required!r}"
+    dummy = executed.get("dummy_loads")
+    if not isinstance(dummy, dict):
+        return False, "executed dummy-load provenance is missing"
+    if dummy.get("path") != WARMUP_NATIVE_PATH:
+        return False, f"executed warmup path is {dummy.get('path')!r}, not native"
+    if dummy.get("requested") != required.get("dummy_loads") or dummy.get("executed") != dummy.get(
+        "requested"
+    ):
+        return False, "executed dummy-load counts do not match the frozen request"
+    touch = executed.get("page_touch")
+    if required.get("touch_pages", True):
+        if not isinstance(touch, dict) or not isinstance(touch.get("words_touched"), int):
+            return False, "executed page-touch provenance is missing"
+        if touch["words_touched"] < 1:
+            return False, "executed page-touch touched no words"
+    return True, "executed native warmup matches the frozen design"
 
 
 def _write_json(path: Path, value: Any) -> None:
@@ -1034,6 +1109,16 @@ def run_measurement_primitive_characterization(
 ) -> dict[str, Any]:
     """Run a small non-inference characterization campaign from a primitive contract."""
 
+    from .witness.protocol import witness_protocol
+
+    witness = witness_protocol(config)
+    if witness.get("requirement") == "required":
+        raise RuntimeError(
+            "witness.requirement='required' cannot be satisfied by characterization: "
+            "this execution path collects no witness session; collect witness evidence "
+            "through the bounded pilot or a witness-capable runner instead of "
+            "downgrading 'required' to 'optional'"
+        )
     kernel = NativeMeasurementKernel.load()
     primitive = _primitive_from_config(config, kernel)
     runtime = primitive.characterization_runtime()
@@ -1096,6 +1181,9 @@ def run_measurement_primitive_characterization(
             # outside any PMU window before the randomized control order runs.
             # Identical for every control in this replicate; provenance is
             # retained per replicate and hashed into the protocol via config.
+            # Strict: Python fallback never satisfies a dummy-load request here;
+            # exploratory callers may use run_allocation_warmup directly with
+            # allow_python_fallback=True, but that provenance is non-compliant.
             if matched_backends is not None and warmup.get("enabled", False):
                 shared = getattr(primitive, "_characterization_shared_buffers", {}).get(seed)
                 if shared is not None:
@@ -1105,15 +1193,27 @@ def run_measurement_primitive_characterization(
                 else:
                     warmup_by_replicate[replicate_id] = {
                         "enabled": True,
+                        "requested": dict(warmup),
                         "status": "skipped_no_shared_allocation",
+                        "dummy_loads": {
+                            "requested": int(warmup.get("dummy_loads", 0)),
+                            "executed": 0,
+                            "path": "skipped_no_shared_allocation",
+                        },
                     }
             elif warmup.get("enabled", False):
                 warmup_by_replicate[replicate_id] = {
                     "enabled": True,
-                    "status": "per_backend_path",
+                    "requested": dict(warmup),
+                    "status": "per_backend_collecting",
+                    "controls": {},
                 }
             else:
-                warmup_by_replicate[replicate_id] = {"enabled": False, "status": "disabled"}
+                warmup_by_replicate[replicate_id] = {
+                    "enabled": False,
+                    "status": "disabled",
+                    "requested": dict(warmup),
+                }
             for acquisition_order_index, control_index in enumerate(order):
                 control = controls[control_index]
                 owned_backend: Any | None = None
@@ -1130,7 +1230,13 @@ def run_measurement_primitive_characterization(
                         if warmup.get("enabled", False):
                             owned_buffer = getattr(backend, "_buffer", None)
                             if owned_buffer is not None:
-                                run_allocation_warmup(owned_buffer, kernel, warmup)
+                                control_provenance = run_allocation_warmup(
+                                    owned_buffer, kernel, warmup
+                                )
+                                controls_map = warmup_by_replicate[replicate_id].setdefault(
+                                    "controls", {}
+                                )
+                                controls_map[control.name] = control_provenance
                     record: dict[str, Any] = _collect_backend(backend)
                     if owned_backend is not None:
                         owned_backend = None
@@ -1293,6 +1399,16 @@ def run_measurement_primitive_characterization(
         "protocol": {**protocol, "protocol_hash": protocol_hash},
         "kernel": kernel.provenance(),
         "capabilities": primary_records[0].get("capabilities", {}) if primary_records else {},
+        "witness_evidence": {
+            "requirement": witness.get("requirement", "optional"),
+            "collection": "not_collected",
+            "session": None,
+            "session_status": None,
+            "policy": (
+                "characterization collects no witness session; 'required' is rejected "
+                "at runtime; 'disabled' means no witness evidence is part of this gate"
+            ),
+        },
         "controls": {
             "by_control": {
                 name: _control_summary(records) for name, records in records_by_control.items()

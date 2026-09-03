@@ -347,7 +347,11 @@ def main(argv: list[str] | None = None) -> int:
             raise ValueError(
                 f"frozen protocol requires {expected_boots} boot reports; got {len(reports)}"
             )
-        _json(write_combined_report(reports, args.output, expected_boots=expected_boots))
+        _json(
+            write_combined_report(
+                reports, args.output, expected_boots=expected_boots, frozen_config=config
+            )
+        )
         return 0
     if args.command == "witness" and args.witness_command == "capabilities":
         from .witness import discover_witness_capabilities

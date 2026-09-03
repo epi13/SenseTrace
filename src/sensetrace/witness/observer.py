@@ -15,7 +15,12 @@ from pathlib import Path
 from typing import Any
 
 from .models import ClockAlignment, WitnessEvent, WitnessHookCapability, WitnessSession
-from .program import HOOK_TRACEPOINTS, program_manifest, render_bpftrace_program
+from .program import (
+    HOOK_TRACEPOINTS,
+    program_manifest,
+    render_bpftrace_program,
+    render_bpftrace_program_for_targets,
+)
 
 KERNEL_CLOCK_DOMAIN = "kernel bpf_ktime_get_ns monotonic nanoseconds"
 USER_CLOCK_DOMAIN = "userspace CLOCK_MONOTONIC nanoseconds"
@@ -193,11 +198,19 @@ class BpftraceWitnessObserver:
         requested_hooks: tuple[str, ...] | None = None,
         use_sudo: bool = False,
         bpftrace_path: str | None = None,
+        target_tids: tuple[int, ...] | None = None,
     ) -> None:
         self.session_id = session_id
         self.experiment_id = experiment_id
         self.target_pid = int(target_pid)
         self.target_tid = int(target_tid) if target_tid is not None else self.target_pid
+        if target_tids is not None:
+            observed = tuple(sorted({int(tid) for tid in target_tids}))
+            if not observed or any(tid <= 0 for tid in observed):
+                raise ValueError("target_tids must be non-empty positive thread IDs")
+            self.target_tids: tuple[int, ...] = observed
+        else:
+            self.target_tids = (self.target_tid,)
         self.output_dir = Path(output_dir)
         self.requested_hooks = requested_hooks or tuple(HOOK_TRACEPOINTS)
         self.use_sudo = use_sudo
@@ -230,7 +243,14 @@ class BpftraceWitnessObserver:
         self._attached = tuple(
             name for name in self.requested_hooks if by_name[name]["status"] == "supported"
         )
-        self._source = render_bpftrace_program(self.session_id, self._attached)
+        if len(self.target_tids) == 1:
+            self._source = render_bpftrace_program(self.session_id, self._attached)
+            extra_args = [str(self.target_pid), str(self.target_tids[0])]
+        else:
+            self._source = render_bpftrace_program_for_targets(
+                self.session_id, self._attached, target_tids=self.target_tids
+            )
+            extra_args = [str(self.target_pid)]
         self.output_dir.mkdir(parents=True, exist_ok=True)
         source_path = self.output_dir / "observer.bt"
         source_path.write_text(self._source, encoding="utf-8")
@@ -242,8 +262,7 @@ class BpftraceWitnessObserver:
             "-o",
             str(self.event_path),
             str(source_path),
-            str(self.target_pid),
-            str(self.target_tid),
+            *extra_args,
         ]
         if self.use_sudo:
             command = ["sudo", "-n", *command]
@@ -392,7 +411,16 @@ class BpftraceWitnessObserver:
             **self._capabilities,
             "program_sha256": source_hash,
             "source_sha256": source_hash,
-            "program_manifest": program_manifest(self.session_id, self._attached),
+            "program_manifest": {
+                **program_manifest(self.session_id, self._attached),
+                "target_tids": list(self.target_tids),
+                "target_filtering": (
+                    "single TID via $2"
+                    if len(self.target_tids) == 1
+                    else "multiple TIDs embedded literally; $1 remains target PID"
+                ),
+            },
+            "target_tids": list(self.target_tids),
             "loaded_program_identifiers": "not_collected_by_bpftrace_backend",
             "observer_process_id": self._process.pid if self._process is not None else None,
             "attached_tracepoints": [HOOK_TRACEPOINTS[name] for name in self._attached],

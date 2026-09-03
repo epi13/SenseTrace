@@ -48,11 +48,16 @@ authorized by this result.
 
 The single authorized follow-up is frozen but not yet executed:
 `configs/worker03-multiboot-scoped-perf-warmup.example.yaml`
-(characterization-v3 `31fff040…`, multiboot-v2 `80c116fa…`) repeats the same
+(characterization-v3, multiboot-v2) repeats the same
 three-boot design with a fixed allocation warmup (deterministic page touch
 plus 64 native dummy loads outside any PMU window), the identical null rule
 and decision tree, witness disabled, and acquisition-order PMU diagnostics
-retained without gate effect. Run it with:
+retained without gate effect. The v2 gate requires observed native warmup
+compliance (`status complete` with `path native_cached_load` per replicate),
+not merely configured intent: Python fallback, unavailable kernel, failed or
+partial warmup, and missing executed provenance all fail closed to C, and the
+combiner validates each boot report against the authoritative frozen protocol
+before checking cross-boot agreement. Run it with:
 
 ```bash
 python3 -m sensetrace.cli host characterize-multiboot worker-03 \

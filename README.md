@@ -246,6 +246,12 @@ the single predeclared warm-up follow-up is now frozen as
 (`measurement-primitive-characterization-v3` plus
 `measurement-primitive-multiboot-v2`: fixed page-touch plus 64 native dummy
 loads outside any PMU window, same null rule and decision tree, witness
-disabled, order-0 diagnostics retained without gate effect). Execute that
+disabled, order-0 diagnostics retained without gate effect). The v2 gate
+requires observed native warmup execution per replicate; Python fallback
+cannot satisfy it, and the combiner validates each report against the
+authoritative frozen protocol (requested, executed, and compliance states are
+separate). Witness `required` is a runtime guarantee rejected by paths that
+collect no session. Controlled-hardware records reject placeholder required
+identities. Execute that
 bounded three-boot repeat before any larger-N or hidden-bit work, else
 continue controlled-memory-interface instrumentation (see ADR-013).

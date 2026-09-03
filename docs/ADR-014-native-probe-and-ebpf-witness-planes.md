@@ -68,6 +68,13 @@ protocol must explicitly say whether witness evidence is disabled, optional,
 or required and how analysis uses it. Old evidence remains immutable and is
 not reinterpreted as if a witness had been present.
 
+`required` is a runtime guarantee, not descriptive metadata: execution paths
+that collect no witness session reject it fail-closed instead of downgrading
+to `optional`. The pilot positive control churns on a watched worker TID and
+the observer covers both main and worker TIDs with literal TID predicates, so
+scheduler hooks are actually exercised; the pilot remains bounded,
+diagnostic-only, and never auto-vetoes samples.
+
 ## Claim boundary
 
 eBPF does **not** inherently provide direct DRAM commands; ACTIVATE, PRECHARGE,

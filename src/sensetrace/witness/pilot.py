@@ -28,11 +28,25 @@ PILOT_HOOKS = (
 )
 
 
-def _positive_control(stop: threading.Event, ready: threading.Event) -> None:
-    """Generate bounded, process-owned page faults and scheduler activity."""
+def _positive_control(
+    stop: threading.Event,
+    tid_ready: threading.Event,
+    churn_start: threading.Event,
+    tid_box: list[int],
+) -> None:
+    """Generate bounded, process-owned page faults and scheduler activity.
 
+    Runs on the worker thread whose TID is observed by the witness program.
+    Memory churn (first-touch faults/allocations) is process-wide and visible
+    via the PID filter; scheduler yields run on this watched TID so the
+    scheduler hooks are actually exercised. Waits for ``churn_start`` so the
+    baseline sample observes an idle worker.
+    """
+
+    tid_box.append(threading.get_native_id())
+    tid_ready.set()
+    churn_start.wait(timeout=5)
     pages = mmap.mmap(-1, 4 * 1024 * 1024)
-    ready.set()
     try:
         while not stop.is_set():
             for offset in range(0, len(pages), mmap.PAGESIZE):
@@ -75,17 +89,48 @@ def run_witness_pilot(
             json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8"
         )
         return report
+    main_tid = threading.get_native_id()
+    stop = threading.Event()
+    tid_ready = threading.Event()
+    churn_start = threading.Event()
+    tid_box: list[int] = []
+    worker = threading.Thread(
+        target=_positive_control, args=(stop, tid_ready, churn_start, tid_box), daemon=True
+    )
+    worker.start()
+    if not tid_ready.wait(timeout=5) or not tid_box:
+        stop.set()
+        worker.join(timeout=3)
+        report = {
+            "schema": "sensetrace.ebpf-witness-pilot.v1",
+            "status": "observer_startup_failed",
+            "experiment_id": experiment_id,
+            "reason": "positive-control worker TID was unavailable",
+            "question": "Does kernel-side witness telemetry provide useful context for native memory-probe measurements?",
+            "answer": "not_evaluable",
+            "claim_boundary": "no hardware result; positive control did not start",
+        }
+        (destination / "pilot-report.json").write_text(
+            json.dumps(report, indent=2, sort_keys=True, default=str) + "\n", encoding="utf-8"
+        )
+        return report
+    worker_tid = int(tid_box[0])
+    observed_tids = tuple(sorted({main_tid, worker_tid}))
     observer = BpftraceWitnessObserver(
         session_id=observer_id,
         experiment_id=experiment_id,
         target_pid=os.getpid(),
-        target_tid=threading.get_native_id(),
+        target_tid=main_tid,
+        target_tids=observed_tids,
         output_dir=destination / "observer",
         requested_hooks=PILOT_HOOKS,
         use_sudo=use_sudo,
     )
     operational = observer.start()
     if not operational:
+        stop.set()
+        churn_start.set()
+        worker.join(timeout=3)
         session = observer.stop()
         report = {
             "schema": "sensetrace.ebpf-witness-pilot.v1",
@@ -117,11 +162,7 @@ def run_witness_pilot(
             address=address,
         )
     )
-    stop = threading.Event()
-    ready = threading.Event()
-    worker = threading.Thread(target=_positive_control, args=(stop, ready), daemon=True)
-    worker.start()
-    ready.wait(timeout=2)
+    churn_start.set()
     try:
         samples.append(
             kernel.execute(
@@ -131,7 +172,10 @@ def run_witness_pilot(
                     operation="flushed_load",
                     parameters={
                         "repetitions": repetitions,
-                        "positive_control": "concurrent 4 MiB first-touch churn and sched_yield",
+                        "positive_control": (
+                            "concurrent 4 MiB first-touch churn and sched_yield "
+                            "on watched worker TID"
+                        ),
                     },
                     correlation_id="positive-control-native-sample",
                 ),
@@ -167,8 +211,18 @@ def run_witness_pilot(
         "correlation": correlation,
         "positive_control": {
             "predeclared": True,
-            "condition": "concurrent process-owned 4 MiB page first-touch churn plus scheduler yields",
+            "condition": (
+                "concurrent process-owned 4 MiB page first-touch churn plus "
+                "scheduler yields on watched worker TID"
+            ),
             "purpose": "verify confounder visibility, not create or test a DRAM claim",
+            "observed_tids": list(observed_tids),
+            "main_tid": main_tid,
+            "worker_tid": worker_tid,
+            "scheduler_validation": (
+                "sched_yield runs on the watched worker TID so scheduler hooks "
+                "are actually exercised; memory churn is process-wide via PID filter"
+            ),
         },
         "interpretation": (
             "Witness events are contextual confounder evidence. They are not direct DRAM evidence "

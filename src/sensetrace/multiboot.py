@@ -25,6 +25,7 @@ import numpy as np
 from .characterization import (
     DEFAULT_NULL_STABILITY_RULE,
     _null_stability_analysis,
+    is_native_warmup_compliant,
     parse_allocation_warmup,
 )
 from .hashing import sha256_json
@@ -37,6 +38,7 @@ MULTIBOOT_REQUIRED_WARMUP: dict[str, object] = {
     "touch_pages": True,
     "dummy_loads": 64,
 }
+REQUIRED_CHARACTERIZATION_VERSION = "measurement-primitive-characterization-v3"
 
 
 def multiboot_protocol(config: dict[str, Any]) -> dict[str, Any]:
@@ -154,10 +156,140 @@ def _null_replicate_medians(report: dict[str, Any]) -> list[float]:
     return values
 
 
+def validate_report_against_frozen(
+    report: dict[str, Any],
+    *,
+    frozen_config: dict[str, Any],
+    frozen_characterization_hash: str,
+    expected_replicates: int,
+) -> list[str]:
+    """Validate one boot report against the authoritative frozen v2 protocol.
+
+    Returns a list of violation descriptions; empty means compliant. Never
+    guesses: missing provenance is a violation.
+    """
+
+    from .characterization import characterization_protocol
+
+    violations: list[str] = []
+    frozen_characterization = characterization_protocol(frozen_config)
+    frozen_design = frozen_characterization.get("sample_design", {})
+    protocol = report.get("protocol", {})
+    if not isinstance(protocol, dict):
+        return ["report protocol section is missing"]
+    if protocol.get("version") != REQUIRED_CHARACTERIZATION_VERSION:
+        violations.append(
+            f"characterization version is {protocol.get('version')!r}, "
+            f"required {REQUIRED_CHARACTERIZATION_VERSION!r}"
+        )
+    if protocol.get("protocol_hash", "unavailable") != frozen_characterization_hash:
+        violations.append("protocol hash does not match the authoritative frozen hash")
+    design = protocol.get("sample_design", {})
+    if not isinstance(design, dict):
+        violations.append("report sample_design is missing")
+        design = {}
+    for field in ("location_count", "trials_per_location", "replicates"):
+        expected = frozen_design.get(field)
+        if design.get(field) != expected:
+            violations.append(
+                f"sample_design.{field} is {design.get(field)!r}, frozen requires {expected!r}"
+            )
+    if design.get("weak_positive_control_cycles") != frozen_design.get(
+        "weak_positive_control_cycles"
+    ):
+        violations.append("weak_positive_control_cycles differ from the frozen design")
+    if design.get("scoped_perf_event") != MULTIBOOT_CANDIDATE_EVENT:
+        violations.append(
+            f"scoped_perf_event is {design.get('scoped_perf_event')!r}, "
+            f"frozen requires {MULTIBOOT_CANDIDATE_EVENT!r}"
+        )
+    if design.get("allocation_warmup") != dict(MULTIBOOT_REQUIRED_WARMUP):
+        violations.append(
+            f"requested warmup design is {design.get('allocation_warmup')!r}, "
+            f"frozen requires {dict(MULTIBOOT_REQUIRED_WARMUP)!r}"
+        )
+    witness = protocol.get("witness", None)
+    if not isinstance(witness, dict):
+        violations.append("witness policy is missing from report protocol")
+    elif witness.get("requirement") != "disabled":
+        violations.append(
+            f"witness.requirement is {witness.get('requirement')!r}, frozen requires 'disabled'"
+        )
+    evidence = report.get("witness_evidence", None)
+    if not isinstance(evidence, dict):
+        violations.append("witness_evidence provenance is missing")
+    else:
+        if evidence.get("requirement") != "disabled":
+            violations.append("witness_evidence requirement is not 'disabled'")
+        if evidence.get("collection") != "not_collected":
+            violations.append("witness_evidence shows collection for a disabled gate")
+        if evidence.get("session") is not None:
+            violations.append("witness_evidence contains a session for a disabled gate")
+    # Null rule must be unchanged.
+    null_rule = protocol.get("analysis", {}).get("null_stability", None)
+    if not isinstance(null_rule, dict):
+        violations.append("null stability rule is missing from report protocol")
+    else:
+        for key, default in DEFAULT_NULL_STABILITY_RULE.items():
+            if null_rule.get(key) != default:
+                violations.append(f"null rule {key!r} differs from the frozen rule")
+    # Executed warmup must confirm native compliance per replicate.
+    warmup_section = report.get("controls", {}).get("allocation_warmup", None)
+    if not isinstance(warmup_section, dict):
+        violations.append("executed allocation_warmup provenance is missing")
+    else:
+        by_replicate = warmup_section.get("by_replicate", None)
+        if not isinstance(by_replicate, dict) or len(by_replicate) != expected_replicates:
+            violations.append(
+                "executed warmup by_replicate is missing or has wrong replicate count"
+            )
+        else:
+            required = dict(MULTIBOOT_REQUIRED_WARMUP)
+            for replicate_id in sorted(by_replicate):
+                compliant, reason = is_native_warmup_compliant(
+                    by_replicate.get(replicate_id), required
+                )
+                if not compliant:
+                    violations.append(f"warmup {replicate_id} non-compliant: {reason}")
+    # Explicit multiplex telemetry must be present and clean.
+    oracle = report.get("controls", {}).get("operation_scoped_perf_oracle", None)
+    if not isinstance(oracle, dict):
+        violations.append("operation_scoped_perf_oracle is missing")
+    else:
+        agreement = oracle.get("agreement", {})
+        if not isinstance(agreement, dict):
+            violations.append("oracle agreement is missing")
+        else:
+            if agreement.get("multiplex_telemetry_present") is not True:
+                violations.append("multiplex telemetry is not present")
+            if agreement.get("multiplex_telemetry_complete") is not True:
+                violations.append("multiplex telemetry is incomplete")
+            if agreement.get("multiplex_veto") is not False:
+                violations.append("multiplex veto is not clean")
+    boot_section = report.get("controls", {}).get("boot_dependence", {})
+    boots = boot_section.get("unique_boots", []) if isinstance(boot_section, dict) else []
+    if not (
+        isinstance(boots, list)
+        and len(boots) == 1
+        and boots[0] not in {"", None, "unavailable", "unknown"}
+    ):
+        violations.append("report does not identify exactly one genuine boot")
+    return violations
+
+
 def combine_multiboot_reports(
-    reports: list[dict[str, Any]], *, expected_boots: int
+    reports: list[dict[str, Any]],
+    *,
+    expected_boots: int,
+    frozen_config: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Combine one characterization report per genuine boot into a decision."""
+    """Combine one characterization report per genuine boot into a decision.
+
+    Inter-report agreement is necessary but not sufficient. When
+    ``frozen_config`` is supplied (the production gate path), each report is
+    additionally validated against the authoritative frozen v2 protocol; three
+    consistently wrong reports still fail closed to C.
+    """
     protocol_hashes = {
         str(report.get("protocol", {}).get("protocol_hash", "unavailable")) for report in reports
     }
@@ -234,6 +366,59 @@ def combine_multiboot_reports(
     multiplex_clean = bool(per_boot_agreement) and all(
         item.get("multiplex_veto") is False for item in per_boot_agreement
     )
+    # Authoritative frozen validation: each report must match the frozen v2
+    # protocol, not merely agree with the other reports.
+    frozen_validation: dict[str, Any] = {
+        "evaluated": False,
+        "compliant": None,
+        "frozen_characterization_hash": None,
+        "per_boot_violations": [],
+    }
+    if frozen_config is not None:
+        from .characterization import characterization_protocol
+
+        try:
+            frozen_multiboot = multiboot_protocol(frozen_config)
+            frozen_characterization = characterization_protocol(frozen_config)
+            frozen_hash = sha256_json(frozen_characterization)
+            frozen_replicates = int(frozen_multiboot["sample_design"]["replicates_per_boot"])
+            frozen_boots = int(frozen_multiboot["sample_design"]["boots"])
+        except (ValueError, KeyError) as exc:
+            frozen_validation = {
+                "evaluated": True,
+                "compliant": False,
+                "frozen_characterization_hash": None,
+                "per_boot_violations": [f"frozen config is invalid: {exc}"],
+                "expected_boots_match": False,
+            }
+            frozen_hash = "invalid"
+            frozen_replicates = 0
+            frozen_boots = 0
+        else:
+            per_boot_violations: list[dict[str, Any]] = []
+            for index, report in enumerate(reports):
+                violations = validate_report_against_frozen(
+                    report,
+                    frozen_config=frozen_config,
+                    frozen_characterization_hash=frozen_hash,
+                    expected_replicates=frozen_replicates,
+                )
+                per_boot_violations.append(
+                    {"boot_index": index, "boot_id": boot_ids[index], "violations": violations}
+                )
+            frozen_validation = {
+                "evaluated": True,
+                "compliant": bool(
+                    per_boot_violations
+                    and all(not item["violations"] for item in per_boot_violations)
+                    and expected_boots == frozen_boots
+                ),
+                "frozen_characterization_hash": frozen_hash,
+                "frozen_replicates_per_boot": frozen_replicates,
+                "frozen_boots": frozen_boots,
+                "expected_boots_match": expected_boots == frozen_boots,
+                "per_boot_violations": per_boot_violations,
+            }
     provenance_complete = bool(
         boots_distinct
         and protocol_agreement
@@ -241,13 +426,22 @@ def combine_multiboot_reports(
         and candidate_event_enforced
         and warmup_agreement
         and len(reports) == expected_boots
+        and (frozen_validation["compliant"] if frozen_validation["evaluated"] else True)
     )
     cross_boot_stable = cross_boot_stability.get("status") == "pass"
+    frozen_failed = bool(
+        frozen_validation.get("evaluated") and not frozen_validation.get("compliant")
+    )
     if not provenance_complete or not directional_every_boot:
         outcome = "C_primitive_unsuitable"
-        reason = (
-            "boot provenance incomplete or directional contrast failed in at least one genuine boot"
-        )
+        if frozen_failed:
+            reason = (
+                "frozen-protocol provenance failed: at least one boot report does not "
+                "match the authoritative multiboot-v2 protocol (see "
+                "frozen_protocol_validation.per_boot_violations)"
+            )
+        else:
+            reason = "boot provenance incomplete or directional contrast failed in at least one genuine boot"
     elif not cross_boot_stable or not multiplex_clean:
         outcome = "B_observable_available_but_oracle_weak"
         reason = (
@@ -275,6 +469,7 @@ def combine_multiboot_reports(
         "allocation_warmup_designs": warmup_designs,
         "allocation_warmup_agreement": warmup_agreement,
         "witness_requirements": witness_requirements,
+        "frozen_protocol_validation": frozen_validation,
         "boot_ids": boot_ids,
         "distinct_genuine_boot_ids": genuine_boots,
         "boots_distinct_and_genuine": boots_distinct,
@@ -294,9 +489,15 @@ def combine_multiboot_reports(
 
 
 def write_combined_report(
-    reports: list[dict[str, Any]], output: str | Path, *, expected_boots: int
+    reports: list[dict[str, Any]],
+    output: str | Path,
+    *,
+    expected_boots: int,
+    frozen_config: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    combined = combine_multiboot_reports(reports, expected_boots=expected_boots)
+    combined = combine_multiboot_reports(
+        reports, expected_boots=expected_boots, frozen_config=frozen_config
+    )
     destination = Path(output)
     destination.mkdir(parents=True, exist_ok=True)
     (destination / "multiboot-report.json").write_text(

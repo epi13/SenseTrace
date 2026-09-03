@@ -98,9 +98,13 @@ def test_warmup_touch_is_deterministic_and_complete():
 def test_run_allocation_warmup_disabled_is_explicit():
     buffer = ControlledMemoryBuffer(8, lock_memory=False)
     try:
-        assert run_allocation_warmup(buffer, None, {"enabled": False}) == {
+        provenance = run_allocation_warmup(buffer, None, {"enabled": False})
+        assert provenance["enabled"] is False
+        assert provenance["status"] == "disabled"
+        assert provenance["requested"] == {
             "enabled": False,
-            "status": "disabled",
+            "touch_pages": True,
+            "dummy_loads": 0,
         }
     finally:
         buffer.close()
@@ -110,13 +114,48 @@ def test_run_allocation_warmup_falls_back_without_native_kernel():
     buffer = ControlledMemoryBuffer(8, lock_memory=False)
     try:
         provenance = run_allocation_warmup(
-            buffer, None, {"enabled": True, "touch_pages": True, "dummy_loads": 4}
+            buffer,
+            None,
+            {"enabled": True, "touch_pages": True, "dummy_loads": 4},
+            allow_python_fallback=True,
         )
-        assert provenance["status"] == "complete"
+        assert provenance["status"] == "fallback_complete"
         assert provenance["page_touch"]["words_touched"] == 8
         assert provenance["dummy_loads"]["executed"] == 4
         assert provenance["dummy_loads"]["path"] == "python_read_fallback_no_native_kernel"
         assert "outside any operation-scoped perf window" in provenance["pmu_window"]
+    finally:
+        buffer.close()
+
+
+def test_run_allocation_warmup_fails_closed_without_native_kernel_by_default():
+    buffer = ControlledMemoryBuffer(8, lock_memory=False)
+    try:
+        provenance = run_allocation_warmup(
+            buffer, None, {"enabled": True, "touch_pages": True, "dummy_loads": 4}
+        )
+        assert provenance["status"] == "unavailable"
+        assert provenance["dummy_loads"]["path"] == "unavailable_no_native_kernel"
+        assert provenance["dummy_loads"]["executed"] == 0
+    finally:
+        buffer.close()
+
+
+def test_run_allocation_warmup_fails_closed_on_native_failure_by_default():
+    class FailingKernel:
+        def measure_cached(self, address, repetitions, extra_delay_cycles=0):
+            raise OSError("native warmup failed")
+
+    buffer = ControlledMemoryBuffer(8, lock_memory=False)
+    try:
+        provenance = run_allocation_warmup(
+            buffer,
+            FailingKernel(),  # type: ignore[arg-type]
+            {"enabled": True, "touch_pages": True, "dummy_loads": 4},
+        )
+        assert provenance["status"] == "failed"
+        assert provenance["dummy_loads"]["path"] == "failed_native_warmup"
+        assert provenance["dummy_loads"]["executed"] == 0
     finally:
         buffer.close()
 

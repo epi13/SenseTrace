@@ -1050,7 +1050,9 @@ class RemoteHost:
             json.loads((local_root / f"boot-{index:02d}" / "metrics.json").read_text())
             for index in range(boots)
         ]
-        combined = combine_multiboot_reports(reports, expected_boots=boots)
+        combined = combine_multiboot_reports(
+            reports, expected_boots=boots, frozen_config=parsed_config
+        )
         (local_root / "multiboot-report.json").write_text(
             json.dumps(combined, indent=2, sort_keys=True, default=str) + "\n",
             encoding="utf-8",

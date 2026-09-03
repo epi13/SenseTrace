@@ -877,14 +877,13 @@ class RemoteHost:
         except OSError as exc:
             raise RuntimeError(f"cannot read multiboot config: {exc}") from exc
         config_hash = hashlib.sha256(config_text.encode("utf-8")).hexdigest()
-        try:
-            frozen = multiboot_protocol_hash(
-                __import__("yaml").safe_load(config_text)
-                if config_text.lstrip().startswith(("host", "experiment", "%"))
-                else {}
+        parsed_config = __import__("yaml").safe_load(config_text)
+        frozen_boots = int(parsed_config.get("characterization", {}).get("multiboot_boots", 0))
+        if boots != frozen_boots:
+            raise ValueError(
+                f"CLI boot count {boots} disagrees with frozen protocol boot count {frozen_boots}"
             )
-        except Exception:
-            frozen = "unparsable-locally; worker protocol_hash governs"
+        frozen = multiboot_protocol_hash(parsed_config)
         entries: list[dict[str, Any]] = []
         seen_boot_ids: set[str] = set()
         if manifest_path.exists():

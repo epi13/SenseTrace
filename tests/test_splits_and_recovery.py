@@ -450,6 +450,4 @@ def test_hierarchy_audit_detects_renamed_but_equivalent_groupings():
         "renamed_level": {"status": "available", "split": second},
     }
     audit = validate_phase1a_split_hierarchy(metadata, hierarchy)
-    assert ["location_level", "renamed_level"] in audit[
-        "identical_grouping_equivalence_relations"
-    ]
+    assert ["location_level", "renamed_level"] in audit["identical_grouping_equivalence_relations"]

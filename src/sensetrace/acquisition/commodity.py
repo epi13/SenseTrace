@@ -99,6 +99,29 @@ class ControlledMemoryBuffer:
     def read(self, index: int) -> int:
         return int(self._words[index % self.word_count])
 
+    def warmup_touch(self, *, pattern_base: int = 0x9E3779B97F4A7C15) -> dict[str, object]:
+        """Deterministically fault and touch every word before measured acquisition.
+
+        Uses a fixed seed-independent pattern so warmup cannot encode replicate
+        labels or seeds into the allocation. Returns provenance for the report.
+        """
+
+        words_touched = 0
+        checksum = 0
+        for index in range(self.word_count):
+            value = (pattern_base ^ (index * 0x9E3779B1)) & 0xFFFFFFFFFFFFFFFF
+            self._words[index] = ctypes.c_uint64(value).value
+            observed = int(self._words[index])
+            checksum ^= observed
+            words_touched += 1
+        return {
+            "words_touched": words_touched,
+            "bytes_touched": self.byte_count,
+            "pattern_base_hex": hex(pattern_base),
+            "checksum_hex": hex(checksum & 0xFFFFFFFFFFFFFFFF),
+            "touch_method": "deterministic write plus read-back of every word",
+        }
+
     def close(self) -> None:
         if self.locked:
             try:

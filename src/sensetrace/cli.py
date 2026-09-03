@@ -121,6 +121,20 @@ def build_parser() -> argparse.ArgumentParser:
     )
     multiboot.add_argument("--inputs", nargs="+", required=True)
     multiboot.add_argument("--output", required=True)
+    multiboot.add_argument(
+        "--config",
+        required=True,
+        help="frozen multiboot configuration; authoritative for expected boot count",
+    )
+
+    witness = sub.add_parser("witness", help="inspect or run the optional eBPF witness plane")
+    witness_sub = witness.add_subparsers(dest="witness_command", required=True)
+    witness_capabilities = witness_sub.add_parser("capabilities")
+    witness_capabilities.add_argument("--hooks", nargs="*")
+    witness_pilot = witness_sub.add_parser("pilot")
+    witness_pilot.add_argument("--output", required=True)
+    witness_pilot.add_argument("--sudo", action="store_true")
+    witness_pilot.add_argument("--repetitions", type=int, default=20_000)
 
     validate = sub.add_parser("validate", help="validate a dataset run directory")
     validate.add_argument("dataset")
@@ -327,7 +341,24 @@ def main(argv: list[str] | None = None) -> int:
         from .multiboot import write_combined_report
 
         reports = [json.loads(Path(path).read_text(encoding="utf-8")) for path in args.inputs]
-        _json(write_combined_report(reports, args.output))
+        config = validate_config(load_config(args.config))
+        expected_boots = int(config.get("characterization", {}).get("multiboot_boots", 0))
+        if expected_boots < 3 or len(reports) != expected_boots:
+            raise ValueError(
+                f"frozen protocol requires {expected_boots} boot reports; got {len(reports)}"
+            )
+        _json(write_combined_report(reports, args.output, expected_boots=expected_boots))
+        return 0
+    if args.command == "witness" and args.witness_command == "capabilities":
+        from .witness import discover_witness_capabilities
+
+        hooks = tuple(args.hooks) if args.hooks else None
+        _json(discover_witness_capabilities(hooks))
+        return 0
+    if args.command == "witness" and args.witness_command == "pilot":
+        from .witness.pilot import run_witness_pilot
+
+        _json(run_witness_pilot(args.output, use_sudo=args.sudo, repetitions=args.repetitions))
         return 0
     if args.command == "validate":
         traces, labels, metadata, shards, manifest = load_dataset(args.dataset)

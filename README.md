@@ -131,6 +131,31 @@ SenseTrace/
     └── WORKER03.md
 ```
 
+## Measurement architecture and evidence boundaries
+
+SenseTrace separates Python research orchestration, native CPU-side probes, an
+optional eBPF confounder witness, bounded privileged host instrumentation, and
+controlled external memory hardware. See
+[ADR-014](docs/ADR-014-native-probe-and-ebpf-witness-planes.md) and
+[ADR-013](docs/ADR-013-controlled-memory-interface-boundary.md).
+
+| Level | Plane | Observes or controls | Cannot establish by itself |
+| --- | --- | --- | --- |
+| 1 | Commodity userspace | Process-visible timing and ordinary interfaces | Physical DRAM commands/topology |
+| 2 | Native CPU probe | Tight timing, fences, CPU loads/cache requests, scoped PMU reads | Direct DRAM access, cells, rows, or controller commands |
+| 3 | Kernel/eBPF witness | Observable scheduling, migration, fault, allocation, reclaim/compaction context | DRAM control or topology truth |
+| 4 | Privileged host probe | Explicitly bounded privileged host information | Automatically decoded controller/DIMM topology |
+| 5 | Controlled memory hardware | Externally identified commands, timing, refresh, trigger, channels, clocks | Anything the concrete hardware contract does not actually expose |
+
+These levels describe access and claim boundaries, not universally increasing
+measurement quality. In particular, **eBPF is not a DRAM controller**. It only
+helps mark measurements that may have observable host confounders.
+
+Inspect the optional observer without loading BPF using `sensetrace witness
+capabilities`. A bounded pilot is explicit (`sensetrace witness pilot --output
+runs/witness-pilot --sudo`) and writes a new artifact rather than changing any
+historical campaign.
+
 ## Experimental phases
 
 **Phase 0 — pipeline validation**  
@@ -173,10 +198,12 @@ The purpose of the project is to characterize physical information channels in m
 - [worker-03 measurement-primitive characterization](docs/evidence/worker03-measurement-primitive-characterization-2026-09-02.md)
 - [worker-03 scoped PMU characterization](docs/evidence/worker03-scoped-perf-characterization-2026-09-02.md)
 - [worker-03 genuine multi-boot scoped-PMU characterization](docs/evidence/worker03-multiboot-scoped-perf-2026-09-03.md)
+- [worker-03 bounded eBPF witness pilot](docs/evidence/worker03-ebpf-witness-pilot-2026-09-03.md)
 - [Native-path sensitivity decision](docs/ADR-010-native-path-sensitivity-calibration.md)
 - [Commodity Phase 1A baseline](docs/PHASE1A-COMMODITY-BASELINE-V1.md)
 - [Measurement primitives and access-state oracles](docs/ADR-011-measurement-primitives-and-access-state-oracles.md)
 - [Phase 2 controlled-memory-interface boundary](docs/ADR-013-controlled-memory-interface-boundary.md)
+- [Native probe and eBPF witness planes](docs/ADR-014-native-probe-and-ebpf-witness-planes.md)
 - [Phase 0 v2 protocol](docs/PHASE0-PROTOCOL-V2.md)
 - [Architecture decisions](docs/ADR-001-storage-and-journal.md)
 
@@ -214,5 +241,11 @@ multiplexing, but PMU null stability failed within and across boots; the
 instability is characterized as a first-use-of-allocation cold transient
 (order-0 controls inflated 9/9). The resulting decision is **B: observable
 available but oracle weak**. Do not increase commodity Phase 1A sample counts;
-the single justified next step is one predeclared warm-up follow-up, else
-controlled-memory-interface instrumentation (see ADR-013).
+the single predeclared warm-up follow-up is now frozen as
+`configs/worker03-multiboot-scoped-perf-warmup.example.yaml`
+(`measurement-primitive-characterization-v3` plus
+`measurement-primitive-multiboot-v2`: fixed page-touch plus 64 native dummy
+loads outside any PMU window, same null rule and decision tree, witness
+disabled, order-0 diagnostics retained without gate effect). Execute that
+bounded three-boot repeat before any larger-N or hidden-bit work, else
+continue controlled-memory-interface instrumentation (see ADR-013).

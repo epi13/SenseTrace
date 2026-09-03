@@ -117,7 +117,9 @@ def load_dataset(
 
 def _metadata_values(metadata: dict[str, np.ndarray], field: str) -> list[str]:
     if field not in metadata:
-        raise IntegrityError(f"physical Phase 1A dataset is missing required shard metadata {field!r}")
+        raise IntegrityError(
+            f"physical Phase 1A dataset is missing required shard metadata {field!r}"
+        )
     return [str(value) for value in np.asarray(metadata[field], dtype=object)]
 
 
@@ -152,7 +154,9 @@ def _validate_physical_phase1a_dataset(
     if not isinstance(protocol_hash, str) or not protocol_hash:
         raise IntegrityError("physical Phase 1A requires a non-empty protocol hash")
     if expected_protocol_identity is not None and identity != expected_protocol_identity:
-        raise IntegrityError("physical Phase 1A protocol identity does not match the analysis boundary")
+        raise IntegrityError(
+            "physical Phase 1A protocol identity does not match the analysis boundary"
+        )
     if expected_protocol_hash is not None and protocol_hash != expected_protocol_hash:
         raise IntegrityError("physical Phase 1A protocol hash does not match the analysis boundary")
 
@@ -178,8 +182,12 @@ def _validate_physical_phase1a_dataset(
     if any(scope.get(field) != value for field, value in required_scope.items()):
         raise IntegrityError("physical Phase 1A manifest timing scope is missing or contradictory")
 
-    _require_all_values(_metadata_values(metadata, "protocol_identity"), str(identity), "protocol_identity")
-    _require_all_values(_metadata_values(metadata, "protocol_hash"), str(protocol_hash), "protocol_hash")
+    _require_all_values(
+        _metadata_values(metadata, "protocol_identity"), str(identity), "protocol_identity"
+    )
+    _require_all_values(
+        _metadata_values(metadata, "protocol_hash"), str(protocol_hash), "protocol_hash"
+    )
     _require_all_values(
         _metadata_values(metadata, "timing_perturbation_cycles"), "0", "timing_perturbation_cycles"
     )
@@ -187,10 +195,14 @@ def _validate_physical_phase1a_dataset(
         _metadata_values(metadata, "timing_perturbation_label"), "1", "timing_perturbation_label"
     )
     _require_all_values(
-        _metadata_values(metadata, "timing_perturbation_applied"), "False", "timing_perturbation_applied"
+        _metadata_values(metadata, "timing_perturbation_applied"),
+        "False",
+        "timing_perturbation_applied",
     )
     _require_all_values(
-        _metadata_values(metadata, "calibration_namespace"), "not_calibration", "calibration_namespace"
+        _metadata_values(metadata, "calibration_namespace"),
+        "not_calibration",
+        "calibration_namespace",
     )
     _require_all_values(
         _metadata_values(metadata, "artificial_timing_perturbation_allowed"),
@@ -199,14 +211,20 @@ def _validate_physical_phase1a_dataset(
     )
 
     ledgers = manifest.get("acquisition_sessions")
-    if not isinstance(ledgers, list) or not ledgers or any(not isinstance(item, dict) for item in ledgers):
+    if (
+        not isinstance(ledgers, list)
+        or not ledgers
+        or any(not isinstance(item, dict) for item in ledgers)
+    ):
         raise IntegrityError("physical Phase 1A requires complete source session ledgers")
     ledger_ids: set[str] = set()
     for ledger in ledgers:
         ledger_identity = ledger.get("protocol_identity")
         ledger_hash = ledger.get("protocol_hash")
         if ledger_identity != identity or ledger_hash != protocol_hash:
-            raise IntegrityError("source session ledger protocol identity/hash disagrees with manifest")
+            raise IntegrityError(
+                "source session ledger protocol identity/hash disagrees with manifest"
+            )
         if ledger.get("acquisition_scope") != "physical Phase 1A commodity baseline":
             raise IntegrityError("source session ledger is outside the physical Phase 1A scope")
         ledger_scope = ledger.get("timing_perturbation")
@@ -451,7 +469,9 @@ def combine_datasets(
     source_manifest_paths = source_manifest_paths or [
         str(path / "dataset.json") for path in sources
     ]
-    source_purposes = {str(manifest.get("dataset_purpose", "generic")) for manifest in source_manifests}
+    source_purposes = {
+        str(manifest.get("dataset_purpose", "generic")) for manifest in source_manifests
+    }
     if len(source_purposes) != 1:
         raise IntegrityError("cannot combine source datasets with different dataset purposes")
     combined_purpose = next(iter(source_purposes))
@@ -464,14 +484,18 @@ def combine_datasets(
         for manifest in source_manifests
     }
     if len(source_protocols) != 1:
-        raise IntegrityError("cannot combine source datasets with different protocol identities/hashes")
+        raise IntegrityError(
+            "cannot combine source datasets with different protocol identities/hashes"
+        )
     combined_protocol_identity, combined_protocol_hash = next(iter(source_protocols))
     if combined_purpose == "physical_phase1a" and (
         combined_protocol_identity != PHASE1A_COMMODITY_BASELINE_VERSION
         or not isinstance(combined_protocol_hash, str)
         or not combined_protocol_hash
     ):
-        raise IntegrityError("physical Phase 1A source datasets require explicit protocol identity/hash")
+        raise IntegrityError(
+            "physical Phase 1A source datasets require explicit protocol identity/hash"
+        )
 
     existing_ids: set[str] = set()
     seen_session_ids: dict[str, Path] = {}

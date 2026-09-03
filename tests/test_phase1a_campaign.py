@@ -63,12 +63,12 @@ def test_same_boot_sessions_leave_cross_boot_split_unavailable(tmp_path):
             word_count=8,
             lock_memory=False,
             cache_control="none",
-                use_native_kernel=False,
-                acquisition_session_id=session_id,
-                session_index=session_index,
-                protocol_identity=protocol["version"],
-                protocol_hash=protocol_hash,
-            )
+            use_native_kernel=False,
+            acquisition_session_id=session_id,
+            session_index=session_index,
+            protocol_identity=protocol["version"],
+            protocol_hash=protocol_hash,
+        )
         source = tmp_path / session_id
         writer = ShardWriter(source, max_samples_per_shard=8)
         session_ledger = backend.session_provenance()
@@ -89,25 +89,25 @@ def test_same_boot_sessions_leave_cross_boot_split_unavailable(tmp_path):
             condition="paired_single_bit",
             shard_infos=validate_all_shards(source),
             label_stream_fingerprint=session_ledger["label_stream_fingerprint"],
-                class_balance={"0": 4, "1": 4},
-                acquisition_sessions=[session_ledger],
-                dataset_purpose="physical_phase1a",
-                protocol_identity=protocol["version"],
-                protocol_hash=protocol_hash,
-                provenance={
-                    "protocol_identity": protocol["version"],
-                    "protocol_hash": protocol_hash,
-                    "artificial_timing_perturbation": {
-                        "allowed": False,
-                        "timing_perturbation_cycles": 0,
-                        "timing_perturbation_label": 1,
-                        "label_correlated": False,
-                        "applied": False,
-                        "calibration_namespace": "forbidden",
-                        "physical_phase1a_forbidden": True,
-                    },
+            class_balance={"0": 4, "1": 4},
+            acquisition_sessions=[session_ledger],
+            dataset_purpose="physical_phase1a",
+            protocol_identity=protocol["version"],
+            protocol_hash=protocol_hash,
+            provenance={
+                "protocol_identity": protocol["version"],
+                "protocol_hash": protocol_hash,
+                "artificial_timing_perturbation": {
+                    "allowed": False,
+                    "timing_perturbation_cycles": 0,
+                    "timing_perturbation_label": 1,
+                    "label_correlated": False,
+                    "applied": False,
+                    "calibration_namespace": "forbidden",
+                    "physical_phase1a_forbidden": True,
                 },
-            )
+            },
+        )
         source_dirs.append(source)
     target = tmp_path / "combined"
     manifest = combine_datasets(

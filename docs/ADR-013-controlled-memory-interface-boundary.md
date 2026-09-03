@@ -24,6 +24,11 @@ Phase 2 work starts from `src/sensetrace/acquisition/controlled.py`:
   trigger, analog/digital trace channels, hardware clock, controller firmware
   identity, controller configuration hash, device/DIMM identity, calibration
   state, and acquisition provenance.
+- `ControlledTraceAcquisition` requires an acquisition/trigger identity,
+  hardware-clock timing and uncertainty, refresh relationship, controlled
+  command-sequence identity, and at least one `ControlledTraceChannel` with
+  channel kind, units, clock, and calibration identity. A future implementation
+  cannot return an anonymous waveform and call it controlled evidence.
 - `ControlledMemoryTopology` carries row/bank/channel/rank/device/DIMM fields
   that are valid **only** with `source="controlled_hardware"`. Any concrete
   topology field with any other source raises; deriving topology from a
@@ -35,6 +40,10 @@ Phase 2 work starts from `src/sensetrace/acquisition/controlled.py`:
   validation, model, journaling, and recovery code paths can be tested before
   hardware arrives. Its observation semantics say "synthetic mock trace" and
   it can never produce a physical claim.
+- Synthetic traces and logical sample identities are deterministic functions of
+  `(seed, sample_index, operation_identity)`. Reconstructing the backend and
+  resuming at index N therefore produces the same remaining sequence as an
+  uninterrupted run. Wall-clock start time remains attempt provenance only.
 
 The existing infrastructure (journaling, sharding, hashing, provenance,
 grouped splits, controls, model interfaces, recovery, evidence manifests) is
@@ -47,5 +56,8 @@ reused; no separate scientific pipeline is forked.
   `unavailable` by construction, not by documentation alone.
 - The mock backend gives the warm-up follow-up (or any future primitive) a
   tested recovery/data path without weakening commodity evidence rules.
+- The native and eBPF planes remain separate from this interface: neither can
+  manufacture controlled command, refresh, trigger, channel, or topology
+  provenance.
 - If the single predeclared warm-up characterization fails, the commodity
   Phase 1 line stops and Phase 2 becomes the only physical path forward.

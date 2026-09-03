@@ -46,6 +46,23 @@ deterministic close. The latency control and directional PMU contrast passed,
 but PMU null stability failed, so no hidden-bit run or larger-N campaign is
 authorized by this result.
 
+The single authorized follow-up is frozen but not yet executed:
+`configs/worker03-multiboot-scoped-perf-warmup.example.yaml`
+(characterization-v3 `31fff040…`, multiboot-v2 `80c116fa…`) repeats the same
+three-boot design with a fixed allocation warmup (deterministic page touch
+plus 64 native dummy loads outside any PMU window), the identical null rule
+and decision tree, witness disabled, and acquisition-order PMU diagnostics
+retained without gate effect. Run it with:
+
+```bash
+python3 -m sensetrace.cli host characterize-multiboot worker-03 \
+  --config configs/worker03-multiboot-scoped-perf-warmup.example.yaml \
+  --output evidence/multiboot-warmup-20260904
+```
+
+If that repeat also fails null stability, stop the commodity line and continue
+Phase 2 controlled-memory-interface work.
+
 The experiment should not depend on the GPU. The initial model ladder is deliberately small enough to run on CPU, while the GPU may be used opportunistically where supported.
 
 ## Terminology
@@ -204,6 +221,16 @@ The primary workstation should not be used for prolonged or intentionally destab
 Commodity-host measurements are the starting point. If Phase 1 produces evidence worth pursuing, the experiment may progress to tighter control with research hardware such as an FPGA-based memory controller and, later, richer electrical instrumentation.
 
 The worker-03 harness should therefore keep acquisition interfaces modular so the same dataset, split, validation, and model code can survive changes in measurement hardware.
+
+The optional witness plane uses Fedora's `bpftrace`, `bpftool`, and `clang`
+packages and temporary tracepoint attachments. Install them reproducibly with
+`sudo dnf install bpftrace bpftool clang`; no persistent BPF program or kernel
+setting is required. Before a
+pilot, run `sensetrace witness capabilities` and retain the result. Hooks absent
+from this kernel remain unsupported evidence, not zero-event observations. A
+bounded pilot may then use `sensetrace witness pilot --output <new-directory>
+--sudo`. It targets only the pilot process, unloads on shutdown, and does not
+alter the existing PMU campaign or authorize the warm-up repeat.
 
 The acquisition implementation now makes that modularity explicit: a named
 measurement primitive separates target preparation, operation, access-state

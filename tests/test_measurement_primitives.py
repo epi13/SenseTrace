@@ -106,11 +106,19 @@ def test_perf_discovery_is_cpu_vocabulary_aware(tmp_path):
 
 def test_characterization_protocol_is_not_hidden_bit_inference():
     protocol = characterization_protocol(_config())
-    assert protocol["version"] == "measurement-primitive-characterization-v2"
+    assert protocol["version"] == "measurement-primitive-characterization-v3"
     assert protocol["analysis"]["no_model_training"] is True
     assert "physical DRAM access" in protocol["claim_boundary"]
     assert protocol["primitive"]["access_state_oracle"]["model_feature_eligible"] is False
     assert protocol["analysis"]["no_model_training"] is True
+    # v3 freezes the first-touch control and the witness policy explicitly.
+    assert protocol["sample_design"]["allocation_warmup"] == {
+        "enabled": False,
+        "touch_pages": True,
+        "dummy_loads": 0,
+    }
+    assert protocol["witness"]["requirement"] in {"disabled", "optional", "required"}
+    assert protocol["witness"]["automatic_sample_veto"] is False
 
 
 def test_perf_event_attr_is_disabled_and_excludes_kernel_and_hypervisor():
@@ -299,7 +307,13 @@ def test_null_stability_rejects_extremely_drifting_finite_replicates():
     }
     evidence = _decision_evidence(
         contract,
-        {"null": [_replicate_record("replicate-0000", 10.0), _replicate_record("replicate-0001", 10.0), _replicate_record("replicate-0002", 100.0)]},
+        {
+            "null": [
+                _replicate_record("replicate-0000", 10.0),
+                _replicate_record("replicate-0001", 10.0),
+                _replicate_record("replicate-0002", 100.0),
+            ]
+        },
         {},
         3,
     )
@@ -328,8 +342,18 @@ def test_contrast_pairs_only_matching_replicate_ids_and_reports_missing_side():
     assert result["matched_replicate_ids"] == ["replicate-0000", "replicate-0002"]
     assert result["missing_right_replicate_ids"] == ["replicate-0001"]
     assert result["paired_differences"] == [
-        {"replicate_id": "replicate-0000", "left_median": 10.0, "right_median": 15.0, "difference": 5.0},
-        {"replicate_id": "replicate-0002", "left_median": 30.0, "right_median": 45.0, "difference": 15.0},
+        {
+            "replicate_id": "replicate-0000",
+            "left_median": 10.0,
+            "right_median": 15.0,
+            "difference": 5.0,
+        },
+        {
+            "replicate_id": "replicate-0002",
+            "left_median": 30.0,
+            "right_median": 45.0,
+            "difference": 15.0,
+        },
     ]
     assert result["required_replicates_present"] is False
 

@@ -68,11 +68,21 @@ PERF_TYPE_HARDWARE = 0
 PERF_TYPE_RAW = 4
 PERF_ATTR_SIZE = 128
 PERF_FLAG_FD_CLOEXEC = 1 << 3
-# Only the core CPU PMU may back a calling-thread scoped reader. Uncore,
-# platform, and MSR/power devices count socket/package resources and must
-# never be presented as per-thread evidence.
-THREAD_SCOPED_PMU_DEVICES = frozenset({"cpu"})
-UNCORE_DEVICE_PREFIXES = ("uncore_", "cstate_", "i915", "msr", "power", "intel_")
+# Thread-scoped core PMUs have architecture-specific names.  This allowlist is
+# deliberately conservative: unknown devices are rejected until their scope is
+# classified, while common hybrid Intel and ARM core PMUs remain usable.
+THREAD_SCOPED_PMU_EXACT_NAMES = frozenset({"cpu", "cpu_core", "cpu_atom"})
+THREAD_SCOPED_PMU_PREFIXES = ("armv8_pmuv3", "riscv_pmu")
+SYSTEM_WIDE_PMU_PREFIXES = (
+    "uncore_",
+    "cstate_",
+    "i915",
+    "msr",
+    "power",
+    "intel_pt",
+    "intel_bts",
+    "arm_spe",
+)
 PERF_ATTR_DISABLED = 1 << 0
 PERF_ATTR_INHERIT = 1 << 1
 PERF_ATTR_PINNED = 1 << 2
@@ -82,6 +92,7 @@ PERF_ATTR_EXCLUDE_HV = 1 << 6
 PERF_ATTR_EXCLUDE_IDLE = 1 << 7
 PERF_FORMAT_TOTAL_TIME_ENABLED = 1 << 0
 PERF_FORMAT_TOTAL_TIME_RUNNING = 1 << 1
+SUPPORTED_READ_FORMAT_MASK = PERF_FORMAT_TOTAL_TIME_ENABLED | PERF_FORMAT_TOTAL_TIME_RUNNING
 PERF_EVENT_IOC_ENABLE = 0x2400
 PERF_EVENT_IOC_DISABLE = 0x2401
 PERF_EVENT_IOC_RESET = 0x2403
@@ -200,8 +211,7 @@ def build_perf_event_attr(
         event_type = PERF_TYPE_RAW if event_type is None else event_type
         config = raw_event
         encoding = f"type={event_type}:config=0x{raw_event:x}"
-    if not 0 <= read_format <= 0xFFFFFFFFFFFFFFFF:
-        raise ValueError("perf read_format must fit the 64-bit ABI field")
+    validate_read_format(read_format)
     flags = PERF_ATTR_DISABLED | PERF_ATTR_EXCLUDE_KERNEL | PERF_ATTR_EXCLUDE_HV
     attribute = bytearray(PERF_ATTR_SIZE)
     struct.pack_into("<IIQ", attribute, 0, event_type, size, config)
@@ -239,12 +249,59 @@ def build_perf_event_attr(
 
 def expected_read_size(read_format: int) -> int:
     """Return the exact byte count the kernel returns for a read_format."""
+    validate_read_format(read_format)
     size = 8  # value field is always present
     if read_format & PERF_FORMAT_TOTAL_TIME_ENABLED:
         size += 8
     if read_format & PERF_FORMAT_TOTAL_TIME_RUNNING:
         size += 8
     return size
+
+
+def validate_read_format(read_format: int) -> None:
+    """Reject ABI layouts that this single-event parser does not decode."""
+
+    if not isinstance(read_format, int) or not 0 <= read_format <= 0xFFFFFFFFFFFFFFFF:
+        raise ValueError("perf read_format must fit the 64-bit ABI field")
+    unsupported = read_format & ~SUPPORTED_READ_FORMAT_MASK
+    if unsupported:
+        raise ValueError(
+            "unsupported perf read_format flags "
+            f"{unsupported:#x}; only TOTAL_TIME_ENABLED and TOTAL_TIME_RUNNING are decoded"
+        )
+
+
+def classify_pmu_scope(device: str) -> dict[str, str]:
+    """Classify a PMU device for the calling-thread reader, fail-closed.
+
+    Linux does not expose one portable sysfs scope attribute.  The evidence
+    therefore records the conservative name rule used rather than pretending
+    the classification was discovered from hardware.
+    """
+
+    if device in THREAD_SCOPED_PMU_EXACT_NAMES:
+        return {
+            "scope": "thread_scoped_core_pmu",
+            "status": "accepted",
+            "basis": "conservative exact-name classification",
+        }
+    if any(device.startswith(prefix) for prefix in THREAD_SCOPED_PMU_PREFIXES):
+        return {
+            "scope": "thread_scoped_core_pmu",
+            "status": "accepted",
+            "basis": "conservative architecture-specific core-PMU prefix classification",
+        }
+    if any(device.startswith(prefix) for prefix in SYSTEM_WIDE_PMU_PREFIXES):
+        return {
+            "scope": "system_or_package_scoped_pmu",
+            "status": "rejected",
+            "basis": "known non-core PMU prefix classification",
+        }
+    return {
+        "scope": "unknown",
+        "status": "rejected",
+        "basis": "unclassified PMU devices fail closed",
+    }
 
 
 def _perf_event_open(
@@ -287,11 +344,12 @@ class OperationScopedPerfEvent:
             event_type = event.source_type if isinstance(event.source_type, int) else None
             if event_type is None:
                 raise ValueError("PMU event source type must be numeric for perf_event_open")
-            if event.device not in THREAD_SCOPED_PMU_DEVICES:
+            self._pmu_scope = classify_pmu_scope(event.device)
+            if self._pmu_scope["status"] != "accepted":
                 raise ValueError(
                     f"PMU device {event.device!r} cannot back a calling-thread scoped "
-                    "reader (only 'cpu' is thread-scoped; uncore/cstate/msr/power "
-                    "devices count socket/package resources)"
+                    f"reader (classified scope={self._pmu_scope['scope']!r}; "
+                    f"basis={self._pmu_scope['basis']})"
                 )
             self.event = event
             self._attribute_bytes, self._attribute_record = build_perf_event_attr(
@@ -302,6 +360,11 @@ class OperationScopedPerfEvent:
                 read_format=read_format,
             )
         else:
+            self._pmu_scope = {
+                "scope": "thread_scoped_kernel_generic_hardware_event",
+                "status": "accepted",
+                "basis": "PERF_TYPE_HARDWARE generic event opened for the calling thread",
+            }
             self.event = PerfEventEncoding(
                 device="kernel-generic",
                 alias=event,
@@ -335,6 +398,7 @@ class OperationScopedPerfEvent:
                 "inherit": False,
                 "system_wide": False,
                 "unrelated_processes": "not attached",
+                "pmu_classification": dict(self._pmu_scope),
             },
             "read_format": self._read_format,
             "read_format_fields": {

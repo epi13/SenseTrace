@@ -9,13 +9,20 @@ import struct
 import pytest
 
 from sensetrace.acquisition.controlled import (
+    ControlledAcquisitionProvenance,
+    ControlledCommand,
+    ControlledCommandResult,
     ControlledMemoryTopology,
+    ControlledTraceAcquisition,
+    ControlledTraceChannel,
     SyntheticMockControlledBackend,
 )
 from sensetrace.acquisition.perf import (
     OperationScopedPerfEvent,
     PerfEventEncoding,
     _encode_sysfs_config,
+    build_perf_event_attr,
+    classify_pmu_scope,
     discover_counter_capabilities,
     expected_read_size,
     select_sysfs_event_encoding,
@@ -25,7 +32,11 @@ from sensetrace.characterization import (
     _operation_scoped_perf_oracle_analysis,
     _operation_scoped_perf_summary,
 )
-from sensetrace.multiboot import combine_multiboot_reports
+from sensetrace.multiboot import (
+    MULTIBOOT_CANDIDATE_EVENT,
+    combine_multiboot_reports,
+    multiboot_protocol,
+)
 
 
 def _observation(
@@ -65,6 +76,13 @@ def test_expected_read_size_follows_read_format_bits():
     assert expected_read_size(1) == 16
     assert expected_read_size(2) == 16
     assert expected_read_size(3) == 24
+
+
+def test_unsupported_perf_read_format_fails_closed():
+    with pytest.raises(ValueError, match="unsupported perf read_format"):
+        expected_read_size(1 << 2)  # PERF_FORMAT_ID
+    with pytest.raises(ValueError, match="unsupported perf read_format"):
+        build_perf_event_attr("cache-misses", read_format=1 << 3)  # PERF_FORMAT_GROUP
 
 
 def test_read_honors_reduced_read_format(monkeypatch):
@@ -115,6 +133,31 @@ def test_uncore_encoding_cannot_back_thread_scoped_reader():
     )
     with pytest.raises(ValueError, match="cannot back a calling-thread scoped reader"):
         OperationScopedPerfEvent(encoding, syscall_number=298)
+
+
+@pytest.mark.parametrize("device", ["cpu", "cpu_core", "cpu_atom", "armv8_pmuv3_0"])
+def test_architecture_specific_core_pmu_scope_is_accepted(device):
+    classification = classify_pmu_scope(device)
+    assert classification["status"] == "accepted"
+    encoding = PerfEventEncoding(
+        device=device,
+        alias="cache-misses",
+        source_type=4,
+        config=0x2E,
+        config_fields={"event": "0x2e"},
+        format_fields={"event": "config:0-7"},
+        raw_spec="event=0x2e",
+    )
+    assert (
+        OperationScopedPerfEvent(encoding, syscall_number=298).provenance["scope"][
+            "pmu_classification"
+        ]["scope"]
+        == "thread_scoped_core_pmu"
+    )
+
+
+def test_unknown_pmu_scope_is_rejected():
+    assert classify_pmu_scope("mystery_pmu")["status"] == "rejected"
 
 
 def test_single_bit_format_field_encodes():
@@ -231,6 +274,21 @@ def test_not_running_excluded_from_complete_summary():
     assert summary["raw_count_summary"]["median"] == 3.0
 
 
+def test_missing_middle_pmu_reading_preserves_operation_alignment():
+    summary = _operation_scoped_perf_summary(
+        [
+            {"operation_scoped_perf_observation": _observation(3)},
+            {},
+            {"operation_scoped_perf_observation": _observation(7)},
+        ]
+    )
+    assert summary["raw_counts"] == [3, 7]
+    assert [
+        reading["raw_count"] if reading is not None else None
+        for reading in summary["per_operation_readings"]
+    ] == [3, None, 7]
+
+
 def _oracle_record(replicate_id: str, median: float, *, multiplexed_fraction=0.0):
     return {
         "replicate_id": replicate_id,
@@ -273,6 +331,49 @@ def test_multiplex_veto_fails_agreement_and_stability():
     assert analysis["stability_pass"] is False
 
 
+def test_frozen_analysis_rejects_missing_multiplex_telemetry():
+    def legacy_record(replicate_id, median):
+        return {
+            "replicate_id": replicate_id,
+            "operation_scoped_perf": {
+                "status": "complete",
+                "raw_count_summary": {"median": median},
+                "scaled_count_summary": {"median": median},
+            },
+        }
+
+    records = {
+        "null_control": [legacy_record(f"replicate-{i:04d}", 4.0) for i in range(3)],
+        "cached_control": [legacy_record(f"replicate-{i:04d}", 4.0) for i in range(3)],
+        "requested_clflush_control": [legacy_record(f"replicate-{i:04d}", 30.0) for i in range(3)],
+    }
+    analysis = _operation_scoped_perf_oracle_analysis(
+        records, _oracle_contract(), 3, require_explicit_multiplex_telemetry=True
+    )
+    assert analysis["agreement"]["status"] == "fail"
+    assert analysis["agreement"]["multiplex_veto"] is True
+
+
+def test_frozen_analysis_rejects_null_or_partial_multiplex_telemetry():
+    records = {
+        "null_control": [
+            _oracle_record(f"replicate-{i:04d}", 4.0, multiplexed_fraction=None) for i in range(3)
+        ],
+        "cached_control": [
+            _oracle_record(f"replicate-{i:04d}", 4.0, multiplexed_fraction=0.0) for i in range(3)
+        ],
+        "requested_clflush_control": [
+            _oracle_record(f"replicate-{i:04d}", 30.0, multiplexed_fraction=0.0) for i in range(3)
+        ],
+    }
+    analysis = _operation_scoped_perf_oracle_analysis(
+        records, _oracle_contract(), 3, require_explicit_multiplex_telemetry=True
+    )
+    assert analysis["agreement"]["multiplex_telemetry_present"] is True
+    assert analysis["agreement"]["multiplex_telemetry_complete"] is False
+    assert analysis["agreement"]["multiplex_veto"] is True
+
+
 def test_scaled_disagreement_fails_agreement():
     records = {
         "null_control": [_oracle_record(f"replicate-{i:04d}", 4.0) for i in range(3)],
@@ -312,7 +413,15 @@ def test_zero_center_null_fails_with_explicit_reason():
     assert "zero or near-zero" in result["stability"]["reason"]
 
 
-def _multiboot_report(boot_id: str, null_medians, left, right, protocol_hash="ph"):
+def _multiboot_report(
+    boot_id: str,
+    null_medians,
+    left,
+    right,
+    protocol_hash="ph",
+    *,
+    multiplex_veto=False,
+):
     def rec(rid, median):
         return {
             "replicate_id": rid,
@@ -352,7 +461,13 @@ def _multiboot_report(boot_id: str, null_medians, left, right, protocol_hash="ph
         for i in range(n)
     ]
     return {
-        "protocol": {"protocol_hash": protocol_hash},
+        "protocol": {
+            "protocol_hash": protocol_hash,
+            "sample_design": {
+                "replicates": n,
+                "scoped_perf_event": MULTIBOOT_CANDIDATE_EVENT,
+            },
+        },
         "controls": {
             "boot_dependence": {"unique_boots": [boot_id]},
             "operation_scoped_perf_oracle": {
@@ -360,7 +475,7 @@ def _multiboot_report(boot_id: str, null_medians, left, right, protocol_hash="ph
                     "status": "pass",
                     "agreement_count": n,
                     "sample_count": n,
-                    "multiplex_veto": False,
+                    "multiplex_veto": multiplex_veto,
                     "paired_differences": pairs,
                 },
                 "null_stability": summary(null_medians),
@@ -369,6 +484,46 @@ def _multiboot_report(boot_id: str, null_medians, left, right, protocol_hash="ph
         },
         "decision_gate": {"outcome": "B_observable_available_but_oracle_weak"},
     }
+
+
+def test_frozen_candidate_substitution_is_rejected():
+    with pytest.raises(ValueError, match="frozen multiboot candidate"):
+        multiboot_protocol(
+            {
+                "characterization": {
+                    "scoped_perf_event": "cpu/cache-references/",
+                    "replicates": 3,
+                    "multiboot_boots": 3,
+                }
+            }
+        )
+
+
+def test_non_three_replicates_are_derived_from_frozen_reports():
+    reports = [
+        _multiboot_report(f"boot-{boot}", [10.0] * 4, [4.0] * 4, [30.0] * 4) for boot in range(3)
+    ]
+    combined = combine_multiboot_reports(reports, expected_boots=3)
+    assert combined["replicates_per_boot"] == 4
+    assert combined["cross_boot_null_stability"]["completeness"]["expected_replicates"] == 12
+
+
+def test_boot_count_mismatch_fails_provenance_gate():
+    reports = [
+        _multiboot_report(f"boot-{boot}", [10.0] * 3, [4.0] * 3, [30.0] * 3) for boot in range(3)
+    ]
+    combined = combine_multiboot_reports(reports, expected_boots=4)
+    assert combined["boots_distinct_and_genuine"] is False
+    assert combined["outcome"] == "C_primitive_unsuitable"
+
+
+def test_missing_multiboot_multiplex_telemetry_cannot_pass_cleanliness():
+    reports = [
+        _multiboot_report(f"boot-{boot}", [10.0] * 3, [4.0] * 3, [30.0] * 3, multiplex_veto=None)
+        for boot in range(3)
+    ]
+    combined = combine_multiboot_reports(reports, expected_boots=3)
+    assert combined["outcome"] != "A_usable_auditable_primitive"
 
 
 def test_multiboot_combine_reaches_a_when_stable():
@@ -441,6 +596,140 @@ def test_mock_controlled_backend_never_claims_topology():
             assert sample.metadata["row_id"] == "row-unknown"
     finally:
         backend.close()
+
+
+def test_controlled_trace_contract_requires_identified_channels():
+    with pytest.raises(ValueError, match="at least one identified channel"):
+        ControlledTraceAcquisition(
+            acquisition_id="acq-1",
+            trigger_id="trigger-1",
+            trigger_hardware_ticks=1,
+            hardware_clock_id="clock-1",
+            timing_uncertainty_ticks=0,
+            channels=(),
+            refresh_relationship="controlled schedule r1",
+            command_sequence_id="sequence-1",
+        ).validate()
+    acquisition = ControlledTraceAcquisition(
+        acquisition_id="acq-1",
+        trigger_id="trigger-1",
+        trigger_hardware_ticks=1,
+        hardware_clock_id="clock-1",
+        timing_uncertainty_ticks=1,
+        channels=(
+            ControlledTraceChannel(
+                channel_id="adc-0",
+                channel_kind="analog",
+                units="volts",
+                sampling_clock_id="clock-1",
+                calibration_id="cal-1",
+            ),
+        ),
+        refresh_relationship="controlled schedule r1",
+        command_sequence_id="sequence-1",
+    )
+    assert acquisition.as_dict()["channels"][0]["channel_id"] == "adc-0"
+
+
+def test_controlled_contract_rejects_placeholder_command_provenance():
+    with pytest.raises(ValueError, match="command provenance is missing"):
+        ControlledCommand(
+            command_id="command-1",
+            kind="read",
+            address_token="controller-address-1",
+            issued_at_hardware_ticks=10,
+        ).validate()
+
+
+def test_controlled_command_result_binds_command_trace_and_provenance():
+    command = ControlledCommand(
+        command_id="command-1",
+        kind="read",
+        address_token="controller-address-1",
+        issued_at_hardware_ticks=10,
+        command_sequence_id="sequence-1",
+        refresh_relationship="after refresh 42",
+        timing_provenance="controller clock clock-1",
+    )
+    acquisition = ControlledTraceAcquisition(
+        acquisition_id="acq-1",
+        trigger_id="trigger-1",
+        trigger_hardware_ticks=11,
+        hardware_clock_id="clock-1",
+        timing_uncertainty_ticks=1,
+        channels=(
+            ControlledTraceChannel(
+                channel_id="adc-0",
+                channel_kind="analog",
+                units="volts",
+                sampling_clock_id="clock-1",
+                calibration_id="cal-1",
+            ),
+        ),
+        refresh_relationship="after refresh 42",
+        command_sequence_id="sequence-1",
+    )
+    provenance = ControlledAcquisitionProvenance(
+        experiment_target_id="target-1",
+        controller_firmware_id="firmware-1",
+        controller_config_hash="config-hash-1",
+        device_identity="device-1",
+        dimm_identity="dimm-1",
+        calibration_state="calibration-1",
+        hardware_clock_id="clock-1",
+        acquisition_trigger="command trigger",
+        acquisition_configuration_hash="acquisition-hash-1",
+        trigger_identity="trigger-1",
+        timing_provenance="controller clock clock-1",
+        refresh_relationship="after refresh 42",
+        command_provenance="command log 1",
+    )
+    result = ControlledCommandResult(
+        command=command,
+        status="complete",
+        topology=ControlledMemoryTopology(source="controlled_hardware", row="row-1"),
+        provenance=provenance,
+        completed_at_hardware_ticks=12,
+        acquisition=acquisition,
+    )
+    assert result.as_dict()["acquisition"]["command_sequence_id"] == "sequence-1"
+
+    mismatched = ControlledCommandResult(
+        command=command,
+        status="complete",
+        topology=ControlledMemoryTopology(source="controlled_hardware", row="row-1"),
+        provenance=provenance,
+        completed_at_hardware_ticks=12,
+        acquisition=ControlledTraceAcquisition(
+            **{**acquisition.__dict__, "command_sequence_id": "different-sequence"}
+        ),
+    )
+    with pytest.raises(ValueError, match="does not match command"):
+        mismatched.validate()
+
+
+def test_mock_controlled_reconstruction_matches_uninterrupted_sequence():
+    uninterrupted_backend = SyntheticMockControlledBackend(count=8, trace_length=8, seed=29)
+    prefix_backend = SyntheticMockControlledBackend(count=8, trace_length=8, seed=29)
+    resumed_backend = SyntheticMockControlledBackend(count=8, trace_length=8, seed=29)
+    try:
+        uninterrupted = list(uninterrupted_backend.samples())
+        prefix = list(prefix_backend.samples())[:3]
+        resumed = list(resumed_backend.samples(start_index=3))
+        reconstructed = prefix + resumed
+        assert [sample.label for sample in reconstructed] == [
+            sample.label for sample in uninterrupted
+        ]
+        for expected, actual in zip(uninterrupted, reconstructed, strict=True):
+            import numpy as np
+
+            np.testing.assert_array_equal(expected.trace, actual.trace)
+            assert expected.metadata["sample_id"] == actual.metadata["sample_id"]
+            assert "synthetic" in str(actual.metadata["physical_observation_semantics"])
+    finally:
+        uninterrupted_backend.close()
+        prefix_backend.close()
+        resumed_backend.close()
 
 
 def test_cpu_id_falls_back_to_libc_when_os_helper_missing(monkeypatch):

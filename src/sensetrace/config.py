@@ -257,6 +257,35 @@ def validate_config(config: dict[str, Any]) -> dict[str, Any]:
             raise ConfigError(
                 "characterization.null_stability.minimum_complete_replicates must be >= 3"
             )
+        warmup = characterization.get("allocation_warmup", None)
+        if warmup is not None:
+            if not isinstance(warmup, dict):
+                raise ConfigError("characterization.allocation_warmup must be a mapping")
+            unknown = set(warmup) - {"enabled", "touch_pages", "dummy_loads"}
+            if unknown:
+                raise ConfigError(
+                    f"characterization.allocation_warmup has unknown fields {sorted(unknown)}"
+                )
+            dummy = warmup.get("dummy_loads", 0)
+            if not isinstance(dummy, int) or dummy < 0 or dummy > 10_000:
+                raise ConfigError(
+                    "characterization.allocation_warmup.dummy_loads must be in [0, 10000]"
+                )
+            if warmup.get("enabled", False) and (
+                not warmup.get("touch_pages", True) and dummy == 0
+            ):
+                raise ConfigError(
+                    "characterization.allocation_warmup.enabled requires touch_pages or dummy_loads"
+                )
+    witness = config.get("witness", None)
+    if witness is not None:
+        if not isinstance(witness, dict):
+            raise ConfigError("witness must be a mapping")
+        if witness.get("requirement", "optional") not in {"disabled", "optional", "required"}:
+            raise ConfigError("witness.requirement must be disabled, optional, or required")
+        hooks = witness.get("hooks", [])
+        if not isinstance(hooks, list) or not all(isinstance(item, str) for item in hooks):
+            raise ConfigError("witness.hooks must be a list of strings")
     return config
 
 

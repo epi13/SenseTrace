@@ -1,14 +1,16 @@
-# Frozen multi-boot scoped-PMU characterization (measurement-primitive-multiboot-v1).
-#
-# HISTORICAL: executed 2026-09-03 (three genuine boots, decision B preserved).
-# SUPERSEDED by configs/worker03-multiboot-scoped-perf-warmup.example.yaml
-# (multiboot-v2 + characterization-v3 with frozen allocation warmup). Do not
-# reuse this file for new campaigns under the v2 gate: it lacks the required
-# allocation_warmup and witness.requirement fields and will fail closed.
+# Frozen warmup-repeat multi-boot scoped-PMU characterization (multiboot-v2).
 #
 # FROZEN BEFORE EVIDENCE COLLECTION. Do not retune thresholds, events,
-# replicates, or boots after seeing measurements. Any change requires a new
-# protocol identity and hash.
+# replicates, boots, warmup, or witness policy after seeing measurements.
+# Any change requires a new protocol identity and hash.
+#
+# Motivation: the v1 genuine three-boot repeat reproduced the directional
+# cached-vs-requested-CLFLUSH contrast 9/9 with no multiplexing, but null
+# stability failed within and across boots. Post-hoc analysis characterized
+# the instability as a first-use-of-allocation cold transient (order-0
+# controls inflated 9/9). This is the single predeclared bounded follow-up:
+# identical frozen null rule and decision tree, plus an explicit allocation
+# warmup executed outside any PMU window before the randomized control order.
 #
 # Design: repeat the small scoped-PMU characterization (3 replicates x 4
 # locations x 16 trials, 64 ops per control) across 3 genuinely distinct OS
@@ -18,10 +20,18 @@
 # minimum 3 complete finite replicates per boot; cross-boot stability pools
 # all 9 null replicate medians under the same rule.
 #
-# Decision tree:
+# Warmup (frozen): touch every word of the fresh shared allocation with a
+# fixed seed-independent pattern plus 64 native cached dummy loads, all
+# outside any operation-scoped perf window. Identical for every control in
+# a replicate. Provenance retained per replicate and hashed into the protocol.
+#
+# Witness policy (frozen): disabled for this PMU gate. Run the bounded eBPF
+# pilot separately; it must not mutate this evidence.
+#
+# Decision tree (unchanged from v1):
 #   A: 3/3 directional agreement in EVERY boot, no multiplexing, cross-boot
 #      null stability passes, provenance complete (distinct genuine boot IDs,
-#      protocol agreement) -> only then may a small hidden-bit pilot be considered.
+#      protocol + warmup agreement) -> only then may a small hidden-bit pilot be considered.
 #   B: directional contrast survives every boot but cross-boot stability fails
 #      -> preserve B, do not increase hidden-bit N.
 #   C: directional contrast fails in any boot or provenance incomplete
@@ -31,9 +41,9 @@ host:
   role: dedicated_experiment_host
 
 experiment:
-  name: worker03-multiboot-scoped-perf-characterization
-  description: Repeat the scoped PMU characterization across three genuine OS boots.
-  seed: 20260903
+  name: worker03-multiboot-scoped-perf-warmup-characterization
+  description: Warmup-controlled repeat of the scoped PMU characterization across three genuine OS boots.
+  seed: 20260904
 
 data:
   target_balance: 0.50
@@ -76,3 +86,11 @@ characterization:
   # uncore IMC event family is intentionally not selected: it is not
   # thread-scoped and cannot satisfy this primitive's declared boundary.
   scoped_perf_event: cpu/cache-misses/
+  allocation_warmup:
+    enabled: true
+    touch_pages: true
+    dummy_loads: 64
+
+witness:
+  requirement: disabled
+  hooks: []

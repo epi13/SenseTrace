@@ -28,7 +28,7 @@ from .inventory import collect_inventory
 from .journal import Journal
 from .runner import _git_commit, new_run_id
 
-CHARACTERIZATION_PROTOCOL_VERSION = "measurement-primitive-characterization-v2"
+CHARACTERIZATION_PROTOCOL_VERSION = "measurement-primitive-characterization-v3"
 
 DEFAULT_NULL_STABILITY_RULE: dict[str, Any] = {
     "statistic": "median_of_replicate_sample_medians",
@@ -39,6 +39,85 @@ DEFAULT_NULL_STABILITY_RULE: dict[str, Any] = {
     "minimum_complete_replicates": 3,
     "insufficient_evidence_status": "insufficient_evidence",
 }
+
+DEFAULT_ALLOCATION_WARMUP: dict[str, Any] = {
+    "enabled": False,
+    "touch_pages": True,
+    "dummy_loads": 0,
+}
+
+
+def parse_allocation_warmup(config: dict[str, Any]) -> dict[str, Any]:
+    """Return the frozen allocation-warmup design with fail-closed validation.
+
+    Warmup faults the fresh shared allocation outside any measured PMU window
+    so the first randomized control does not pay the first-touch cold cost.
+    It is identical for every control in a replicate and is hashed into the
+    protocol; any change requires a new protocol identity.
+    """
+
+    characterization = config.get("characterization", {})
+    raw = characterization.get("allocation_warmup", None)
+    if raw is None:
+        return dict(DEFAULT_ALLOCATION_WARMUP)
+    if not isinstance(raw, dict):
+        raise ValueError("characterization.allocation_warmup must be a mapping")
+    enabled = bool(raw.get("enabled", False))
+    touch_pages = bool(raw.get("touch_pages", True))
+    dummy_loads = raw.get("dummy_loads", 0)
+    if not isinstance(dummy_loads, int) or dummy_loads < 0 or dummy_loads > 10_000:
+        raise ValueError("characterization.allocation_warmup.dummy_loads must be in [0, 10000]")
+    if enabled and not touch_pages and dummy_loads == 0:
+        raise ValueError(
+            "characterization.allocation_warmup.enabled requires touch_pages or dummy_loads"
+        )
+    unknown = sorted(set(raw) - {"enabled", "touch_pages", "dummy_loads"})
+    if unknown:
+        raise ValueError(f"characterization.allocation_warmup has unknown fields {unknown}")
+    return {"enabled": enabled, "touch_pages": touch_pages, "dummy_loads": int(dummy_loads)}
+
+
+def run_allocation_warmup(
+    buffer: Any, kernel: NativeMeasurementKernel | None, warmup: dict[str, Any]
+) -> dict[str, Any]:
+    """Execute the frozen warmup on a fresh allocation; never inside a PMU window."""
+
+    if not warmup.get("enabled", False):
+        return {"enabled": False, "status": "disabled"}
+    provenance: dict[str, Any] = {"enabled": True}
+    if warmup.get("touch_pages", True):
+        touch = buffer.warmup_touch()
+        provenance["page_touch"] = touch
+    else:
+        provenance["page_touch"] = {"status": "skipped"}
+    requested = int(warmup.get("dummy_loads", 0))
+    executed = 0
+    path = "none_requested"
+    if requested > 0:
+        address = int(buffer.address)
+        if kernel is not None:
+            try:
+                kernel.measure_cached(address, requested)
+                executed = requested
+                path = "native_cached_load"
+            except (OSError, ValueError):
+                for index in range(requested):
+                    buffer.read(index % buffer.word_count)
+                executed = requested
+                path = "python_read_fallback_after_native_failure"
+        else:
+            for index in range(requested):
+                buffer.read(index % buffer.word_count)
+            executed = requested
+            path = "python_read_fallback_no_native_kernel"
+    provenance["dummy_loads"] = {
+        "requested": requested,
+        "executed": executed,
+        "path": path,
+    }
+    provenance["status"] = "complete"
+    provenance["pmu_window"] = "none; warmup runs outside any operation-scoped perf window"
+    return provenance
 
 
 def _write_json(path: Path, value: Any) -> None:
@@ -66,6 +145,8 @@ def characterization_protocol(
 ) -> dict[str, Any]:
     """Return the primitive-declared characterization design and claim boundary."""
 
+    from .witness.protocol import witness_protocol
+
     characterization = config.get("characterization", {})
     primitive = primitive or _primitive_from_config(config, None)
     contract = primitive.characterization_contract(config)
@@ -73,6 +154,8 @@ def characterization_protocol(
         int(value)
         for value in characterization.get("weak_positive_control_cycles", [0, 32, 64, 128])
     ]
+    warmup = parse_allocation_warmup(config)
+    witness = witness_protocol(config)
     return {
         "version": CHARACTERIZATION_PROTOCOL_VERSION,
         "primitive": primitive.describe(),
@@ -86,12 +169,19 @@ def characterization_protocol(
             "trials_per_location": int(characterization.get("trials_per_location", 16)),
             "weak_positive_control_cycles": weak_levels,
             "scoped_perf_event": characterization.get("scoped_perf_event", "not_configured"),
+            "allocation_warmup": warmup,
         },
+        "witness": witness,
         "analysis": {
             "no_model_training": True,
             "summary": "raw observations and primitive-declared control contrasts",
             "uncertainty": "report replicate count and descriptive spread; no hidden-bit threshold tuning",
             "null_stability": dict(contract.get("null_stability", DEFAULT_NULL_STABILITY_RULE)),
+            "acquisition_order_diagnostics": (
+                "acquisition_order_index is retained per control per replicate; "
+                "order-0 cold-transient analysis is diagnostic only and does not "
+                "alter the frozen null rule or decision tree"
+            ),
         },
         "claim_boundary": contract["claim_boundary"],
     }
@@ -586,6 +676,86 @@ def _operation_scoped_perf_multiplexed_fraction(records: list[dict[str, Any]]) -
     return float(sum(1 for value in fractions if value > 0) / len(fractions))
 
 
+def acquisition_order_diagnostics(
+    records_by_control: dict[str, list[dict[str, Any]]],
+) -> dict[str, Any]:
+    """Group PMU medians by acquisition order without altering any gate.
+
+    Diagnostic only: shows whether the first-executed control on each fresh
+    allocation carries systematically higher PMU counts (the v1 cold
+    transient). Never filters, discards, or reweights evidence.
+    """
+
+    by_order: dict[int, list[float]] = {}
+    by_order_control: dict[int, list[str]] = {}
+    for control_name, records in records_by_control.items():
+        for record in records:
+            order = record.get("acquisition_order_index")
+            if not isinstance(order, int):
+                continue
+            median = _operation_scoped_perf_median(record)
+            if median is None:
+                continue
+            by_order.setdefault(order, []).append(median)
+            by_order_control.setdefault(order, []).append(
+                f"{control_name}:{record.get('replicate_id', '')}"
+            )
+    ordered = sorted(by_order)
+    medians_by_order = {str(order): sorted(by_order[order]) for order in ordered}
+    summary_by_order = {}
+    for order in ordered:
+        values = np.asarray(by_order[order], dtype=np.float64)
+        summary_by_order[str(order)] = {
+            "count": int(len(values)),
+            "median": float(np.median(values)) if len(values) else float("nan"),
+            "max": float(np.max(values)) if len(values) else float("nan"),
+            "controls": sorted(by_order_control[order]),
+        }
+    order_zero_highest = None
+    if ordered:
+        # Per replicate, is the order-0 PMU median the highest among that
+        # replicate's controls? Reported as a count, not a gate. By
+        # construction there is exactly one control per order per replicate.
+        replicate_orders: dict[str, dict[int, float]] = {}
+        for _control_name, records in records_by_control.items():
+            for record in records:
+                replicate_id = _record_replicate_id(record)
+                order = record.get("acquisition_order_index")
+                median = _operation_scoped_perf_median(record)
+                if not replicate_id or not isinstance(order, int) or median is None:
+                    continue
+                order_map = replicate_orders.setdefault(replicate_id, {})
+                if order in order_map:
+                    order_map[order] = max(order_map[order], median)
+                else:
+                    order_map[order] = median
+        order_zero_highest_count = 0
+        replicate_total = 0
+        for order_map in replicate_orders.values():
+            if not order_map:
+                continue
+            replicate_total += 1
+            order_zero = order_map.get(0)
+            if order_zero is not None and all(
+                order_zero >= value for o, value in order_map.items() if o != 0
+            ):
+                order_zero_highest_count += 1
+        order_zero_highest = {
+            "replicates_with_order_zero_highest": order_zero_highest_count,
+            "replicates_evaluated": replicate_total,
+        }
+    return {
+        "status": "diagnostic_only_no_gate_effect",
+        "medians_by_acquisition_order": medians_by_order,
+        "summary_by_acquisition_order": summary_by_order,
+        "order_zero_highest": order_zero_highest,
+        "interpretation": (
+            "retained to make a first-use cold transient visible without "
+            "filtering evidence or changing the frozen null rule"
+        ),
+    }
+
+
 def _operation_scoped_perf_oracle_analysis(
     records_by_control: dict[str, list[dict[str, Any]]],
     contract: dict[str, Any],
@@ -910,6 +1080,8 @@ def run_measurement_primitive_characterization(
     controls = [_control_from_contract(item) for item in contract.get("controls", [])]
     records_by_control: dict[str, list[dict[str, Any]]] = {control.name: [] for control in controls}
     base_seed = int(config.get("experiment", {}).get("seed", 1337))
+    warmup = parse_allocation_warmup(config)
+    warmup_by_replicate: dict[str, dict[str, Any]] = {}
     for replicate in range(replicates):
         seed = base_seed + 104729 * (replicate + 1)
         replicate_id = f"replicate-{replicate:04d}"
@@ -920,16 +1092,55 @@ def run_measurement_primitive_characterization(
             matched_backends = primitive.build_characterization_backends(
                 config, controls, seed=seed
             )
+            # Frozen first-touch control: warm the fresh shared allocation
+            # outside any PMU window before the randomized control order runs.
+            # Identical for every control in this replicate; provenance is
+            # retained per replicate and hashed into the protocol via config.
+            if matched_backends is not None and warmup.get("enabled", False):
+                shared = getattr(primitive, "_characterization_shared_buffers", {}).get(seed)
+                if shared is not None:
+                    warmup_by_replicate[replicate_id] = run_allocation_warmup(
+                        shared, kernel, warmup
+                    )
+                else:
+                    warmup_by_replicate[replicate_id] = {
+                        "enabled": True,
+                        "status": "skipped_no_shared_allocation",
+                    }
+            elif warmup.get("enabled", False):
+                warmup_by_replicate[replicate_id] = {
+                    "enabled": True,
+                    "status": "per_backend_path",
+                }
+            else:
+                warmup_by_replicate[replicate_id] = {"enabled": False, "status": "disabled"}
             for acquisition_order_index, control_index in enumerate(order):
                 control = controls[control_index]
+                owned_backend: Any | None = None
                 try:
                     backend = (
                         matched_backends[control.name]
                         if matched_backends is not None
                         else primitive.build_characterization_backend(config, control, seed=seed)
                     )
+                    if matched_backends is None:
+                        owned_backend = backend
+                        # Generic single-allocation path: warm each backend's
+                        # fresh buffer outside the PMU window before sampling.
+                        if warmup.get("enabled", False):
+                            owned_buffer = getattr(backend, "_buffer", None)
+                            if owned_buffer is not None:
+                                run_allocation_warmup(owned_buffer, kernel, warmup)
                     record: dict[str, Any] = _collect_backend(backend)
+                    if owned_backend is not None:
+                        owned_backend = None
                 except (OSError, RuntimeError, ValueError, KeyError) as exc:
+                    if owned_backend is not None:
+                        try:
+                            owned_backend.close()
+                        except (OSError, RuntimeError, ValueError):
+                            pass
+                        owned_backend = None
                     record = {
                         "status": "unavailable",
                         "reason": f"control acquisition failed: {exc}",
@@ -952,6 +1163,7 @@ def run_measurement_primitive_characterization(
             replicate=replicate,
             boot_ids=sorted(set(boot_ids)),
             control_order=[controls[index].name for index in order],
+            allocation_warmup=warmup_by_replicate.get(replicate_id, {"enabled": False}),
         )
 
     contrast_results: dict[str, dict[str, Any]] = {}
@@ -1104,6 +1316,15 @@ def run_measurement_primitive_characterization(
                 "allocation_ids_by_replicate": allocation_ids_by_replicate,
                 "interpretation": "one fresh allocation is shared by controls within each replicate; allocations are fresh across replicates",
             },
+            "allocation_warmup": {
+                "design": warmup,
+                "by_replicate": warmup_by_replicate,
+                "interpretation": (
+                    "frozen first-touch control executed outside any PMU window before "
+                    "the randomized control order; identical for every control in a "
+                    "replicate and hashed into the protocol"
+                ),
+            },
             "boot_dependence": {
                 "status": "measured" if len(unique_boots) >= 3 else "unavailable",
                 "unique_boots": unique_boots,
@@ -1120,6 +1341,7 @@ def run_measurement_primitive_characterization(
                 ],
                 "raw_values_retained": True,
             },
+            "acquisition_order_pmu_diagnostics": acquisition_order_diagnostics(records_by_control),
             "oracle_agreement": oracle_agreement,
             "operation_scoped_perf_oracle": operation_scoped_perf_oracle,
         },

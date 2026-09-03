@@ -241,5 +241,11 @@ multiplexing, but PMU null stability failed within and across boots; the
 instability is characterized as a first-use-of-allocation cold transient
 (order-0 controls inflated 9/9). The resulting decision is **B: observable
 available but oracle weak**. Do not increase commodity Phase 1A sample counts;
-the single justified next step is one predeclared warm-up follow-up, else
-controlled-memory-interface instrumentation (see ADR-013).
+the single predeclared warm-up follow-up is now frozen as
+`configs/worker03-multiboot-scoped-perf-warmup.example.yaml`
+(`measurement-primitive-characterization-v3` plus
+`measurement-primitive-multiboot-v2`: fixed page-touch plus 64 native dummy
+loads outside any PMU window, same null rule and decision tree, witness
+disabled, order-0 diagnostics retained without gate effect). Execute that
+bounded three-boot repeat before any larger-N or hidden-bit work, else
+continue controlled-memory-interface instrumentation (see ADR-013).

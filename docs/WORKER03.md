@@ -46,6 +46,23 @@ deterministic close. The latency control and directional PMU contrast passed,
 but PMU null stability failed, so no hidden-bit run or larger-N campaign is
 authorized by this result.
 
+The single authorized follow-up is frozen but not yet executed:
+`configs/worker03-multiboot-scoped-perf-warmup.example.yaml`
+(characterization-v3 `31fff040…`, multiboot-v2 `80c116fa…`) repeats the same
+three-boot design with a fixed allocation warmup (deterministic page touch
+plus 64 native dummy loads outside any PMU window), the identical null rule
+and decision tree, witness disabled, and acquisition-order PMU diagnostics
+retained without gate effect. Run it with:
+
+```bash
+python3 -m sensetrace.cli host characterize-multiboot worker-03 \
+  --config configs/worker03-multiboot-scoped-perf-warmup.example.yaml \
+  --output evidence/multiboot-warmup-20260904
+```
+
+If that repeat also fails null stability, stop the commodity line and continue
+Phase 2 controlled-memory-interface work.
+
 The experiment should not depend on the GPU. The initial model ladder is deliberately small enough to run on CPU, while the GPU may be used opportunistically where supported.
 
 ## Terminology

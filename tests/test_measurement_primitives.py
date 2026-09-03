@@ -106,11 +106,19 @@ def test_perf_discovery_is_cpu_vocabulary_aware(tmp_path):
 
 def test_characterization_protocol_is_not_hidden_bit_inference():
     protocol = characterization_protocol(_config())
-    assert protocol["version"] == "measurement-primitive-characterization-v2"
+    assert protocol["version"] == "measurement-primitive-characterization-v3"
     assert protocol["analysis"]["no_model_training"] is True
     assert "physical DRAM access" in protocol["claim_boundary"]
     assert protocol["primitive"]["access_state_oracle"]["model_feature_eligible"] is False
     assert protocol["analysis"]["no_model_training"] is True
+    # v3 freezes the first-touch control and the witness policy explicitly.
+    assert protocol["sample_design"]["allocation_warmup"] == {
+        "enabled": False,
+        "touch_pages": True,
+        "dummy_loads": 0,
+    }
+    assert protocol["witness"]["requirement"] in {"disabled", "optional", "required"}
+    assert protocol["witness"]["automatic_sample_veto"] is False
 
 
 def test_perf_event_attr_is_disabled_and_excludes_kernel_and_hypervisor():

@@ -235,12 +235,21 @@ class ExcitationExecution:
             raise ValueError("unsupported excitation compliance state")
         if self.compliance == "compliant" and len(self.executed_code) != schedule.length:
             raise ValueError("compliant excitation must contain every requested step")
+        if (
+            self.compliance == "compliant"
+            and tuple(self.executed_code) != schedule.requested_code()
+        ):
+            raise ValueError("compliant excitation executed code differs from requested code")
         if any(
             position < 0 or position >= schedule.length for position in self.interrupted_positions
         ):
             raise ValueError("interrupted excitation position is outside the schedule")
         if len(set(self.interrupted_positions)) != len(self.interrupted_positions):
             raise ValueError("interrupted excitation positions must be unique")
+        if self.compliance == "partial" and not self.interrupted_positions:
+            raise ValueError("partial excitation must record interrupted positions")
+        if self.compliance == "failed" and self.executed_code:
+            raise ValueError("failed excitation cannot contain executed steps")
 
     def as_dict(self) -> dict[str, Any]:
         return {

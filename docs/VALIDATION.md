@@ -301,3 +301,19 @@ Use conservative language tied to the strongest split passed.
 A clean 50% result under a well-powered, carefully instrumented experiment is valuable. It establishes an upper bound on what the tested channel and measurement sensitivity can reveal.
 
 SenseTrace should preserve negative results with the same rigor as positive ones.
+
+## Fragmented exact-host protocol validation
+
+The preregistered worker-03 path freezes the native-v4 probe order, requested
+and executed excitation records, reference-only residualizer source,
+packet-id/group split, receiver candidates, and claim boundary. Reference
+packets are unlabeled and the residualizer fingerprint is recorded separately
+from the supervised dataset. The evaluator streams packets and retains only
+bounded training summaries and fixed-size score histograms.
+
+Claim level is authorized from explicit provenance groups. A one-boot dataset
+cannot produce an unseen-boot claim, and packets sharing a session cannot
+produce an unseen-session claim. Duplicate payloads, copied packets, crossing
+groups, residualizer overlap, and model-input metadata changes fail the audit.
+The current example configuration authorizes only calibrated exact-host
+decoding; native exact-host observations remain non-physical evidence.

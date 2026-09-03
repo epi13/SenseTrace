@@ -459,6 +459,16 @@ class ControlledMemoryInterface(ABC):
         """Return the trace payload associated with a validated acquisition."""
         raise NotImplementedError
 
+    def adapter_attestation(self) -> Any | None:
+        """Return adapter-supplied attestation, if this adapter can provide one.
+
+        The default is deliberately unavailable.  Internal contract
+        consistency must not be mistaken for proof that an adapter is attached
+        to physical hardware.
+        """
+
+        return None
+
     def close(self) -> None:
         return None
 
@@ -725,6 +735,26 @@ class ControlledInterfaceAcquisitionBackend(AcquisitionBackend):
         capabilities = self.interface.capabilities().as_dict()
         physical = self.interface.evidence_plane == PHYSICAL_CONTROLLED_EVIDENCE_PLANE
         purpose = "physical_controlled_hardware" if physical else "phase2_mock_controlled"
+        attestation = self.interface.adapter_attestation() if physical else None
+        if attestation is not None:
+            attestation.validate(require_physical=True)
+            attestation_record = attestation.as_dict()
+            evidence_source = {
+                "schema": "sensetrace.evidence-source.v1",
+                "internally_consistent": True,
+                "evidence_tier": "adapter_attested_physical",
+                "physical_claim_authority": "adapter_attestation",
+                "adapter_attestation": attestation_record,
+                "adapter_attestation_fingerprint": attestation.fingerprint(),
+            }
+        else:
+            evidence_source = {
+                "schema": "sensetrace.evidence-source.v1",
+                "internally_consistent": True,
+                "evidence_tier": "internally_consistent",
+                "physical_claim_authority": "none",
+                "claim_boundary": "internal consistency only; adapter attachment is not attested",
+            }
         return {
             "backend": self.name,
             "interface_name": self.interface.interface_name,
@@ -741,7 +771,9 @@ class ControlledInterfaceAcquisitionBackend(AcquisitionBackend):
                 "version": PHYSICAL_CONTROLLED_EVIDENCE_CONTRACT_VERSION,
                 "status": "satisfied" if physical else "not_satisfied; nonphysical evidence plane",
                 "required_fields": sorted(PHYSICAL_CONTROLLED_REQUIRED_METADATA_FIELDS),
+                "adapter_attestation_required_for_physical_claim": physical,
             },
+            "evidence_source": evidence_source,
             "controller_configuration_hash": provenance["controller_config_hash"],
             "condition": condition,
             "provenance_contract": provenance,

@@ -325,3 +325,25 @@ selected and its reset behavior is validated on this host.
 ## Evidence boundary
 
 The worker campaign is synthetic. Its result can support the claim that a known synthetic perturbation is recovered under the recorded grouped split. It cannot support a claim about physical DRAM-state inference, commodity DRAM topology, or cross-machine transfer.
+
+## Preregistered fragmented exact-host run
+
+The next executable milestone uses
+`configs/worker03-fragmented-exact-host.example.yaml` and the
+`worker03-fragmented-exact-host-v1` protocol. It packetizes the native v4
+observation into ordered weak fragments, writes bounded append-only JSONL
+packet shards, and records requested versus executed excitation separately.
+The reference phase is unlabeled and is the only residualizer fitting corpus.
+
+The lifecycle is persisted as
+`planned → protocol_frozen → inventory_verified → reference_acquisition →
+controlled_acquisition → evidence_finalized → split_frozen → training →
+validation_selection → test_evaluation → decision`. A protocol deviation,
+leakage audit failure, incomplete session, or noncompliant execution stops the
+run. An available SSH/Fabric connection does not authorize a large physical
+acquisition; use bounded inventory, build, and smoke validation first.
+
+Adapter attachment is a separate trust boundary. Internal consistency of
+controller records does not establish physical attachment. New physical claims
+must include a bound `controlled-adapter-attestation-v1`; native exact-host
+and mock evidence remain non-physical tiers.

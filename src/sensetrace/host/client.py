@@ -790,6 +790,36 @@ class RemoteHost:
             raise RuntimeError(result.stderr or result.stdout)
         return result.stdout
 
+    def run_worker03_fragmented(
+        self,
+        config: str | Path,
+        *,
+        output: str | None = None,
+        reference_samples: int | None = None,
+        controlled_samples: int | None = None,
+    ) -> str:
+        """Run only the explicitly preregistered bounded worker-03 pipeline."""
+
+        home = self._home()
+        venv = f"{home}/.local/share/sensetrace/venv/bin/sensetrace"
+        remote_config = f"{home}/.config/sensetrace/worker03-fragmented.yaml"
+        self.connection.put(str(config), remote=remote_config)
+        destination = output or (
+            f"{home}/.local/share/sensetrace/runs/worker03-fragmented-exact-host-v1"
+        )
+        command = (
+            f"{venv} run worker03-fragmented --config {quote(remote_config)} "
+            f"--output {quote(destination)}"
+        )
+        if reference_samples is not None:
+            command += f" --reference-samples {int(reference_samples)}"
+        if controlled_samples is not None:
+            command += f" --controlled-samples {int(controlled_samples)}"
+        result = self.run(command, warn=True, hide=True)
+        if not result.ok:
+            raise RuntimeError(result.stderr or result.stdout)
+        return result.stdout
+
     def run_native_sensitivity_calibration(
         self,
         config: str | Path,

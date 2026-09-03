@@ -16,6 +16,7 @@ from .calibration import (
 from .characterization import run_measurement_primitive_characterization
 from .config import load_config, validate_config
 from .datasets import load_dataset
+from .experiment import run_preregistered_worker03_experiment
 from .host.client import RemoteHost
 from .inventory import collect_inventory
 from .phase0 import run_phase0
@@ -87,6 +88,21 @@ def build_parser() -> argparse.ArgumentParser:
     phase2_mock.add_argument("--output", default="runs/phase2-controlled-mock")
     phase2_mock.add_argument("--condition", default="null")
     phase2_mock.add_argument("--stop-after", type=int)
+    worker03_fragmented = run_sub.add_parser(
+        "worker03-fragmented",
+        help="run the preregistered bounded worker-03 reference/acquisition/receiver pipeline",
+    )
+    worker03_fragmented.add_argument(
+        "--config", default="configs/worker03-fragmented-exact-host.example.yaml"
+    )
+    worker03_fragmented.add_argument("--output", default="runs/worker03-fragmented-exact-host-v1")
+    worker03_fragmented.add_argument("--reference-samples", type=int)
+    worker03_fragmented.add_argument("--controlled-samples", type=int)
+
+    protocol = sub.add_parser("protocol", help="print a frozen protocol and its fingerprint")
+    protocol.add_argument("name", choices=["worker03-fragmented"])
+    protocol.add_argument("--config", default="configs/worker03-fragmented-exact-host.example.yaml")
+    protocol.add_argument("--hash", action="store_true")
 
     calibrate = sub.add_parser("calibrate", help="calibrate an analysis pipeline")
     calibrate_sub = calibrate.add_subparsers(dest="calibrate_command", required=True)
@@ -221,6 +237,14 @@ def build_parser() -> argparse.ArgumentParser:
     remote_phase1a.add_argument("--config", default="configs/worker03.example.yaml")
     remote_phase1a.add_argument("--phase0-report", required=True)
     remote_phase1a.add_argument("--output")
+    remote_worker03 = host_sub.add_parser("run-worker03-fragmented")
+    remote_worker03.add_argument("host", nargs="?", default="worker-03")
+    remote_worker03.add_argument(
+        "--config", default="configs/worker03-fragmented-exact-host.example.yaml"
+    )
+    remote_worker03.add_argument("--output")
+    remote_worker03.add_argument("--reference-samples", type=int)
+    remote_worker03.add_argument("--controlled-samples", type=int)
     remote_calibration = host_sub.add_parser("calibrate-phase0")
     remote_calibration.add_argument("host", nargs="?", default="worker-03")
     remote_calibration.add_argument("--config", default="configs/phase0.example.yaml")
@@ -324,6 +348,33 @@ def main(argv: list[str] | None = None) -> int:
             AcquisitionRunner(config, output, run_id=output.name).run(
                 condition=args.condition, stop_after=args.stop_after
             )
+        )
+        return 0
+    if args.command == "run" and args.run_command == "worker03-fragmented":
+        _json(
+            run_preregistered_worker03_experiment(
+                validate_config(load_config(args.config)),
+                args.output,
+                reference_samples=args.reference_samples,
+                controlled_samples=args.controlled_samples,
+            )
+        )
+        return 0
+    if args.command == "protocol" and args.name == "worker03-fragmented":
+        from .protocol import (
+            worker03_fragmented_exact_host_protocol,
+            worker03_fragmented_exact_host_protocol_hash,
+        )
+
+        config = validate_config(load_config(args.config))
+        protocol_record = worker03_fragmented_exact_host_protocol(config)
+        _json(
+            worker03_fragmented_exact_host_protocol_hash(config)
+            if args.hash
+            else {
+                "protocol": protocol_record,
+                "protocol_hash": worker03_fragmented_exact_host_protocol_hash(config),
+            }
         )
         return 0
     if args.command == "calibrate" and args.calibrate_command == "phase0":
@@ -494,6 +545,16 @@ def main(argv: list[str] | None = None) -> int:
         elif args.host_command == "run-phase1a":
             print(
                 remote.run_phase1a(args.config, args.phase0_report, output=args.output),
+                end="",
+            )
+        elif args.host_command == "run-worker03-fragmented":
+            print(
+                remote.run_worker03_fragmented(
+                    args.config,
+                    output=args.output,
+                    reference_samples=args.reference_samples,
+                    controlled_samples=args.controlled_samples,
+                ),
                 end="",
             )
         elif args.host_command == "calibrate-phase0":

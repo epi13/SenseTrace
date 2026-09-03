@@ -15,6 +15,217 @@ from .hashing import sha256_json
 PHASE0_PROTOCOL_VERSION = "phase0-protocol-v1"
 PHASE0_PROTOCOL_V2_VERSION = "phase0-protocol-v2"
 PHASE1A_COMMODITY_BASELINE_VERSION = "phase1a-commodity-baseline-v1"
+WORKER03_FRAGMENTED_EXACT_HOST_VERSION = "worker03-fragmented-exact-host-v1"
+
+
+def worker03_fragmented_exact_host_protocol(config: dict[str, Any]) -> dict[str, Any]:
+    """Return the preregistered worker-03 fragmented-evidence contract.
+
+    The contract is deliberately explicit even when a caller accepts the
+    defaults.  Requested excitation is recorded here; executed excitation is
+    an acquisition result and can never be inferred from this record.
+    """
+
+    normalized = normalized_config(config)
+    experiment = normalized.get("worker03_experiment", {})
+    if not isinstance(experiment, dict):
+        raise ValueError("worker03_experiment must be a mapping")
+    version = str(experiment.get("protocol_version", WORKER03_FRAGMENTED_EXACT_HOST_VERSION))
+    if version != WORKER03_FRAGMENTED_EXACT_HOST_VERSION:
+        raise ValueError(f"unsupported worker-03 fragmented protocol: {version}")
+    data = normalized.get("data", {})
+    receiver = experiment.get("receiver", {})
+    probes = experiment.get(
+        "probes",
+        [
+            {"probe_type": "cached_control", "probe_version": "native-v4"},
+            {"probe_type": "dependency_chain", "probe_version": "native-v4"},
+            {"probe_type": "repeated_load", "probe_version": "native-v4"},
+            {"probe_type": "paired_cached_differential", "probe_version": "native-v4"},
+        ],
+    )
+    if not isinstance(probes, list) or not probes:
+        raise ValueError("worker03_experiment.probes must be a non-empty list")
+    protocol: dict[str, Any] = {
+        "version": version,
+        "status": "preregistered_frozen_protocol",
+        "dataset_purpose": "worker03_fragmented_exact_host_native",
+        "target": {
+            "hardware_identity": experiment.get("target_hardware_id", "worker03-hardware-v1"),
+            "inventory_match_required": experiment.get("inventory_match", "matched"),
+            "host_scope": "exact worker-03 host only; no portability claim",
+            "native_evidence_only": True,
+            "controlled_hardware_evidence": False,
+        },
+        "implementation": {
+            "code_commit": experiment.get("code_commit", "resolved_at_freeze_time"),
+            "native_kernel_version": experiment.get("native_kernel_version", "native-v4"),
+            "probe_versions": probes,
+            "timing_method": "native v4 TSC cycles; LFENCE/RDTSC and RDTSCP/LFENCE where available",
+            "warmup": experiment.get(
+                "warmup",
+                {"enabled": True, "touch_pages": True, "dummy_loads": 0, "label_independent": True},
+            ),
+        },
+        "packet_composition": {
+            "fragment_order": experiment.get(
+                "fragment_order", [str(item.get("probe_type")) for item in probes]
+            ),
+            "target_reference_relationship": experiment.get(
+                "target_reference_relationship", "same target packet with fixed reference roles"
+            ),
+            "preserve_raw_fragments": True,
+            "missing_fragment_behavior": "retain explicit status and mask; never impute as observed zero",
+            "failure_states": ["unavailable", "failed", "partial", "corrupted"],
+            "model_arrays": ["values", "observed_mask", "fragment_mask", "excitation", "quality"],
+        },
+        "target_and_label_generation": {
+            "requested_schedule": experiment.get(
+                "requested_schedule", {"family": "active_quiet", "length": 32, "seed": 1337}
+            ),
+            "label_generation": experiment.get(
+                "label_generation", "balanced deterministic seeded labels; audit only"
+            ),
+            "reference_baseline_labels": "none; reference corpus is unlabeled",
+            "digital_read": "audit-only and excluded from model arrays",
+        },
+        "core_roles": experiment.get(
+            "core_roles",
+            {
+                "measurement": [0],
+                "reference": [1],
+                "excitation": [2, 3, 4, 5, 6],
+                "orchestrator": [7],
+            },
+        ),
+        "execution": {
+            "cpu_affinity_expectation": experiment.get(
+                "cpu_affinity_expectation", "role cores pinned and scheduler status recorded"
+            ),
+            "requested_vs_executed_separate": True,
+            "noncompliant_execution": "retain as noncompliant control or fail the requested evidence gate",
+            "interruptions_recorded": True,
+            "timing_uncertainty_recorded": True,
+        },
+        "acquisition": {
+            "repetition_counts": experiment.get(
+                "repetition_counts", {"per_probe": 8, "packets": int(data.get("samples", 64))}
+            ),
+            "discard_rules": experiment.get(
+                "discard_rules",
+                ["nonfinite payload", "missing required target fragment", "noncompliant execution"],
+            ),
+            "session_definition": "one boot, host inventory, fresh allocation, label stream, and append-only packet source",
+            "interruption": "finalize immutable prefix; replacement session gets new identity and parent reference",
+            "streaming_memory_bound": True,
+        },
+        "reference_baseline": {
+            "required": True,
+            "unlabeled": True,
+            "repetition_counts": experiment.get(
+                "reference_repetition_counts",
+                {"packets": int(experiment.get("reference_packets", 1024))},
+            ),
+            "drift_capture": "long reference acquisition across its declared duration and sessions",
+            "residualizer": {
+                "fit_corpus": "reference dataset only",
+                "validation_test_excluded": True,
+                "source_fingerprint_recorded": True,
+            },
+        },
+        "splits": {
+            "policy": "materialized immutable packet-id split; groups never cross partitions",
+            "claim_levels": [
+                "level_1_exact_host_calibrated",
+                "level_2_exact_host_unseen_location",
+                "level_3_exact_host_unseen_session",
+                "level_4_exact_host_unseen_boot",
+                "level_5_unseen_dimm",
+                "level_6_unseen_host",
+            ],
+            "level_4_minimum_boot_groups": 3,
+            "level_5_minimum_dimm_groups": 2,
+            "level_6_minimum_host_groups": 2,
+            "leakage_fields": [
+                "packet_id",
+                "run_id",
+                "acquisition_id",
+                "acquisition_session_id",
+                "session_id",
+                "boot_id",
+                "target_reference",
+                "address",
+                "location_id",
+                "virtual_location_id",
+                "fragment_id",
+                "sequence_position",
+                "schedule_index",
+                "excitation_phase",
+            ],
+        },
+        "receivers": {
+            "candidates": receiver.get(
+                "candidates",
+                [
+                    "logistic_regression",
+                    "boosted_trees",
+                    "tiny_cnn_tcn",
+                    "weak_evidence_aggregator",
+                    "jepa_linear_probe",
+                    "jepa_tiny_mlp",
+                    "predictive_coding",
+                    "jepa_predictive_coding_hybrid",
+                ],
+            ),
+            "configuration_space": receiver.get(
+                "configuration_space", "small frozen bounded space"
+            ),
+            "selection": "fit train; select on validation; evaluate selected configuration on test once",
+            "test_requery": "forbidden",
+        },
+        "metrics": experiment.get(
+            "metrics",
+            ["balanced_accuracy", "auroc", "sample_count", "class_balance", "confidence_interval"],
+        ),
+        "controls": {
+            "positive_control": "artificial injected contrast; control-only label",
+            "null": "no-signal condition",
+            "shuffled_labels": "frozen seed and procedure",
+            "relation_ablation": "destroy cross-fragment relation while preserving marginal fragments where possible",
+            "metadata_firewall": "audit metadata cannot change model arrays",
+            "single_fragment_baseline": "strongest individual fragment compared with aggregate",
+            "session_boot_generalization": "reported only when independent groups exist",
+        },
+        "state_machine": [
+            "planned",
+            "protocol_frozen",
+            "inventory_verified",
+            "reference_acquisition",
+            "controlled_acquisition",
+            "evidence_finalized",
+            "split_frozen",
+            "training",
+            "validation_selection",
+            "test_evaluation",
+            "decision",
+        ],
+        "stop_rules": experiment.get(
+            "stop_rules",
+            [
+                "stop on protocol divergence requiring a new experiment identity",
+                "stop on invalid or noncompliant execution rather than silently relabeling it",
+                "stop on provenance, duplicate, or leakage audit failure",
+                "stop claim level at the strongest level supported by independent evidence",
+            ],
+        ),
+        "claim_boundary": "native exact-host fragmented observations only; no controlled-memory, FPGA, DRAM-origin, hidden-state, or generalization claim",
+        "historical_gate": "commodity Phase 1A remains C: primitive unsuitable and is not reopened by this protocol",
+    }
+    return protocol
+
+
+def worker03_fragmented_exact_host_protocol_hash(config: dict[str, Any]) -> str:
+    return sha256_json(worker03_fragmented_exact_host_protocol(config))
 
 
 def phase0_protocol(config: dict[str, Any]) -> dict[str, Any]:

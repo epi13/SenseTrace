@@ -22,6 +22,7 @@ from .acquisition.controlled import (
     ControlledTraceAcquisition,
     ControlledTraceChannel,
 )
+from .attestation import require_adapter_attestation as require_adapter_attestation_record
 from .config import config_fingerprint
 from .errors import IntegrityError, SchemaError
 from .hashing import sha256_bytes, sha256_json, sha256_text
@@ -107,6 +108,7 @@ def load_dataset(
     expected_purpose: str | None = None,
     expected_protocol_identity: str | None = None,
     expected_protocol_hash: str | None = None,
+    require_adapter_attestation: bool = False,
 ) -> tuple[np.ndarray, np.ndarray, dict[str, np.ndarray], list[ShardInfo], dict[str, Any]]:
     root = Path(run_dir)
     manifest = read_dataset_manifest(root)
@@ -125,7 +127,13 @@ def load_dataset(
             expected_protocol_hash=expected_protocol_hash,
         )
     elif expected_purpose == "physical_controlled_hardware":
-        _validate_physical_controlled_dataset(traces, metadata, manifest, root)
+        _validate_physical_controlled_dataset(
+            traces,
+            metadata,
+            manifest,
+            root,
+            require_adapter_attestation=require_adapter_attestation,
+        )
     else:
         _validate_physical_timing_provenance(metadata, manifest, root)
         if expected_purpose is not None and manifest.get("dataset_purpose") != expected_purpose:
@@ -185,6 +193,8 @@ def _validate_physical_controlled_dataset(
     metadata: dict[str, np.ndarray],
     manifest: dict[str, Any],
     source: Path,
+    *,
+    require_adapter_attestation: bool = False,
 ) -> None:
     """Validate the complete physical controlled-hardware evidence chain.
 
@@ -258,6 +268,23 @@ def _validate_physical_controlled_dataset(
             raise IntegrityError(f"manifest and provenance disagree on {field}")
     if provenance.get("physical_evidence_contract") != contract:
         raise IntegrityError("manifest and provenance evidence contracts disagree")
+    if require_adapter_attestation:
+        try:
+            require_adapter_attestation_record(
+                provenance,
+                controller_identity=str(provenance["controller_identity"]),
+                firmware_identity=str(provenance["controller_firmware_id"]),
+                configuration_fingerprint=str(provenance["controller_config_hash"]),
+                target_identity=str(provenance["experiment_target_id"]),
+                acquisition_session_identity=str(
+                    manifest["acquisition_sessions"][0]["acquisition_session_id"]
+                ),
+                host_inventory_fingerprint=str(provenance["host_inventory_fingerprint"]),
+            )
+        except (KeyError, TypeError, ValueError, IndexError) as exc:
+            raise IntegrityError(
+                f"physical controlled-hardware adapter attestation failed: {exc}"
+            ) from exc
     capabilities_record = provenance.get("capabilities")
     if not isinstance(capabilities_record, dict):
         raise IntegrityError("physical controlled-hardware data requires a capability snapshot")
@@ -594,12 +621,17 @@ def _validate_physical_row(
 
 
 def validate_physical_evidence_dataset(
-    run_dir: str | Path, *, expected_purpose: str = "physical_controlled_hardware"
+    run_dir: str | Path,
+    *,
+    expected_purpose: str = "physical_controlled_hardware",
+    require_adapter_attestation: bool = False,
 ) -> dict[str, Any]:
     """Load a dataset through an explicit physical-evidence claim boundary."""
 
     _traces, _labels, _metadata, _shards, manifest = load_dataset(
-        run_dir, expected_purpose=expected_purpose
+        run_dir,
+        expected_purpose=expected_purpose,
+        require_adapter_attestation=require_adapter_attestation,
     )
     return manifest
 

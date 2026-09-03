@@ -1,0 +1,81 @@
+experiment:
+  name: worker03-fragmented-exact-host-v1
+  seed: 1337
+
+data:
+  samples: 64
+  trace_length: 32
+  target_balance: 0.5
+
+acquisition:
+  backend: commodity
+  cache_control: eviction_buffer
+  operation: memory_read
+  word_count: 1024
+  lock_memory: true
+  max_packets_per_shard: 128
+
+phase1a:
+  # This is a native exact-host packet experiment.  It does not reopen or
+  # scale the historical commodity PMU result (C: primitive unsuitable).
+  campaign_intent: historical_reproduction
+  protocol_version: phase1a-commodity-baseline-v1
+  measurement_primitive: commodity-clflush-timed-load
+  pattern: single_bit
+  target_bit: 0
+  location_count: 1
+  trials_per_location: 64
+  labels_per_location: 32
+  use_native_kernel: true
+  require_native_kernel: true
+
+worker03_experiment:
+  protocol_version: worker03-fragmented-exact-host-v1
+  target_hardware_id: worker03-hardware-v1
+  inventory_match: matched
+  native_kernel_version: native-v4
+  require_native_kernel: true
+  probes:
+    - probe_type: cached_control
+      probe_version: native-v4
+    - probe_type: dependency_chain
+      probe_version: native-v4
+    - probe_type: repeated_load
+      probe_version: native-v4
+    - probe_type: paired_cached_differential
+      probe_version: native-v4
+  requested_schedule:
+    family: active_quiet
+    length: 32
+    seed: 1337
+  repetition_counts:
+    per_probe: 8
+    packets: 64
+  # Long unlabeled drift/reference baseline; override only with an explicit
+  # bounded validation count when exercising the pipeline.
+  reference_packets: 1024
+  claim_level: level_1_exact_host_calibrated
+  receiver:
+    candidates:
+      - logistic_regression
+      - boosted_trees
+      - tiny_cnn_tcn
+      - weak_evidence_aggregator
+      - jepa_linear_probe
+      - jepa_tiny_mlp
+      - predictive_coding
+      - jepa_predictive_coding_hybrid
+    configuration_space: frozen bounded defaults
+  warmup:
+    enabled: true
+    touch_pages: true
+    dummy_loads: 0
+
+splits:
+  primary:
+    train_fraction: 0.7
+    validation_fraction: 0.15
+    test_fraction: 0.15
+
+training:
+  seeds: [11, 23, 37]

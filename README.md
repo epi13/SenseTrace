@@ -172,9 +172,11 @@ The purpose of the project is to characterize physical information channels in m
 - [worker-03 native sensitivity evidence](docs/evidence/native-sensitivity-worker03-2026-09-01.md)
 - [worker-03 measurement-primitive characterization](docs/evidence/worker03-measurement-primitive-characterization-2026-09-02.md)
 - [worker-03 scoped PMU characterization](docs/evidence/worker03-scoped-perf-characterization-2026-09-02.md)
+- [worker-03 genuine multi-boot scoped-PMU characterization](docs/evidence/worker03-multiboot-scoped-perf-2026-09-03.md)
 - [Native-path sensitivity decision](docs/ADR-010-native-path-sensitivity-calibration.md)
 - [Commodity Phase 1A baseline](docs/PHASE1A-COMMODITY-BASELINE-V1.md)
 - [Measurement primitives and access-state oracles](docs/ADR-011-measurement-primitives-and-access-state-oracles.md)
+- [Phase 2 controlled-memory-interface boundary](docs/ADR-013-controlled-memory-interface-boundary.md)
 - [Phase 0 v2 protocol](docs/PHASE0-PROTOCOL-V2.md)
 - [Architecture decisions](docs/ADR-001-storage-and-journal.md)
 
@@ -206,9 +208,11 @@ physical-address, row, bank, subarray, chip, or DIMM measurement.
 The current decision gate is conservative: the native path detects the
 artificial timing control, while the corrected physical three-boot result is
 near chance. The worker-03 scoped `cpu/cache-misses/` reader opened and
-measured only around SenseTrace-owned operations, and its directional
-cache-path contrast repeated across three fresh allocations, but its PMU null
-stability failed the predeclared rule. The resulting decision is **B: observable
+measured only around SenseTrace-owned operations. A frozen genuine three-boot
+repeat reproduced the directional cache-path contrast 9/9 with no
+multiplexing, but PMU null stability failed within and across boots; the
+instability is characterized as a first-use-of-allocation cold transient
+(order-0 controls inflated 9/9). The resulting decision is **B: observable
 available but oracle weak**. Do not increase commodity Phase 1A sample counts;
-first resolve the PMU null-stability limitation or move to controlled-memory-
-interface instrumentation.
+the single justified next step is one predeclared warm-up follow-up, else
+controlled-memory-interface instrumentation (see ADR-013).

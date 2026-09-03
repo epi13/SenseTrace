@@ -33,6 +33,12 @@ not selected because their hardware scope is not a calling-thread scope.
 
 The bounded run is documented in
 [worker-03 scoped PMU characterization](evidence/worker03-scoped-perf-characterization-2026-09-02.md).
+The frozen genuine three-boot repeat is documented in
+[multi-boot scoped-PMU characterization](evidence/worker03-multiboot-scoped-perf-2026-09-03.md):
+9/9 directional agreement across three boot IDs with no multiplexing, null
+stability failed within and across boots, decision B preserved, and the
+instability characterized as a first-use-of-allocation cold transient.
+Two reboots were verified with the system service surviving on each boot.
 It measured the selected event around each controlled operation with
 `inherit=0`, `cpu=-1`, kernel/hypervisor exclusion, disabled start,
 reset/enable/disable bracketing, explicit time-enabled/time-running reads, and

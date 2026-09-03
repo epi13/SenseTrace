@@ -1,0 +1,51 @@
+# ADR-013: Phase 2 controlled-memory-interface boundary
+
+- Status: accepted
+- Date: 2026-09-03
+
+## Context
+
+The genuine three-boot scoped-PMU campaign (2026-09-03) preserved decision B:
+the `cpu/cache-misses/` directional contrast reproduces 9/9 across boots, but
+the null is unstable within and across boots, characterized as a
+first-use-of-allocation cold transient. The commodity timed-load/CLFLUSH path
+must not be scaled further, and only one predeclared warm-up follow-up remains
+justifiable before the commodity line stops. SenseTrace therefore needs a
+clean research boundary for controlled memory hardware now, before any device
+is connected.
+
+## Decision
+
+Phase 2 work starts from `src/sensetrace/acquisition/controlled.py`:
+
+- `ControlledMemoryInterface` declares the contract a future controller must
+  satisfy: physical experiment-target identity, externally controlled
+  address/command identity, command timing, refresh relationship, acquisition
+  trigger, analog/digital trace channels, hardware clock, controller firmware
+  identity, controller configuration hash, device/DIMM identity, calibration
+  state, and acquisition provenance.
+- `ControlledMemoryTopology` carries row/bank/channel/rank/device/DIMM fields
+  that are valid **only** with `source="controlled_hardware"`. Any concrete
+  topology field with any other source raises; deriving topology from a
+  virtual address raises unconditionally. No virtual-to-physical synthesis is
+  possible through this interface.
+- `SyntheticMockControlledBackend` implements the data contract (grouped
+  samples, label fingerprints, session/allocation provenance, unknown-device
+  topology) with generated random traces labeled synthetic, so dataset, split,
+  validation, model, journaling, and recovery code paths can be tested before
+  hardware arrives. Its observation semantics say "synthetic mock trace" and
+  it can never produce a physical claim.
+
+The existing infrastructure (journaling, sharding, hashing, provenance,
+grouped splits, controls, model interfaces, recovery, evidence manifests) is
+reused; no separate scientific pipeline is forked.
+
+## Consequences
+
+- A future controller integrates by implementing `ControlledMemoryInterface`
+  and supplying hardware-sourced topology; anything less remains
+  `unavailable` by construction, not by documentation alone.
+- The mock backend gives the warm-up follow-up (or any future primitive) a
+  tested recovery/data path without weakening commodity evidence rules.
+- If the single predeclared warm-up characterization fails, the commodity
+  Phase 1 line stops and Phase 2 becomes the only physical path forward.

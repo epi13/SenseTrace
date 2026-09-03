@@ -67,6 +67,12 @@ _GENERIC_HARDWARE_NAMES = {
 PERF_TYPE_HARDWARE = 0
 PERF_TYPE_RAW = 4
 PERF_ATTR_SIZE = 128
+PERF_FLAG_FD_CLOEXEC = 1 << 3
+# Only the core CPU PMU may back a calling-thread scoped reader. Uncore,
+# platform, and MSR/power devices count socket/package resources and must
+# never be presented as per-thread evidence.
+THREAD_SCOPED_PMU_DEVICES = frozenset({"cpu"})
+UNCORE_DEVICE_PREFIXES = ("uncore_", "cstate_", "i915", "msr", "power", "intel_")
 PERF_ATTR_DISABLED = 1 << 0
 PERF_ATTR_INHERIT = 1 << 1
 PERF_ATTR_PINNED = 1 << 2
@@ -231,6 +237,16 @@ def build_perf_event_attr(
     }
 
 
+def expected_read_size(read_format: int) -> int:
+    """Return the exact byte count the kernel returns for a read_format."""
+    size = 8  # value field is always present
+    if read_format & PERF_FORMAT_TOTAL_TIME_ENABLED:
+        size += 8
+    if read_format & PERF_FORMAT_TOTAL_TIME_RUNNING:
+        size += 8
+    return size
+
+
 def _perf_event_open(
     attribute: ctypes.Array[Any], *, syscall_number: int, thread_id: int, cpu: int
 ) -> int:
@@ -242,7 +258,7 @@ def _perf_event_open(
             ctypes.c_int(thread_id),
             ctypes.c_int(cpu),
             ctypes.c_int(-1),
-            ctypes.c_ulong(0),
+            ctypes.c_ulong(PERF_FLAG_FD_CLOEXEC),
         )
     )
 
@@ -271,6 +287,12 @@ class OperationScopedPerfEvent:
             event_type = event.source_type if isinstance(event.source_type, int) else None
             if event_type is None:
                 raise ValueError("PMU event source type must be numeric for perf_event_open")
+            if event.device not in THREAD_SCOPED_PMU_DEVICES:
+                raise ValueError(
+                    f"PMU device {event.device!r} cannot back a calling-thread scoped "
+                    "reader (only 'cpu' is thread-scoped; uncore/cstate/msr/power "
+                    "devices count socket/package resources)"
+                )
             self.event = event
             self._attribute_bytes, self._attribute_record = build_perf_event_attr(
                 event.alias,
@@ -316,12 +338,8 @@ class OperationScopedPerfEvent:
             },
             "read_format": self._read_format,
             "read_format_fields": {
-                "total_time_enabled": bool(
-                    self._read_format & PERF_FORMAT_TOTAL_TIME_ENABLED
-                ),
-                "total_time_running": bool(
-                    self._read_format & PERF_FORMAT_TOTAL_TIME_RUNNING
-                ),
+                "total_time_enabled": bool(self._read_format & PERF_FORMAT_TOTAL_TIME_ENABLED),
+                "total_time_running": bool(self._read_format & PERF_FORMAT_TOTAL_TIME_RUNNING),
             },
             "multiplexing": "single event; read time_enabled and time_running explicitly",
             "errno": self._open_errno or 0,
@@ -354,6 +372,13 @@ class OperationScopedPerfEvent:
                 provenance=provenance,
                 errno_value=self._open_errno,
             )
+        # Defense in depth: the syscall already passes FD_CLOEXEC, but an
+        # explicit flag guards against a kernel that ignores it.
+        try:
+            flags = fcntl.fcntl(fd, fcntl.F_GETFD)
+            fcntl.fcntl(fd, fcntl.F_SETFD, flags | fcntl.FD_CLOEXEC)
+        except OSError:
+            pass
         self._fd = fd
         return self
 
@@ -382,7 +407,7 @@ class OperationScopedPerfEvent:
     def read(self) -> ScopedPerfEventReading:
         if self._fd is None:
             raise RuntimeError("scoped perf event is not open")
-        expected_size = struct.calcsize("<QQQ")
+        expected_size = expected_read_size(self._read_format)
         try:
             payload = os.read(self._fd, expected_size)
         except OSError as exc:
@@ -396,7 +421,17 @@ class OperationScopedPerfEvent:
                 f"scoped perf event returned {len(payload)} bytes; expected {expected_size}",
                 provenance=self.provenance,
             )
-        raw_count, time_enabled, time_running = struct.unpack("<QQQ", payload)
+        if expected_size == 8:
+            (raw_count,) = struct.unpack("<Q", payload)
+            time_enabled, time_running = 0, 0
+        elif expected_size == 16:
+            raw_count, only = struct.unpack("<QQ", payload)
+            if self._read_format & PERF_FORMAT_TOTAL_TIME_ENABLED:
+                time_enabled, time_running = int(only), 0
+            else:
+                time_enabled, time_running = 0, int(only)
+        else:
+            raw_count, time_enabled, time_running = struct.unpack("<QQQ", payload)
         return ScopedPerfEventReading(
             raw_count=int(raw_count),
             time_enabled=int(time_enabled),
@@ -419,16 +454,20 @@ class OperationScopedPerfEvent:
     def close(self) -> None:
         if self._fd is None:
             return
+        # Clear identity first so a failed os.close cannot leave a stale
+        # open-fd identity behind (previous code skipped the reset on error).
+        fd, was_enabled = self._fd, self._enabled
+        self._fd = None
+        self._enabled = False
+        if was_enabled:
+            try:
+                fcntl.ioctl(fd, PERF_EVENT_IOC_DISABLE, 0)
+            except OSError:
+                pass
         try:
-            if self._enabled:
-                try:
-                    self.disable()
-                except PerfEventError:
-                    pass
-        finally:
-            os.close(self._fd)
-            self._fd = None
-            self._enabled = False
+            os.close(fd)
+        except OSError:
+            pass
 
     def __enter__(self) -> OperationScopedPerfEvent:
         return self.open()
@@ -468,12 +507,23 @@ def _probe_generic_event(event: str, *, thread_id: int | None = None) -> dict[st
     fd = _perf_event_open(attribute, syscall_number=syscall, thread_id=scoped_thread, cpu=-1)
     if fd < 0:
         error = ctypes.get_errno()
+        if error in {errno.EACCES, errno.EPERM}:
+            status = "permission_denied"
+        elif error in {errno.ENODEV, errno.ENOENT, errno.EOPNOTSUPP}:
+            status = "unsupported_or_disabled"
+        elif error == errno.EINVAL:
+            # EINVAL means the attr/encoding itself was rejected (bad size,
+            # unknown config, or a non-per-thread device misused as per-thread),
+            # not merely a locked-down paranoid level.
+            status = "invalid_encoding_or_scope"
+        elif error == errno.EBUSY:
+            status = "event_busy_multiplexed_or_exclusive"
+        elif error == errno.E2BIG:
+            status = "attr_size_mismatch"
+        else:
+            status = f"error:{errno.errorcode.get(error, error)}"
         result = {
-            "status": "permission_denied"
-            if error in {errno.EACCES, errno.EPERM}
-            else "unsupported_or_disabled"
-            if error in {errno.EINVAL, errno.ENODEV, errno.ENOENT}
-            else f"error:{errno.errorcode.get(error, error)}",
+            "status": status,
             "event": event,
             "errno": error,
             "errno_name": errno.errorcode.get(error, "unknown"),
@@ -487,7 +537,15 @@ def _probe_generic_event(event: str, *, thread_id: int | None = None) -> dict[st
             "perf_event_attr": attribute_record,
         }
         return result
-    os.close(fd)
+    try:
+        flags = fcntl.fcntl(fd, fcntl.F_GETFD)
+        fcntl.fcntl(fd, fcntl.F_SETFD, flags | fcntl.FD_CLOEXEC)
+    except OSError:
+        pass
+    try:
+        os.close(fd)
+    except OSError:
+        pass
     return {
         "status": "opened_scoped_probe",
         "event": event,
@@ -553,13 +611,19 @@ def _encode_sysfs_config(
             return None
         bit_positions: list[int] = []
         for interval in ranges.split(","):
-            start_text, separator, end_text = interval.partition("-")
-            if not separator:
+            interval = interval.strip()
+            if not interval:
                 return None
+            start_text, separator, end_text = interval.partition("-")
             try:
-                start = int(start_text)
-                end = int(end_text)
+                if not separator:
+                    # Single-bit fields such as "config:0" carry no dash.
+                    start = end = int(start_text)
+                else:
+                    start, end = int(start_text), int(end_text)
             except ValueError:
+                return None
+            if start < 0 or end < start:
                 return None
             bit_positions.extend(range(start, end + 1))
         if value >= 1 << len(bit_positions):
@@ -592,30 +656,31 @@ def _sysfs_event_encodings(sysfs_root: Path) -> list[PerfEventEncoding]:
             pass
         events_dir = device / "events"
         try:
-            for path in events_dir.iterdir():
-                if path.is_file():
-                    value = path.read_text(encoding="utf-8").strip()
-                    config_fields = _parse_sysfs_event_fields(value)
-                    config_value = _encode_sysfs_config(config_fields, format_fields)
-                    encodings.append(
-                        PerfEventEncoding(
-                            device=device.name,
-                            alias=path.name,
-                            source_type=source_type,
-                            config=config_value,
-                            config_fields=config_fields,
-                            format_fields=format_fields,
-                            raw_spec=value,
-                        )
-                    )
+            event_paths = sorted(path for path in events_dir.iterdir() if path.is_file())
         except OSError:
             continue
+        for path in event_paths:
+            try:
+                value = path.read_text(encoding="utf-8").strip()
+            except OSError:
+                continue
+            config_fields = _parse_sysfs_event_fields(value)
+            config_value = _encode_sysfs_config(config_fields, format_fields)
+            encodings.append(
+                PerfEventEncoding(
+                    device=device.name,
+                    alias=path.name,
+                    source_type=source_type,
+                    config=config_value,
+                    config_fields=dict(config_fields),
+                    format_fields=dict(format_fields),
+                    raw_spec=value,
+                )
+            )
     return encodings
 
 
-def select_sysfs_event_encoding(
-    sysfs_root: str | Path, event_name: str
-) -> PerfEventEncoding:
+def select_sysfs_event_encoding(sysfs_root: str | Path, event_name: str) -> PerfEventEncoding:
     """Resolve a PMU event only by qualified ``device/alias/`` identity."""
 
     encodings = _sysfs_event_encodings(Path(sysfs_root))
@@ -780,7 +845,9 @@ def discover_counter_capabilities(
             if probe_hardware_events and found and not ambiguous_candidates
             else {}
         )
-        event_status = "ambiguous" if ambiguous_candidates else "available" if found else "unavailable"
+        event_status = (
+            "ambiguous" if ambiguous_candidates else "available" if found else "unavailable"
+        )
         event_records.append(
             CounterEventCapability(
                 logical_name=logical_name,

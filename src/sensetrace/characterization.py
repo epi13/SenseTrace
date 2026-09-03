@@ -91,9 +91,7 @@ def characterization_protocol(
             "no_model_training": True,
             "summary": "raw observations and primitive-declared control contrasts",
             "uncertainty": "report replicate count and descriptive spread; no hidden-bit threshold tuning",
-            "null_stability": dict(
-                contract.get("null_stability", DEFAULT_NULL_STABILITY_RULE)
-            ),
+            "null_stability": dict(contract.get("null_stability", DEFAULT_NULL_STABILITY_RULE)),
         },
         "claim_boundary": contract["claim_boundary"],
     }
@@ -117,15 +115,37 @@ def _operation_scoped_perf_summary(metadata: list[dict[str, Any]]) -> dict[str, 
     if not configured:
         return {"status": "not_configured", "raw_observations_retained": True}
     first = configured[0]
+    # Fail closed on heterogeneous provenance: a summary header taken from the
+    # first observation alone would hide mixed events/attrs/scopes.
+    identities = {
+        (
+            json.dumps(item.get("event"), sort_keys=True, default=str),
+            json.dumps(item.get("perf_event_attr"), sort_keys=True, default=str),
+            json.dumps(item.get("scope"), sort_keys=True, default=str),
+        )
+        for item in configured
+    }
+    if len(identities) != 1:
+        return {
+            "status": "heterogeneous_provenance",
+            "reason": "operation-scoped observations mix event/attr/scope identities",
+            "distinct_identities": len(identities),
+            "observation_count": len(observations),
+            "raw_readings_retained": True,
+        }
     readings: list[dict[str, Any]] = []
     for item in configured:
         reading = item.get("reading")
         if isinstance(reading, dict):
             readings.append(reading)
+    complete_readings = [item for item in readings if item.get("status") == "complete"]
     raw_counts = [int(item["raw_count"]) for item in readings if item.get("raw_count") is not None]
+    complete_raw_counts = [
+        int(item["raw_count"]) for item in complete_readings if item.get("raw_count") is not None
+    ]
     scaled_counts = [
         float(item["scaled_count"])
-        for item in readings
+        for item in complete_readings
         if item.get("scaled_count") is not None
     ]
     time_enabled = [
@@ -135,6 +155,8 @@ def _operation_scoped_perf_summary(metadata: list[dict[str, Any]]) -> dict[str, 
         int(item["time_running"]) for item in readings if item.get("time_running") is not None
     ]
     multiplexed = [bool(item["multiplexed"]) for item in readings if "multiplexed" in item]
+    multiplexed_fraction = float(sum(multiplexed) / len(multiplexed)) if multiplexed else 0.0
+    not_running_count = sum(1 for item in readings if item.get("status") != "complete")
     return {
         "status": "complete"
         if len(configured) == len(metadata)
@@ -150,18 +172,43 @@ def _operation_scoped_perf_summary(metadata: list[dict[str, Any]]) -> dict[str, 
         "errno": first.get("errno", 0),
         "errno_name": first.get("errno_name", "none"),
         "observation_count": len(observations),
-        "complete_reading_count": len(readings),
+        "complete_reading_count": len(complete_readings),
+        "not_running_count": not_running_count,
+        "multiplexed_count": int(sum(multiplexed)),
+        "multiplexed_fraction": multiplexed_fraction,
         "first_reading": readings[0] if readings else None,
         "reading": readings[0] if readings else None,
         "raw_counts": raw_counts,
+        "complete_raw_counts": complete_raw_counts,
         "scaled_counts": scaled_counts,
         "time_enabled": time_enabled,
         "time_running": time_running,
         "multiplexed": multiplexed,
-        "raw_count_summary": summarize_measurements(np.asarray(raw_counts, dtype=np.float64))
-        if raw_counts
+        "raw_count_summary": summarize_measurements(
+            np.asarray(complete_raw_counts, dtype=np.float64)
+        )
+        if complete_raw_counts
         else None,
+        "scaled_count_summary": summarize_measurements(np.asarray(scaled_counts, dtype=np.float64))
+        if scaled_counts
+        else None,
+        "summary_scope": "complete readings only; not_running values are excluded from summaries",
         "raw_readings_retained": True,
+    }
+
+
+def _cpu_diagnostics(metadata: list[dict[str, Any]]) -> dict[str, Any]:
+    """Summarize per-operation CPU placement without changing the operation."""
+    cpu_ids = [item.get("cpu_id") for item in metadata]
+    finite_cpu = [int(value) for value in cpu_ids if isinstance(value, (int, np.integer))]
+    distinct = sorted(set(finite_cpu))
+    return {
+        "sample_count": len(metadata),
+        "cpu_ids_retained": len(finite_cpu) == len(metadata),
+        "distinct_cpu_count": len(distinct),
+        "distinct_cpu_ids": distinct,
+        "migration_observed": len(distinct) > 1,
+        "unavailable_cpu_count": len(metadata) - len(finite_cpu),
     }
 
 
@@ -176,6 +223,23 @@ def _collect_backend(backend: AcquisitionBackend) -> dict[str, Any]:
         correlation = float("nan")
         if len(medians) > 2 and np.std(medians) > 0:
             correlation = float(np.corrcoef(order, medians)[0, 1])
+        operation_perf = _operation_scoped_perf_summary(metadata)
+        # Aligned per-operation pairs for post-hoc instability analysis:
+        # sample latency median, PMU raw count, and CPU id share one index.
+        per_operation_pairs = [
+            {
+                "index": int(index),
+                "sample_median": float(medians[index]),
+                "pmu_raw_count": (
+                    int(operation_perf["raw_counts"][index])
+                    if index < len(operation_perf.get("raw_counts", []))
+                    and operation_perf.get("raw_counts", [])[index] is not None
+                    else None
+                ),
+                "cpu_id": metadata[index].get("cpu_id"),
+            }
+            for index in range(len(samples))
+        ]
         return {
             "status": "complete",
             "sample_count": int(len(samples)),
@@ -194,7 +258,10 @@ def _collect_backend(backend: AcquisitionBackend) -> dict[str, Any]:
             "primitive": str(metadata[0]["measurement_primitive"]),
             "capabilities": json.loads(str(metadata[0]["measurement_primitive_capabilities"])),
             "access_state_oracle": json.loads(str(metadata[0]["access_state_oracle_provenance"])),
-            "operation_scoped_perf": _operation_scoped_perf_summary(metadata),
+            "operation_scoped_perf": operation_perf,
+            "cpu_diagnostics": _cpu_diagnostics(metadata),
+            "per_operation_pairs": per_operation_pairs,
+            "per_operation_pairs_retained": True,
             "configuration_hash": str(metadata[0].get("configuration_hash", "unavailable")),
             "code_commit": str(metadata[0].get("code_commit", "unavailable")),
             "protocol_hash": str(metadata[0].get("protocol_hash", "unavailable")),
@@ -239,8 +306,7 @@ def _contrast(
     left_by_id = _complete_finite_records(left)
     right_by_id = _complete_finite_records(right)
     expected = {
-        str(value)
-        for value in (expected_replicate_ids or set(left_by_id) | set(right_by_id))
+        str(value) for value in (expected_replicate_ids or set(left_by_id) | set(right_by_id))
     }
     matched_ids = sorted(set(left_by_id) & set(right_by_id) & expected)
     missing_left_ids = sorted(expected - set(left_by_id))
@@ -257,9 +323,7 @@ def _contrast(
         }
         for replicate_id in matched_ids
     ]
-    differences = np.asarray(
-        [item["difference"] for item in paired_differences], dtype=np.float64
-    )
+    differences = np.asarray([item["difference"] for item in paired_differences], dtype=np.float64)
     return {
         "left_replicates": int(len(left_by_id)),
         "right_replicates": int(len(right_by_id)),
@@ -441,6 +505,25 @@ def _null_stability_analysis(
     center = float(np.median(values))
     absolute_deviations = np.abs(values - center)
     mad = float(np.median(absolute_deviations))
+    zero_center = abs(center) < 1e-9
+    # A zero or near-zero null center makes any relative rule meaningless: the
+    # denominator vanishes while absolute noise stays finite. Fail closed with
+    # an explicit reason instead of emitting an astronomic relative deviation.
+    if zero_center:
+        return {
+            "status": "fail",
+            "completeness": completeness,
+            "finite_value_validity": finite_validity,
+            "stability": {
+                "status": "fail",
+                "reason": "null center is zero or near-zero; relative stability is undefined",
+                "center": center,
+                "median_absolute_deviation": mad,
+                "relative_mad": float("inf"),
+                "max_relative_deviation": float("inf"),
+            },
+            "rule": rule,
+        }
     denominator = max(abs(center), np.finfo(np.float64).tiny)
     relative_deviations = absolute_deviations / denominator
     relative_mad = mad / denominator
@@ -465,13 +548,15 @@ def _null_stability_analysis(
     }
 
 
-def _operation_scoped_perf_median(record: dict[str, Any]) -> float | None:
+def _operation_scoped_perf_median(
+    record: dict[str, Any], *, summary_key: str = "raw_count_summary"
+) -> float | None:
     """Return one replicate's robust PMU summary when the read is complete."""
 
     operation = record.get("operation_scoped_perf")
     if not isinstance(operation, dict) or operation.get("status") != "complete":
         return None
-    summary = operation.get("raw_count_summary")
+    summary = operation.get(summary_key)
     if not isinstance(summary, dict):
         return None
     try:
@@ -479,6 +564,20 @@ def _operation_scoped_perf_median(record: dict[str, Any]) -> float | None:
     except (KeyError, TypeError, ValueError):
         return None
     return value if np.isfinite(value) else None
+
+
+def _operation_scoped_perf_multiplexed_fraction(records: list[dict[str, Any]]) -> float:
+    """Fraction of operation-scoped controls with any multiplexed reading."""
+    fractions: list[float] = []
+    for record in records:
+        operation = record.get("operation_scoped_perf")
+        if isinstance(operation, dict) and isinstance(
+            operation.get("multiplexed_fraction"), (int, float)
+        ):
+            fractions.append(float(operation["multiplexed_fraction"]))
+    if not fractions:
+        return 0.0
+    return float(sum(1 for value in fractions if value > 0) / len(fractions))
 
 
 def _operation_scoped_perf_oracle_analysis(
@@ -490,11 +589,7 @@ def _operation_scoped_perf_oracle_analysis(
 
     required = contract.get("required_contrasts", [])
     null_name = next(
-        (
-            str(item["name"])
-            for item in contract.get("controls", [])
-            if item.get("role") == "null"
-        ),
+        (str(item["name"]) for item in contract.get("controls", []) if item.get("role") == "null"),
         "",
     )
     null_records = records_by_control.get(null_name, [])
@@ -504,8 +599,7 @@ def _operation_scoped_perf_oracle_analysis(
         if (value := _operation_scoped_perf_median(record)) is not None
     ]
     null_stability_records = [
-        {"status": "complete", "sample_median_summary": {"median": value}}
-        for value in null_values
+        {"status": "complete", "sample_median_summary": {"median": value}} for value in null_values
     ]
     null_stability = _null_stability_analysis(
         null_stability_records,
@@ -553,10 +647,62 @@ def _operation_scoped_perf_oracle_analysis(
         for replicate_id in matched_ids
     ]
     agreement_count = sum(item["observed_relationship"] == "right_above_left" for item in paired)
+    # Scaled-count cross-check: with no multiplexing, scaled must agree with
+    # raw directionally. Any disagreement (or any multiplexing) voids the
+    # oracle agreement rather than silently passing on raw counts alone.
+    left_scaled_by_id = {
+        _record_replicate_id(record): value
+        for record in records_by_control.get(left_name, [])
+        if (value := _operation_scoped_perf_median(record, summary_key="scaled_count_summary"))
+        is not None
+        and _record_replicate_id(record)
+    }
+    right_scaled_by_id = {
+        _record_replicate_id(record): value
+        for record in records_by_control.get(right_name, [])
+        if (value := _operation_scoped_perf_median(record, summary_key="scaled_count_summary"))
+        is not None
+        and _record_replicate_id(record)
+    }
+    scaled_agreement_count = sum(
+        right_scaled_by_id.get(replicate_id, float("-inf"))
+        > left_scaled_by_id.get(replicate_id, float("inf"))
+        for replicate_id in matched_ids
+        if replicate_id in left_scaled_by_id and replicate_id in right_scaled_by_id
+    )
+    scaled_agreement_complete = all(
+        replicate_id in left_scaled_by_id and replicate_id in right_scaled_by_id
+        for replicate_id in matched_ids
+    )
+    # Legacy records predate scaled/multiplex telemetry. New runs always emit
+    # both; only enforce the cross-checks when the telemetry is present so old
+    # fixtures remain loadable with an explicit not_evaluable marker.
+    scaled_telemetry_present = bool(left_scaled_by_id or right_scaled_by_id)
+    relevant_records = [
+        record
+        for control_name in (left_name, right_name, null_name)
+        for record in records_by_control.get(control_name, [])
+    ]
+    multiplex_telemetry_present = any(
+        isinstance(record.get("operation_scoped_perf"), dict)
+        and "multiplexed_fraction" in record["operation_scoped_perf"]
+        for record in relevant_records
+    )
+    multiplexed_fraction = _operation_scoped_perf_multiplexed_fraction(relevant_records)
+    scaled_cross_check_pass = (
+        (scaled_agreement_complete and scaled_agreement_count == len(matched_ids))
+        if scaled_telemetry_present
+        else True
+    )
+    multiplex_veto = bool(multiplex_telemetry_present and multiplexed_fraction > 0.0)
+    agreement_pass = (
+        len(matched_ids) == len(expected_ids)
+        and agreement_count == len(expected_ids)
+        and not multiplex_veto
+        and scaled_cross_check_pass
+    )
     agreement = {
-        "status": "pass"
-        if len(matched_ids) == len(expected_ids) and agreement_count == len(expected_ids)
-        else "fail",
+        "status": "pass" if agreement_pass else "fail",
         "expected_relationship": "requested_clflush PMU median above cached PMU median",
         "matched_replicate_ids": matched_ids,
         "missing_left_replicate_ids": sorted(expected_ids - set(left_by_id)),
@@ -564,6 +710,15 @@ def _operation_scoped_perf_oracle_analysis(
         "paired_differences": paired,
         "agreement_count": agreement_count,
         "sample_count": len(paired),
+        "scaled_agreement_count": scaled_agreement_count,
+        "scaled_agreement_complete": scaled_agreement_complete,
+        "scaled_telemetry_present": scaled_telemetry_present,
+        "scaled_cross_check": "evaluated"
+        if scaled_telemetry_present
+        else "not_evaluable_legacy_record",
+        "multiplexed_fraction": multiplexed_fraction,
+        "multiplex_telemetry_present": multiplex_telemetry_present,
+        "multiplex_veto": multiplex_veto,
         "confusion_matrix": {
             "expected_right_above_left": {
                 "observed_right_above_left": agreement_count,
@@ -571,13 +726,16 @@ def _operation_scoped_perf_oracle_analysis(
             }
         },
     }
+    stability_pass = bool(null_stability["status"] == "pass" and not multiplex_veto)
     return {
         "status": "complete" if paired else "unavailable",
         "left_control": left_name,
         "right_control": right_name,
         "agreement": agreement,
         "null_stability": null_stability,
-        "stability_pass": null_stability["status"] == "pass",
+        "stability_pass": stability_pass,
+        "multiplexed_fraction": multiplexed_fraction,
+        "multiplex_veto": multiplex_veto,
         "raw_replicate_medians_retained": True,
     }
 
@@ -749,7 +907,7 @@ def run_measurement_primitive_characterization(
                         if matched_backends is not None
                         else primitive.build_characterization_backend(config, control, seed=seed)
                     )
-                    record = _collect_backend(backend)
+                    record: dict[str, Any] = _collect_backend(backend)
                 except (OSError, RuntimeError, ValueError, KeyError) as exc:
                     record = {
                         "status": "unavailable",
@@ -788,16 +946,12 @@ def run_measurement_primitive_characterization(
     )
     oracle_agreement_by_replicate = {
         item["replicate_id"]: {
-            "status": "pass"
-            if item["observed_relationship"] == "right_above_left"
-            else "fail",
+            "status": "pass" if item["observed_relationship"] == "right_above_left" else "fail",
             "expected_relationship": "requested_clflush PMU median above cached PMU median",
             "observed_relationship": item["observed_relationship"],
             "difference": item["difference"],
         }
-        for item in operation_scoped_perf_oracle.get("agreement", {}).get(
-            "paired_differences", []
-        )
+        for item in operation_scoped_perf_oracle.get("agreement", {}).get("paired_differences", [])
     }
     oracle_stable = operation_scoped_perf_oracle.get("stability_pass", False)
     if operation_scoped_perf_oracle.get("status") == "complete":

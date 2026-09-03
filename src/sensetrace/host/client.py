@@ -846,6 +846,223 @@ class RemoteHost:
             raise RuntimeError(result.stderr or result.stdout)
         return result.stdout
 
+    def characterize_multiboot(
+        self,
+        config: str | Path,
+        *,
+        output: str | Path,
+        boots: int = 3,
+        timeout_seconds: int = 300,
+        resume: bool = False,
+    ) -> dict[str, Any]:
+        """Repeat one frozen characterization across genuinely distinct boots.
+
+        Each iteration verifies the actual ``/proc/.../boot_id``, runs the
+        frozen scoped-PMU characterization, fetches the evidence, then reboots
+        (except after the final boot). Reused boot IDs fail closed; the local
+        manifest is written after every boot so an interruption can resume with
+        ``resume=True`` instead of fabricating reboot evidence.
+        """
+
+        import hashlib
+
+        from ..multiboot import combine_multiboot_reports, multiboot_protocol_hash
+
+        if boots < 3:
+            raise ValueError("multi-boot characterization requires at least three boots")
+        local_root = Path(output)
+        manifest_path = local_root / "multiboot-manifest.json"
+        try:
+            config_text = Path(config).read_text(encoding="utf-8")
+        except OSError as exc:
+            raise RuntimeError(f"cannot read multiboot config: {exc}") from exc
+        config_hash = hashlib.sha256(config_text.encode("utf-8")).hexdigest()
+        try:
+            frozen = multiboot_protocol_hash(
+                __import__("yaml").safe_load(config_text)
+                if config_text.lstrip().startswith(("host", "experiment", "%"))
+                else {}
+            )
+        except Exception:
+            frozen = "unparsable-locally; worker protocol_hash governs"
+        entries: list[dict[str, Any]] = []
+        seen_boot_ids: set[str] = set()
+        if manifest_path.exists():
+            if not resume:
+                raise RuntimeError(
+                    f"multiboot manifest already exists at {manifest_path}; "
+                    "pass resume=True to continue it or use a fresh output directory"
+                )
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            if manifest.get("config_sha256") != config_hash:
+                raise RuntimeError("resume requested with a different config; refusing")
+            for entry in manifest.get("boots", []):
+                entries.append(entry)
+                if entry.get("boot_id"):
+                    seen_boot_ids.add(entry["boot_id"])
+        home = self._home()
+        venv = f"{home}/.local/share/sensetrace/venv/bin/sensetrace"
+        remote_config = f"{home}/.config/sensetrace/primitive-characterization.yaml"
+        self.connection.put(str(config), remote=remote_config)
+        current: RemoteHost = self
+        start_index = len(entries)
+        for boot_index in range(start_index, boots):
+            boot_id = current.run("cat /proc/sys/kernel/random/boot_id", hide=True).stdout.strip()
+            if not boot_id or boot_id == "unavailable":
+                raise RuntimeError("worker boot_id is unavailable; refusing to label evidence")
+            if boot_id in seen_boot_ids:
+                raise RuntimeError(
+                    f"worker is still on already-recorded boot {boot_id}; "
+                    "a genuine reboot is required, not a relabeled run"
+                )
+            remote_output = f"{home}/.local/share/sensetrace/runs/multiboot-boot-{boot_index:02d}"
+            result = current.run(
+                f"{venv} characterize primitive --config {quote(remote_config)} "
+                f"--output {quote(remote_output)}",
+                warn=True,
+                hide=True,
+            )
+            if not result.ok:
+                raise RuntimeError(result.stderr or result.stdout)
+            try:
+                report = json.loads(result.stdout)
+                run_id = str(report.get("run_id", ""))
+            except (json.JSONDecodeError, AttributeError):
+                run_id = ""
+            if not run_id:
+                located = current.run(
+                    f"find {quote(remote_output)} -maxdepth 2 -name metrics.json -type f "
+                    "-printf '%T@ %p\\n' | sort -n | tail -1",
+                    warn=True,
+                    hide=True,
+                )
+                if not located.stdout.strip():
+                    raise RuntimeError("remote characterization produced no metrics.json")
+                run_id = located.stdout.strip().split(maxsplit=1)[1].rsplit("/", 2)[-2]
+            remote_run_dir = f"{remote_output}/{run_id}"
+            local_boot_dir = local_root / f"boot-{boot_index:02d}"
+            local_boot_dir.mkdir(parents=True, exist_ok=True)
+            for name in (
+                "run.json",
+                "host.json",
+                "config.json",
+                "protocol.json",
+                "metrics.json",
+                "events.jsonl",
+            ):
+                remote = f"{remote_run_dir}/{name}"
+                if current.run(f"test -f {remote}", warn=True, hide=True).ok:
+                    current.connection.get(remote, local=str(local_boot_dir / name))
+            hashes = {}
+            for name in (
+                "run.json",
+                "host.json",
+                "config.json",
+                "protocol.json",
+                "metrics.json",
+                "events.jsonl",
+            ):
+                path = local_boot_dir / name
+                if path.exists():
+                    hashes[name] = hashlib.sha256(path.read_bytes()).hexdigest()
+            if not (local_boot_dir / "metrics.json").exists():
+                raise RuntimeError(f"boot {boot_index}: metrics.json fetch failed")
+            fetched_boot = boot_id
+            try:
+                fetched_metrics = json.loads(
+                    (local_boot_dir / "metrics.json").read_text(encoding="utf-8")
+                )
+                controls = fetched_metrics.get("controls", {})
+                unique = controls.get("boot_dependence", {}).get("unique_boots", [])
+                if len(unique) == 1 and unique[0] not in {"", "unavailable", "unknown"}:
+                    if unique[0] != boot_id:
+                        raise RuntimeError(
+                            f"boot {boot_index}: SSH boot_id {boot_id} disagrees with "
+                            f"metrics boot {unique[0]}"
+                        )
+                    fetched_boot = str(unique[0])
+            except (json.JSONDecodeError, KeyError) as exc:
+                raise RuntimeError(f"boot {boot_index}: metrics.json is malformed: {exc}") from exc
+            entries.append(
+                {
+                    "boot_index": boot_index,
+                    "boot_id": fetched_boot,
+                    "run_id": run_id,
+                    "remote_run_dir": remote_run_dir,
+                    "local_dir": str(local_boot_dir),
+                    "artifact_sha256": hashes,
+                    "protocol_hash": fetched_metrics.get("protocol", {}).get(
+                        "protocol_hash", "unavailable"
+                    ),
+                }
+            )
+            seen_boot_ids.add(fetched_boot)
+            local_root.mkdir(parents=True, exist_ok=True)
+            manifest_path.write_text(
+                json.dumps(
+                    {
+                        "schema": "sensetrace.multiboot-manifest.v1",
+                        "config": str(config),
+                        "config_sha256": config_hash,
+                        "multiboot_protocol_hint": frozen,
+                        "boots_requested": boots,
+                        "boots_completed": len(entries),
+                        "boots": entries,
+                    },
+                    indent=2,
+                    sort_keys=True,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            if boot_index < boots - 1:
+                reboot_request = current.reboot()
+                entries[-1]["reboot_request"] = reboot_request
+                current.connection.close()
+                deadline = time.monotonic() + timeout_seconds
+                fresh: RemoteHost | None = None
+                verification: dict[str, Any] | None = None
+                while time.monotonic() < deadline:
+                    try:
+                        candidate = RemoteHost(self.alias, project_root=self.project_root)
+                        verification = candidate.verify_boot(expected_boot_id=boot_id)
+                        if verification["passed"] and verification["boot_id_changed"]:
+                            fresh = candidate
+                            break
+                        candidate.connection.close()
+                    except Exception:
+                        pass
+                    time.sleep(5)
+                if fresh is None:
+                    raise RuntimeError(
+                        f"reboot after boot {boot_index} did not verify a new boot_id "
+                        f"(last verification: {verification})"
+                    )
+                new_boot = fresh.run(
+                    "cat /proc/sys/kernel/random/boot_id", hide=True
+                ).stdout.strip()
+                if new_boot in seen_boot_ids:
+                    raise RuntimeError(
+                        f"post-reboot boot_id {new_boot} repeats a recorded boot; refusing"
+                    )
+                current = fresh
+        self.connection = current.connection
+        reports = [
+            json.loads((local_root / f"boot-{index:02d}" / "metrics.json").read_text())
+            for index in range(boots)
+        ]
+        combined = combine_multiboot_reports(reports, expected_boots=boots)
+        (local_root / "multiboot-report.json").write_text(
+            json.dumps(combined, indent=2, sort_keys=True, default=str) + "\n",
+            encoding="utf-8",
+        )
+        return {
+            "local_root": str(local_root),
+            "boots_completed": len(entries),
+            "boots": entries,
+            "combined": combined,
+        }
+
     def verify_recovery(self) -> dict[str, Any]:
         home = self._home()
         output = f"{home}/.local/share/sensetrace/runs/recovery-check"

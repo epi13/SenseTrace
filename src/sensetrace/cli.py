@@ -116,6 +116,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     primitive.add_argument("--config", default="configs/worker03.example.yaml")
     primitive.add_argument("--output", default="runs/primitive-characterization")
+    multiboot = characterize_sub.add_parser(
+        "multiboot", help="combine one characterization report per genuine boot"
+    )
+    multiboot.add_argument("--inputs", nargs="+", required=True)
+    multiboot.add_argument("--output", required=True)
 
     validate = sub.add_parser("validate", help="validate a dataset run directory")
     validate.add_argument("dataset")
@@ -209,6 +214,13 @@ def build_parser() -> argparse.ArgumentParser:
     remote_characterize.add_argument("host", nargs="?", default="worker-03")
     remote_characterize.add_argument("--config", default="configs/worker03.example.yaml")
     remote_characterize.add_argument("--output")
+    remote_multiboot = host_sub.add_parser("characterize-multiboot")
+    remote_multiboot.add_argument("host", nargs="?", default="worker-03")
+    remote_multiboot.add_argument("--config", default="configs/worker03.example.yaml")
+    remote_multiboot.add_argument("--output", required=True)
+    remote_multiboot.add_argument("--boots", type=int, default=3)
+    remote_multiboot.add_argument("--timeout", type=int, default=300)
+    remote_multiboot.add_argument("--resume", action="store_true")
     results = sub.add_parser("results", help="retrieve result artifacts")
     results_sub = results.add_subparsers(dest="results_command", required=True)
     latest = results_sub.add_parser("latest")
@@ -310,6 +322,12 @@ def main(argv: list[str] | None = None) -> int:
                 validate_config(load_config(args.config)), args.output
             )
         )
+        return 0
+    if args.command == "characterize" and args.characterize_command == "multiboot":
+        from .multiboot import write_combined_report
+
+        reports = [json.loads(Path(path).read_text(encoding="utf-8")) for path in args.inputs]
+        _json(write_combined_report(reports, args.output))
         return 0
     if args.command == "validate":
         traces, labels, metadata, shards, manifest = load_dataset(args.dataset)
@@ -436,6 +454,16 @@ def main(argv: list[str] | None = None) -> int:
             print(
                 remote.characterize_primitive(args.config, output=args.output),
                 end="",
+            )
+        elif args.host_command == "characterize-multiboot":
+            _json(
+                remote.characterize_multiboot(
+                    args.config,
+                    output=args.output,
+                    boots=args.boots,
+                    timeout_seconds=args.timeout,
+                    resume=args.resume,
+                )
             )
         return 0
     if args.command == "results":

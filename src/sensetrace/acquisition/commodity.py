@@ -356,6 +356,7 @@ class CommodityDramBackend(AcquisitionBackend):
                 self._buffer.write(buffer_index, word)
                 digital_value = self._buffer.read(buffer_index)
             address = self._buffer.address + buffer_index * ctypes.sizeof(ctypes.c_uint64)
+
             def controlled_measurement(
                 address: int = address,
                 buffer_index: int = buffer_index,
@@ -376,7 +377,9 @@ class CommodityDramBackend(AcquisitionBackend):
                     self.scoped_perf_oracle.observe(controlled_measurement)
                 )
                 if not isinstance(primitive_observation, PrimitiveObservation):
-                    raise RuntimeError("scoped perf oracle callback did not return a primitive observation")
+                    raise RuntimeError(
+                        "scoped perf oracle callback did not return a primitive observation"
+                    )
                 primitive_observation = PrimitiveObservation(
                     trace=primitive_observation.trace,
                     access_state=access_oracle,
@@ -620,5 +623,17 @@ class CommodityDramBackend(AcquisitionBackend):
     def _cpu_id() -> int | str:
         get_cpu = getattr(os, "sched_getcpu", None)
         if get_cpu is not None:
-            return int(get_cpu())
+            try:
+                return int(get_cpu())
+            except OSError:
+                pass
+        # Some builds (observed on worker-03) lack os.sched_getcpu; fall back
+        # to libc so per-operation CPU telemetry is not silently blind.
+        try:
+            libc = ctypes.CDLL(None, use_errno=True)
+            cpu = libc.sched_getcpu()
+            if int(cpu) >= 0:
+                return int(cpu)
+        except (AttributeError, OSError, TypeError, ValueError):
+            pass
         return platform.processor() or "unavailable"

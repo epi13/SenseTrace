@@ -443,6 +443,15 @@ def test_mock_controlled_backend_never_claims_topology():
         backend.close()
 
 
+def test_cpu_id_falls_back_to_libc_when_os_helper_missing(monkeypatch):
+    import os
+
+    import sensetrace.acquisition.commodity as commodity
+
+    monkeypatch.delattr(os, "sched_getcpu", raising=False)
+    assert isinstance(commodity.CommodityDramBackend._cpu_id(), int)
+
+
 def test_discovery_lists_but_never_selects_ambiguous_alias(tmp_path):
     for device in ["cpu", "alternate"]:
         events = tmp_path / "bus" / "event_source" / "devices" / device / "events"

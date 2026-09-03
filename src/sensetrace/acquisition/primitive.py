@@ -524,13 +524,30 @@ class CommodityTimingPrimitive(MeasurementPrimitive):
         scoped_perf_oracle = None
         scoped_perf_event = characterization.get("scoped_perf_event")
         if scoped_perf_event:
+            from .perf import _GENERIC_HARDWARE_CODES
+
             event_name = str(scoped_perf_event)
-            event = (
-                select_sysfs_event_encoding("/sys", event_name)
-                if "/" in event_name
-                else event_name
-            )
-            scoped_perf_oracle = OperationScopedPerfOracle(event)
+            resolved_event: Any
+            if "/" in event_name:
+                sysfs_root = str(characterization.get("sysfs_root", "/sys"))
+                resolved_event = select_sysfs_event_encoding(sysfs_root, event_name)
+            else:
+                # Fail closed at construction: an unknown bare alias must not
+                # survive until the first observe() inside a samples()
+                # generator, where it would void a whole control.
+                if event_name not in _GENERIC_HARDWARE_CODES:
+                    raise ValueError(
+                        f"scoped perf event {event_name!r} has no generic encoding; "
+                        "use a qualified device/alias/ sysfs identity"
+                    )
+                resolved_event = event_name
+            scoped_perf_oracle = OperationScopedPerfOracle(resolved_event)
+        affinity_raw = physical.get("cpu_affinity", None)
+        affinity = (
+            [int(cpu) for cpu in affinity_raw]
+            if isinstance(affinity_raw, (list, tuple)) and affinity_raw
+            else None
+        )
         return CommodityDramBackend(
             count=location_count * trials,
             trace_length=int(
@@ -545,6 +562,7 @@ class CommodityTimingPrimitive(MeasurementPrimitive):
             operation=str(parameters.get("operation", "memory_read")),
             measurement_primitive=self.name,
             eviction_bytes=int(physical.get("eviction_bytes", 4 * 1024 * 1024)),
+            cpu_affinity=affinity,
             location_count=location_count,
             trials_per_location=trials,
             labels_per_location=trials // 2,

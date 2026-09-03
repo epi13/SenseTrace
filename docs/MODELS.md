@@ -225,3 +225,19 @@ For positive models, favor tools that help locate the signal:
 - comparison against physically motivated engineered features.
 
 The goal is to turn a predictive result into a testable explanation of the underlying measurement channel.
+
+## Preregistered worker-03 tournament
+
+`worker03-fragmented-exact-host-v1` runs every declared candidate against the
+same immutable packet fingerprint, split fingerprint, preprocessing contract,
+and feature policy. The bounded CPU implementation uses packet-summary
+features for all candidates when a native deep-learning implementation is not
+explicitly enabled; it reports that fallback rather than calling it a raw
+trace CNN or JEPA result. Validation balanced accuracy selects the declared
+candidate, and the unmodified selected test partition is evaluated once.
+
+The report also includes an artificial positive sensitivity control, a
+label-independent null, keyed shuffled labels, fragment-relation rotation,
+metadata-input invariance, and a single-fragment baseline. These controls can
+falsify or qualify the pipeline; none upgrades native CPU timing into physical
+DRAM or hidden-state evidence.

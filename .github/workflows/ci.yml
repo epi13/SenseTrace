@@ -47,6 +47,10 @@ jobs:
       - run: python -m pip install --upgrade pip
       - run: python -m pip install -e '.[dev]'
       - run: make test-bounded
+      - name: Validate main invariants after merge
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: >-
+          python -c "from sensetrace.cli import main; raise SystemExit(main(['protocol', 'worker03-fragmented', '--hash']))"
 
   native:
     runs-on: ubuntu-latest

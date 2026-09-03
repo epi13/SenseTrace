@@ -48,6 +48,13 @@ not evidence of the resulting physical memory layer. Addresses, allocation and
 session identities, oracle identity/results, and boot/order metadata remain
 audit-only unless a future protocol explicitly justifies an ablation.
 
+For controlled hardware, an internally consistent record is not automatically
+adapter-attested physical evidence. New physical claims require an explicit
+`controlled-adapter-attestation-v1` record bound to the controller, firmware,
+configuration, target, session, and host inventory. Native exact-host packets
+use the `native_exact_host` evidence tier; mock packets use a synthetic/mock
+tier. Neither tier can satisfy the controlled physical adapter boundary.
+
 `location_id` and `cell_or_offset_id` are retained for compatibility with older
 datasets. In Phase 1A they are virtual buffer identifiers, not known physical
 DRAM locations. New code should use `virtual_location_id`, `buffer_offset_id`,

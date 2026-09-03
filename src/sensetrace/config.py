@@ -336,6 +336,94 @@ def validate_config(config: dict[str, Any]) -> dict[str, Any]:
         hooks = witness.get("hooks", [])
         if not isinstance(hooks, list) or not all(isinstance(item, str) for item in hooks):
             raise ConfigError("witness.hooks must be a list of strings")
+    worker03 = config.get("worker03_experiment")
+    if worker03 is not None:
+        if not isinstance(worker03, dict):
+            raise ConfigError("worker03_experiment must be a mapping")
+        if worker03.get("protocol_version", "worker03-fragmented-exact-host-v1") != (
+            "worker03-fragmented-exact-host-v1"
+        ):
+            raise ConfigError("worker03_experiment.protocol_version is unsupported")
+        target = worker03.get("target_hardware_id", "worker03-hardware-v1")
+        if target != "worker03-hardware-v1":
+            raise ConfigError("worker03_experiment.target_hardware_id must be worker03-hardware-v1")
+        probes = worker03.get("probes")
+        if probes is not None:
+            if not isinstance(probes, list) or not probes:
+                raise ConfigError("worker03_experiment.probes must be a non-empty list")
+            probe_ids: list[str] = []
+            for probe in probes:
+                if not isinstance(probe, dict):
+                    raise ConfigError("worker03_experiment.probes entries must be mappings")
+                for field in ("probe_type", "probe_version"):
+                    if not isinstance(probe.get(field), str) or not probe[field].strip():
+                        raise ConfigError(f"worker03_experiment.probes.{field} must be a string")
+                probe_ids.append(probe["probe_type"])
+            if len(probe_ids) != len(set(probe_ids)):
+                raise ConfigError("worker03_experiment.probes must have unique probe types")
+        claim_level = worker03.get("claim_level", "level_1_exact_host_calibrated")
+        if claim_level not in {
+            "level_1_exact_host_calibrated",
+            "level_2_exact_host_unseen_location",
+            "level_3_exact_host_unseen_session",
+            "level_4_exact_host_unseen_boot",
+            "level_5_unseen_dimm",
+            "level_6_unseen_host",
+        }:
+            raise ConfigError("worker03_experiment.claim_level is unsupported")
+        repetition_counts = worker03.get("repetition_counts", {})
+        if not isinstance(repetition_counts, dict):
+            raise ConfigError("worker03_experiment.repetition_counts must be a mapping")
+        for field in ("per_probe", "packets"):
+            value = repetition_counts.get(field)
+            if value is not None and (not isinstance(value, int) or value < 1):
+                raise ConfigError(f"worker03_experiment.repetition_counts.{field} must be positive")
+        reference_packets = worker03.get("reference_packets")
+        if reference_packets is not None and (
+            not isinstance(reference_packets, int) or reference_packets < 2 or reference_packets % 2
+        ):
+            raise ConfigError(
+                "worker03_experiment.reference_packets must be a positive even integer"
+            )
+        reference_repetition_counts = worker03.get("reference_repetition_counts")
+        if reference_repetition_counts is not None:
+            if not isinstance(reference_repetition_counts, dict):
+                raise ConfigError(
+                    "worker03_experiment.reference_repetition_counts must be a mapping"
+                )
+            reference_count = reference_repetition_counts.get("packets")
+            if reference_count is not None and (
+                not isinstance(reference_count, int) or reference_count < 2 or reference_count % 2
+            ):
+                raise ConfigError(
+                    "worker03_experiment.reference_repetition_counts.packets must be a positive even integer"
+                )
+        receiver = worker03.get("receiver", {})
+        if not isinstance(receiver, dict):
+            raise ConfigError("worker03_experiment.receiver must be a mapping")
+        candidates = receiver.get("candidates")
+        allowed_candidates = {
+            "logistic_regression",
+            "boosted_trees",
+            "tiny_cnn_tcn",
+            "weak_evidence_aggregator",
+            "jepa_linear_probe",
+            "jepa_tiny_mlp",
+            "predictive_coding",
+            "jepa_predictive_coding_hybrid",
+        }
+        if candidates is not None and (
+            not isinstance(candidates, list)
+            or not candidates
+            or any(candidate not in allowed_candidates for candidate in candidates)
+            or len(candidates) != len(set(candidates))
+        ):
+            raise ConfigError("worker03_experiment.receiver.candidates is invalid")
+        max_packets = _get(config, "acquisition.max_packets_per_shard")
+        if max_packets is not None and (
+            not isinstance(max_packets, int) or max_packets < 1 or max_packets > 100_000
+        ):
+            raise ConfigError("acquisition.max_packets_per_shard must be in [1, 100000]")
     return config
 
 

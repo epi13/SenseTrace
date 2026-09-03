@@ -217,6 +217,7 @@ The purpose of the project is to characterize physical information channels in m
 - [Phase 2 controlled acquisition spine](docs/ADR-015-phase2-controlled-acquisition-spine.md)
 - [Phase 2 hardened recovery and evidence firewall](docs/ADR-016-phase2-hardened-evidence-firewall.md)
 - [worker-03 fragmented-evidence receiver](docs/ADR-017-worker03-fragmented-evidence-receiver.md)
+- [preregistered worker-03 fragmented pipeline](docs/ADR-018-worker03-preregistered-fragmented-pipeline.md)
 - [Phase 0 v2 protocol](docs/PHASE0-PROTOCOL-V2.md)
 - [Architecture decisions](docs/ADR-001-storage-and-journal.md)
 

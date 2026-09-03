@@ -549,6 +549,71 @@ class CommodityDramBackend(AcquisitionBackend):
                 },
             )
 
+    def fragmented_samples(
+        self,
+        probe_types: tuple[str, ...],
+        start_index: int = 0,
+    ) -> Iterator[tuple[Sample, tuple[np.ndarray | None, ...], tuple[str, ...]]]:
+        """Run the declared native-v4 probes as separate weak observations.
+
+        ``samples`` remains the historical single-primitive path.  This
+        companion path deliberately reuses its safe allocation/label/session
+        handling, then invokes the narrow native kernel entry points against
+        the same ordinary virtual buffer.  It makes no physical-memory claim.
+        Probe failures are returned as explicit non-eligible fragments.
+        """
+
+        if self._native_kernel is None:
+            raise RuntimeError("fragmented native acquisition requires native kernel v4")
+        supported = {
+            "cached_control": lambda address: self._native_kernel.measure_cached(
+                address, self.trace_length
+            ),
+            "flushed_control": lambda address: self._native_kernel.measure_flushed(
+                address, self.trace_length
+            ),
+            "dependency_chain": lambda address: self._native_kernel.measure_dependency_chain(
+                address, self.trace_length
+            ),
+            "repeated_load": lambda address: self._native_kernel.measure_repeated_load(
+                address, self.trace_length
+            ),
+        }
+        if "paired_cached_differential" in probe_types:
+            if self.word_count < 2:
+                raise ValueError("paired cached differential requires at least two buffer words")
+
+        for sample in self.samples(start_index):
+            trial_index = int(str(sample.metadata["trial_index"]))
+            buffer_index = trial_index % self.word_count
+            address = self._buffer.address + buffer_index * ctypes.sizeof(ctypes.c_uint64)
+            paired_address = self._buffer.address + (
+                (buffer_index + 1) % self.word_count
+            ) * ctypes.sizeof(ctypes.c_uint64)
+            payloads: list[np.ndarray | None] = []
+            statuses: list[str] = []
+            for probe_type in probe_types:
+                try:
+                    if probe_type == "paired_cached_differential":
+                        payload = self._native_kernel.measure_paired_cached(
+                            address, paired_address, self.trace_length
+                        )
+                    elif probe_type in supported:
+                        if (
+                            probe_type == "flushed_control"
+                            and not self._native_kernel.supports_clflush
+                        ):
+                            raise OSError("native kernel does not report CLFLUSH support")
+                        payload = supported[probe_type](address)
+                    else:
+                        raise ValueError(f"unsupported native fragmented probe {probe_type!r}")
+                    payloads.append(np.asarray(payload, dtype=np.float32))
+                    statuses.append("observed")
+                except (OSError, ValueError):
+                    payloads.append(None)
+                    statuses.append("failed")
+            yield sample, tuple(payloads), tuple(statuses)
+
     def session_provenance(self) -> dict[str, Any]:
         """Return the immutable acquisition-session ledger for this backend."""
 

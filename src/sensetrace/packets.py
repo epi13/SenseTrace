@@ -266,7 +266,7 @@ class EvidencePacket:
         """Return only model-eligible arrays with explicit masks.
 
         The returned tuple is ``values, observed_mask, fragment_mask,
-        excitation``.  Padding values are zero, but every padded or missing
+        excitation, quality``.  Padding values are zero, but every padded or missing
         value has a false mask and therefore cannot be confused with an
         observed zero.
         """
@@ -409,6 +409,7 @@ def write_packet_manifest(
     infos: list[PacketShardInfo],
     protocol_id: str,
     purpose: str = "fragmented-evidence",
+    additional_fields: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Write a small immutable packet-dataset manifest from shard summaries."""
 
@@ -425,10 +426,22 @@ def write_packet_manifest(
         "claim_boundary": "fragmented evidence contract; no physical DRAM claim by itself",
         "model_input_policy": "stream bounded batches; identifiers, provenance, and labels stay separate",
     }
+    if additional_fields:
+        manifest.update(additional_fields)
     Path(root).mkdir(parents=True, exist_ok=True)
-    (Path(root) / "packet-dataset.json").write_text(
-        json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
-    )
+    path = Path(root) / "packet-dataset.json"
+    serialized = json.dumps(manifest, indent=2, sort_keys=True) + "\n"
+    if path.exists():
+        try:
+            existing = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise IntegrityError("cannot read existing packet dataset manifest") from exc
+        if existing != manifest:
+            raise IntegrityError("packet dataset manifest is immutable")
+    else:
+        temporary = path.with_suffix(".json.tmp")
+        temporary.write_text(serialized, encoding="utf-8")
+        os.replace(temporary, path)
     return manifest
 
 

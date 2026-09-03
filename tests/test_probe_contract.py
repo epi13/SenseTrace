@@ -90,3 +90,19 @@ def test_native_probe_contract_with_built_library_if_available():
     assert record.status == "complete"
     assert len(record.raw_result or []) == 2
     assert record.implementation.artifact_sha256
+
+
+def test_native_v4_probe_families_have_bounded_outputs_if_available():
+    kernel = NativeMeasurementKernel.load()
+    if kernel is None:
+        pytest.skip("native library is not built on this host")
+    first = ctypes.c_uint64(7)
+    second = ctypes.c_uint64(11)
+    assert len(kernel.measure_dependency_chain(ctypes.addressof(first), 3)) == 3
+    assert len(kernel.measure_repeated_load(ctypes.addressof(first), 3)) == 3
+    assert (
+        len(kernel.measure_paired_cached(ctypes.addressof(first), ctypes.addressof(second), 3)) == 3
+    )
+    entry_points = kernel.provenance()["exported_measurement_entry_points"]
+    assert entry_points["dependency_chain"] == "st_measure_dependency_chain"
+    assert entry_points["paired_cached_differential"] == "st_measure_paired_cached"

@@ -168,12 +168,20 @@ characterize a new measurement primitive with an independently auditable
 access-state oracle before attempting hidden-bit inference.
 
 **Phase 2 — controlled memory interface**  
-Use research hardware such as an FPGA-based memory controller where appropriate to gain tighter control over command timing and acquisition. The software spine is executable before hardware is connected: run [`configs/phase2-controlled-mock.example.yaml`](configs/phase2-controlled-mock.example.yaml) with the `controlled_mock` backend. It exercises the controller interface, command/trace provenance binding, ordinary shard persistence, journaling, deterministic recovery, and manifest validation. Its topology is explicitly unavailable and its dataset purpose is `phase2_mock_controlled`; it cannot satisfy a physical controlled-hardware evidence gate. A successful mock run proves the software/evidence contract only, not a physical DRAM information channel.
+Use research hardware such as an FPGA-based memory controller where appropriate to gain tighter control over command timing and acquisition. The software spine is executable before hardware is connected: run [`configs/phase2-controlled-mock.example.yaml`](configs/phase2-controlled-mock.example.yaml) with the `controlled_mock` backend. It exercises the controller interface, immutable resume identity, command/trace provenance binding, ordinary shard persistence, journaling, deterministic mock recovery, adversarial conformance faults, and manifest validation. Its topology is explicitly unavailable and its dataset purpose is `phase2_mock_controlled`; it cannot satisfy a physical controlled-hardware evidence gate. A successful mock run proves software/evidence-contract validation only, not a physical DRAM information channel. Physical controlled-hardware evidence has not yet been acquired.
 
 **Phase 3 — deeper physical instrumentation**  
 Investigate richer electrical traces on owned lab hardware when instrumentation makes this scientifically justified.
 
 Each phase must retain the same random-label and holdout discipline so increased instrumentation does not weaken the experimental standard.
+
+The exact-host receiver slice is described in
+[`ADR-017`](docs/ADR-017-worker03-fragmented-evidence-receiver.md). It treats
+one packet as many weak fragments, preserves explicit missing/corrupt masks,
+streams packet shards, records coded multi-core excitation and paired native
+timing, and provides small JEPA-like, predictive-coding, hybrid, and residual
+receiver paths. This is a software and synthetic-validation capability, not
+physical worker-03 evidence.
 
 ## Safety and research scope
 
@@ -207,6 +215,8 @@ The purpose of the project is to characterize physical information channels in m
 - [Phase 2 controlled-memory-interface boundary](docs/ADR-013-controlled-memory-interface-boundary.md)
 - [Native probe and eBPF witness planes](docs/ADR-014-native-probe-and-ebpf-witness-planes.md)
 - [Phase 2 controlled acquisition spine](docs/ADR-015-phase2-controlled-acquisition-spine.md)
+- [Phase 2 hardened recovery and evidence firewall](docs/ADR-016-phase2-hardened-evidence-firewall.md)
+- [worker-03 fragmented-evidence receiver](docs/ADR-017-worker03-fragmented-evidence-receiver.md)
 - [Phase 0 v2 protocol](docs/PHASE0-PROTOCOL-V2.md)
 - [Architecture decisions](docs/ADR-001-storage-and-journal.md)
 

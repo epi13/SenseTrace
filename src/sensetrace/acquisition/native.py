@@ -28,6 +28,8 @@ class NativeMeasurementKernel:
         self.path = path
         self.library.st_kernel_version.restype = ctypes.c_char_p
         self.library.st_cpu_supports_clflush.restype = ctypes.c_int
+        self.library.st_cpu_supports_rdtscp.restype = ctypes.c_int
+        self.library.st_cpu_supports_avx2.restype = ctypes.c_int
         for name in [
             "st_measure_cached",
             "st_measure_flushed",
@@ -35,11 +37,21 @@ class NativeMeasurementKernel:
             "st_measure_flushed_delayed",
             "st_measure_cached_control",
             "st_measure_flushed_control",
+            "st_measure_dependency_chain",
+            "st_measure_repeated_load",
+            "st_measure_paired_cached",
             "st_timer_calibration",
             "st_idle_calibration",
         ]:
             function = getattr(self.library, name)
-            if name.endswith("_delayed") or name.endswith("_control"):
+            if name == "st_measure_paired_cached":
+                function.argtypes = [
+                    ctypes.c_void_p,
+                    ctypes.c_void_p,
+                    ctypes.c_size_t,
+                    ctypes.POINTER(ctypes.c_int64),
+                ]
+            elif name.endswith("_delayed") or name.endswith("_control"):
                 function.argtypes = [
                     ctypes.c_void_p,
                     ctypes.c_size_t,
@@ -59,6 +71,8 @@ class NativeMeasurementKernel:
                 ]
             function.restype = ctypes.c_int
         self.supports_clflush = bool(self.library.st_cpu_supports_clflush())
+        self.supports_rdtscp = bool(self.library.st_cpu_supports_rdtscp())
+        self.supports_avx2 = bool(self.library.st_cpu_supports_avx2())
 
     @classmethod
     def load(cls) -> NativeMeasurementKernel | None:
@@ -121,6 +135,23 @@ class NativeMeasurementKernel:
             extra_delay_cycles,
         )
 
+    def measure_dependency_chain(self, address: int, repetitions: int) -> np.ndarray:
+        return self._measure("st_measure_dependency_chain", address, repetitions)
+
+    def measure_repeated_load(self, address: int, repetitions: int) -> np.ndarray:
+        return self._measure("st_measure_repeated_load", address, repetitions)
+
+    def measure_paired_cached(self, address_a: int, address_b: int, repetitions: int) -> np.ndarray:
+        if repetitions < 1:
+            raise ValueError("repetitions must be positive")
+        output = (ctypes.c_int64 * repetitions)()
+        result = self.library.st_measure_paired_cached(
+            ctypes.c_void_p(address_a), ctypes.c_void_p(address_b), repetitions, output
+        )
+        if result != 0:
+            raise OSError(-result, "native st_measure_paired_cached failed")
+        return np.ctypeslib.as_array(output).astype(np.float64, copy=True)
+
     def flush_calibration(self, address: int, repetitions: int) -> np.ndarray:
         """Return raw cycle counts for the CLFLUSH control path."""
 
@@ -171,6 +202,9 @@ class NativeMeasurementKernel:
             "exported_measurement_entry_points": {
                 "cached_zero_and_nonzero_delay": "st_measure_cached_control",
                 "flushed_zero_and_nonzero_delay": "st_measure_flushed_control",
+                "dependency_chain": "st_measure_dependency_chain",
+                "repeated_load_response": "st_measure_repeated_load",
+                "paired_cached_differential": "st_measure_paired_cached",
                 "legacy_zero_delay_aliases": ["st_measure_cached", "st_measure_flushed"],
             },
             "compiler_barriers": (
@@ -195,18 +229,23 @@ class NativeMeasurementKernel:
                 ),
             },
             "clflush_supported": self.supports_clflush,
+            "rdtscp_supported": self.supports_rdtscp,
+            "avx2_supported": self.supports_avx2,
             "raw_units": "TSC cycles",
             "guarantees": [
                 "the native kernel reports CPU support before exposing the CLFLUSH path",
                 "the measured load follows the CLFLUSH and MFENCE sequence on that path",
                 "zero and nonzero artificial delays use the same exported delayed-capable primitive",
                 "the artificial delay begins only after the load-ordering fence",
+                "dependency_chain keeps the loaded value live through explicit data-dependent operations",
+                "paired_cached_differential emits the second-minus-first observed cycle count",
             ],
             "limitations": [
                 "CLFLUSH does not prove that the load reached DRAM",
                 "no physical address, row, bank, subarray, chip, or DIMM identity is exposed",
                 "cache coherence, prefetch, replacement, and memory-controller behavior remain uncontrolled",
                 "the delayed control is an artificial instrumentation calibration, not a physical memory effect",
+                "paired differences compare two CPU-side load timings; they do not isolate a DRAM-only response",
             ],
         }
 
@@ -299,6 +338,28 @@ class NativeMeasurementKernel:
                             address, repetitions, extra_delay_cycles=delay
                         )
                     ]
+            elif request.operation == "dependency_chain":
+                if address is None:
+                    raise ValueError("dependency_chain requires an address")
+                raw_result = [
+                    int(value) for value in self.measure_dependency_chain(address, repetitions)
+                ]
+            elif request.operation == "repeated_load":
+                if address is None:
+                    raise ValueError("repeated_load requires an address")
+                raw_result = [
+                    int(value) for value in self.measure_repeated_load(address, repetitions)
+                ]
+            elif request.operation == "paired_cached":
+                if address is None:
+                    raise ValueError("paired_cached requires an address")
+                second_address = request.parameters.get("address_b")
+                if isinstance(second_address, bool) or not isinstance(second_address, int):
+                    raise ValueError("paired_cached requires integer parameters.address_b")
+                raw_result = [
+                    float(value)
+                    for value in self.measure_paired_cached(address, second_address, repetitions)
+                ]
             elif request.operation == "timer_calibration":
                 raw_result = [int(value) for value in self.timer_calibration(repetitions)]
             elif request.operation == "idle_calibration":

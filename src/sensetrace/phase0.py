@@ -14,13 +14,24 @@ import yaml
 from .acquisition.synthetic import SyntheticBackend
 from .audits import run_leakage_audits
 from .config import config_fingerprint, normalized_config
-from .datasets import build_feature_matrix, load_dataset, write_dataset_manifest
+from .datasets import (
+    build_feature_matrix,
+    load_dataset,
+    read_dataset_manifest,
+    write_dataset_manifest,
+)
 from .inventory import collect_inventory
 from .journal import Journal
 from .models import train_and_evaluate
 from .runner import _git_commit, new_run_id
 from .splits import grouped_split, partition_indices, write_split
-from .storage import ShardWriter, validate_all_shards
+from .storage import (
+    ShardWriter,
+    dataset_fingerprint,
+    iter_sample_rows,
+    iter_shards,
+    validate_all_shards,
+)
 
 
 def _write_json(path: Path, value: Any) -> None:
@@ -140,7 +151,13 @@ def _generate_shuffled_from_dataset(
 ) -> dict[str, Any]:
     """Materialize the label control from the exact injected observations."""
 
-    traces, labels, metadata, _shards, source_manifest = load_dataset(source_dir)
+    source_manifest = read_dataset_manifest(source_dir)
+    source_shards = validate_all_shards(source_dir)
+    expected_source_fingerprint = dataset_fingerprint(
+        source_shards, config_hash=source_manifest["config_hash"]
+    )
+    if expected_source_fingerprint != source_manifest.get("dataset_fingerprint"):
+        raise ValueError("source dataset fingerprint does not match finalized shards")
     configured_strata = config.get("calibration", {}).get("permutation_strata")
     mode = config.get("acquisition", {}).get("synthetic_balance_mode", "global_balance_only")
     by_mode = config.get("calibration", {}).get("permutation_strata_by_balance_mode", {})
@@ -154,9 +171,18 @@ def _generate_shuffled_from_dataset(
         ]
     )
     rng = np.random.default_rng(permutation_seed)
-    permutation = np.arange(len(labels), dtype=np.int64)
     strata: dict[tuple[str, ...], list[int]] = {}
-    keys = list(zip(*(np.asarray(metadata[key]).astype(str) for key in strata_keys), strict=True))
+    source_labels: list[np.ndarray] = []
+    stratum_columns: dict[str, list[np.ndarray]] = {key: [] for key in strata_keys}
+    for _traces, shard_labels, shard_metadata, _info in iter_shards(source_dir):
+        source_labels.append(shard_labels)
+        for key in strata_keys:
+            if key not in shard_metadata:
+                raise ValueError(f"permutation stratum is missing from source metadata: {key}")
+            stratum_columns[key].append(np.asarray(shard_metadata[key]).astype(str))
+    labels = np.concatenate(source_labels).astype(np.uint8, copy=False)
+    permutation = np.arange(len(labels), dtype=np.int64)
+    keys = list(zip(*(np.concatenate(stratum_columns[key]) for key in strata_keys), strict=True))
     for index, key in enumerate(keys):
         strata.setdefault(key, []).append(index)
     for indices in strata.values():
@@ -171,9 +197,8 @@ def _generate_shuffled_from_dataset(
         max_samples_per_shard=acquisition.get("max_samples_per_shard"),
     )
     event_journal = Journal(condition_dir / "events.jsonl")
-    for index, (trace, label) in enumerate(zip(traces, shuffled_labels, strict=True)):
-        row_metadata = {key: values[index] for key, values in metadata.items()}
-        info = writer.add(trace, int(label), row_metadata)
+    for index, (trace, _label, row_metadata) in enumerate(iter_sample_rows(source_dir)):
+        info = writer.add(trace, int(shuffled_labels[index]), row_metadata)
         if info:
             event_journal.append("shard_finalized", **info.as_dict())
     info = writer.finalize()

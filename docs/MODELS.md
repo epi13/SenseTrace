@@ -10,6 +10,23 @@ The objective is not to maximize benchmark accuracy with unrestricted capacity. 
 
 ## Model ladder
 
+The fragmented-evidence path compares receivers on the same immutable packet
+dataset and split fingerprints. Its ladder is:
+
+1. logistic regression on bounded packet summaries;
+2. boosted trees on those summaries;
+3. small CNN/TCN fragment encoder;
+4. weak-evidence aggregator;
+5. JEPA-like encoder with a linear probe;
+6. JEPA-like encoder with a tiny MLP probe;
+7. predictive-coding latent refinement;
+8. JEPA + predictive-coding hybrid.
+
+The hybrid keeps latent width, predictor width, and refinement steps explicit.
+Training consumes a re-openable batch factory, and evaluation uses fixed-size
+histograms rather than retaining a full prediction vector. Self-supervised
+losses and supervised state metrics remain separate.
+
 ### 0. Logistic regression
 
 Use on engineered scalar features and simple summary statistics.

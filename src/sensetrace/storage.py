@@ -54,9 +54,19 @@ def _fsync_directory(path: Path) -> None:
 
 
 def _string_array(values: list[object]) -> np.ndarray:
-    # Provenance fields such as the CPU-frequency regime can be longer than a
-    # sample identifier. Keep them lossless in the portable, pickle-free NPZ.
-    return np.asarray([str(value) for value in values], dtype="U2048")
+    """Encode one metadata column without reserving a huge fixed width.
+
+    NumPy's Unicode dtype is fixed-width, but its inferred width is based on
+    the longest value in this column.  The previous rescue attempt used
+    ``U65536`` for every field so nested controller provenance could not be
+    truncated.  That made an ordinary 1,600-row Phase 0 shard allocate many
+    gigabytes before compression (each Unicode code point uses four bytes).
+    Inferring the smallest lossless width preserves the provenance while
+    keeping resident memory proportional to the actual data.
+    """
+
+    strings = [str(value) for value in values]
+    return np.asarray(strings, dtype=np.str_)
 
 
 class ShardWriter:
@@ -91,6 +101,17 @@ class ShardWriter:
     def buffered_rows(self) -> int:
         return len(self._labels)
 
+    @property
+    def estimated_buffer_bytes(self) -> int:
+        """Approximate resident payload size before the next shard flush."""
+
+        trace_bytes = sum(item.nbytes for item in self._traces)
+        metadata_bytes = sum(
+            sum(len(str(value).encode("utf-8")) for value in values)
+            for values in self._metadata.values()
+        )
+        return int(trace_bytes + metadata_bytes + len(self._labels))
+
     def add(self, trace: np.ndarray, label: int, metadata: dict[str, object]) -> ShardInfo | None:
         if trace.ndim != 1:
             raise SchemaError("each trace must be one-dimensional")
@@ -104,7 +125,7 @@ class ShardWriter:
         self._labels.append(label)
         for key, value in metadata.items():
             self._metadata[key].append(value)
-        estimated_bytes = sum(item.nbytes for item in self._traces) + len(self._labels) * 64
+        estimated_bytes = self.estimated_buffer_bytes
         if self.max_samples_per_shard and len(self._labels) >= self.max_samples_per_shard:
             return self.finalize()
         if estimated_bytes >= self.shard_target_bytes:
@@ -276,6 +297,41 @@ def load_shards(
                     metadata_rows.setdefault(key, []).append(archive[key])
     metadata = {key: np.concatenate(values) for key, values in metadata_rows.items()}
     return np.concatenate(traces), np.concatenate(labels), metadata, infos
+
+
+def iter_shards(
+    run_dir: str | Path,
+) -> Iterable[tuple[np.ndarray, np.ndarray, dict[str, np.ndarray], ShardInfo]]:
+    """Yield one validated shard at a time.
+
+    This is the preferred loader for large corpora.  Unlike ``load_shards`` it
+    never concatenates the dataset or retains arrays from earlier shards.
+    """
+
+    for info in validate_all_shards(run_dir):
+        try:
+            with np.load(info.path, allow_pickle=False) as archive:
+                traces = np.asarray(archive["trace"], dtype=np.float32).copy()
+                labels = np.asarray(archive["label"], dtype=np.uint8).copy()
+                metadata = {
+                    key: np.asarray(archive[key]).copy()
+                    for key in archive.files
+                    if key not in {"trace", "label"}
+                }
+        except (OSError, ValueError, KeyError) as exc:
+            raise IntegrityError(f"cannot stream shard {info.path.name}: {exc}") from exc
+        yield traces, labels, metadata, info
+
+
+def iter_sample_rows(
+    run_dir: str | Path,
+) -> Iterable[tuple[np.ndarray, int, dict[str, object]]]:
+    """Yield individual rows while retaining at most one shard in memory."""
+
+    for traces, labels, metadata, _info in iter_shards(run_dir):
+        keys = tuple(metadata)
+        for index, trace in enumerate(traces):
+            yield trace, int(labels[index]), {key: metadata[key][index] for key in keys}
 
 
 def dataset_fingerprint(

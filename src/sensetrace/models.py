@@ -147,6 +147,15 @@ def fit_model(
     import torch
     import torch.nn as nn
 
+    # This is a local scientific-validation default, not a global production
+    # claim.  It keeps helper-thread fan-out bounded before tensors/models are
+    # allocated and makes repeated CPU fits deterministic on worker-03.
+    torch.set_num_threads(1)
+    try:
+        torch.set_num_interop_threads(1)
+    except RuntimeError:
+        pass
+
     if name == "tiny_mlp":
         model = _torch_model("tiny_mlp", traces.shape[1], input_dim=feature_matrix.shape[1])
         x_values = feature_matrix
@@ -169,7 +178,6 @@ def fit_model(
     best_state = None
     best_loss = float("inf")
     stale = 0
-    torch.set_num_threads(1)
     for _ in range(min(epochs, 50)):
         model.train()
         order = torch.randperm(len(x_train))
@@ -198,7 +206,7 @@ def fit_model(
         transformed = input_transform.transform(values).astype(np.float32)
         if name == "tiny_cnn":
             transformed = transformed[:, None, :]
-        with torch.no_grad():
+        with torch.inference_mode():
             logits = model(torch.from_numpy(transformed)).reshape(-1)
             return torch.sigmoid(logits).cpu().numpy()
 
@@ -245,14 +253,15 @@ def train_and_evaluate(
             batch_size=batch_size,
         )
         test_indices = partitions["test"]
+        predictions = fitted.predict(
+            feature_matrix[test_indices]
+            if name in {"logistic_regression", "boosted_trees", "tiny_mlp"}
+            else traces[test_indices]
+        )
         results.append(
             evaluate_predictions(
                 labels[test_indices],
-                fitted.predict(
-                    feature_matrix[test_indices]
-                    if name in {"logistic_regression", "boosted_trees", "tiny_mlp"}
-                    else traces[test_indices]
-                ),
+                predictions,
                 seed=seed,
                 parameter_count=fitted.parameter_count,
                 model_name=name,
@@ -264,6 +273,9 @@ def train_and_evaluate(
             )
         )
         results[-1]["model_hash"] = fitted.model_hash
+        # The result record keeps only scalar metrics/hash; do not retain the
+        # model/optimizer closure between tournament entrants.
+        del fitted, predictions
     scores = [item["balanced_accuracy"] for item in results]
     aucs = [item["auroc"] for item in results]
     return {

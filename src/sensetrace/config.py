@@ -144,12 +144,30 @@ def validate_config(config: dict[str, Any]) -> dict[str, Any]:
     ):
         raise ConfigError("calibration.power_study.replicates must be at least two")
     backend = _get(config, "acquisition.backend", "synthetic")
-    if backend not in {"synthetic", "commodity"}:
-        raise ConfigError("acquisition.backend must be synthetic or commodity")
+    if backend not in {"synthetic", "commodity", "controlled_mock", "controlled_hardware"}:
+        raise ConfigError(
+            "acquisition.backend must be synthetic, commodity, controlled_mock, or "
+            "controlled_hardware"
+        )
     ci_unit = _get(config, "reporting.ci_unit", "session_id")
     if not isinstance(ci_unit, str) or (ci_unit != "sample" and not ci_unit):
         raise ConfigError("reporting.ci_unit must be sample or a metadata grouping field")
     if backend == "commodity":
+        campaign_intent = _get(config, "phase1a.campaign_intent", "historical_reproduction")
+        if campaign_intent not in {
+            "historical_reproduction",
+            "measurement_characterization",
+            "current_scaling",
+        }:
+            raise ConfigError(
+                "phase1a.campaign_intent must be historical_reproduction, "
+                "measurement_characterization, or current_scaling"
+            )
+        if campaign_intent == "current_scaling":
+            raise ConfigError(
+                "current commodity scaling is closed by the frozen C_primitive_unsuitable gate; "
+                "use controlled_mock for Phase 2 progression"
+            )
         protocol_version = _get(config, "phase1a.protocol_version", "phase1a-commodity-baseline-v1")
         if protocol_version != "phase1a-commodity-baseline-v1":
             raise ConfigError("phase1a.protocol_version must be phase1a-commodity-baseline-v1")
@@ -204,6 +222,38 @@ def validate_config(config: dict[str, Any]) -> dict[str, Any]:
         session_count = _get(config, "phase1a.session_count", 1)
         if not isinstance(session_count, int) or session_count < 1:
             raise ConfigError("phase1a.session_count must be a positive integer")
+    if backend == "controlled_mock":
+        phase2 = config.get("phase2", {})
+        if not isinstance(phase2, dict):
+            raise ConfigError("phase2 must be a mapping for controlled_mock acquisition")
+        mock = phase2.get("controlled_mock", {})
+        if not isinstance(mock, dict):
+            raise ConfigError("phase2.controlled_mock must be a mapping")
+        protocol = mock.get("protocol_version", "controlled-memory-interface-mock-v1")
+        if protocol != "controlled-memory-interface-mock-v1":
+            raise ConfigError(
+                "phase2.controlled_mock.protocol_version must be "
+                "controlled-memory-interface-mock-v1"
+            )
+        for name in ("count", "trace_length"):
+            value = mock.get(name)
+            if value is not None and (not isinstance(value, int) or value < 1):
+                raise ConfigError(f"phase2.controlled_mock.{name} must be a positive integer")
+        if mock.get("count", samples or 64) % 2:
+            raise ConfigError("phase2.controlled_mock.count must be even")
+        for name in ("target_id", "firmware_id"):
+            value = mock.get(name)
+            if value is not None and (not isinstance(value, str) or not value.strip()):
+                raise ConfigError(f"phase2.controlled_mock.{name} must be a non-empty string")
+        if "topology" in mock and mock["topology"] != "unavailable":
+            raise ConfigError("controlled_mock topology is always unavailable")
+    if backend == "controlled_hardware":
+        boundary = config.get("phase2", {}).get("controlled_hardware", {})
+        if not isinstance(boundary, dict):
+            raise ConfigError("phase2.controlled_hardware must be a mapping")
+        adapter = boundary.get("adapter")
+        if adapter is not None and (not isinstance(adapter, str) or not adapter.strip()):
+            raise ConfigError("phase2.controlled_hardware.adapter must be a non-empty string")
     native_sensitivity = config.get("native_sensitivity", {})
     if native_sensitivity and not isinstance(native_sensitivity, dict):
         raise ConfigError("native_sensitivity must be a mapping")

@@ -8,7 +8,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from .base import AcquisitionBackend, Sample
+from .base import AcquisitionBackend, RecoveryPolicy, Sample
 
 
 def balanced_labels(count: int, seed: int) -> np.ndarray:
@@ -42,6 +42,11 @@ class SyntheticBackend(AcquisitionBackend):
     observations_per_location: int = 4
 
     name = "synthetic"
+    recovery_policy = RecoveryPolicy(
+        allow_resume=True,
+        deterministic_replay=True,
+        continuity_requirement="deterministic synthetic seed and dataset identity",
+    )
 
     def __post_init__(self) -> None:
         if self.start_index < 0:

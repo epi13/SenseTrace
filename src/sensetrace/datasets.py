@@ -104,6 +104,8 @@ def load_dataset(
             expected_protocol_identity=expected_protocol_identity,
             expected_protocol_hash=expected_protocol_hash,
         )
+    elif expected_purpose == "physical_controlled_hardware":
+        _validate_physical_controlled_dataset(metadata, manifest, root)
     else:
         _validate_physical_timing_provenance(metadata, manifest, root)
         if expected_purpose is not None and manifest.get("dataset_purpose") != expected_purpose:
@@ -111,8 +113,85 @@ def load_dataset(
                 f"dataset {root} purpose {manifest.get('dataset_purpose')!r} does not match "
                 f"expected purpose {expected_purpose!r}"
             )
+        if manifest.get("dataset_purpose") == "phase2_mock_controlled":
+            _validate_phase2_mock_dataset(metadata, manifest, root)
     _validate_allocation_provenance(metadata, manifest, root)
     return traces, labels, metadata, shards, manifest
+
+
+def _validate_phase2_mock_dataset(
+    metadata: dict[str, np.ndarray], manifest: dict[str, Any], source: Path
+) -> None:
+    """Validate the mock claim boundary instead of treating it as missing data."""
+
+    provenance = manifest.get("provenance")
+    if not isinstance(provenance, dict):
+        raise IntegrityError("controlled mock dataset requires a provenance mapping")
+    if provenance.get("dataset_purpose") != "phase2_mock_controlled":
+        raise IntegrityError("controlled mock provenance has the wrong dataset purpose")
+    if provenance.get("evidence_plane") != "controlled_memory_interface_mock":
+        raise IntegrityError("controlled mock provenance has the wrong evidence plane")
+    if provenance.get("interface_name") != "controlled-memory-interface-mock-v1":
+        raise IntegrityError("controlled mock provenance lacks its versioned interface identity")
+    topology = provenance.get("topology")
+    if not isinstance(topology, dict) or topology.get("source") != "unavailable":
+        raise IntegrityError("controlled mock topology must remain explicitly unavailable")
+    if topology.get("virtual_addresses_promoted_to_physical") is not False:
+        raise IntegrityError("controlled mock cannot promote virtual addresses to topology")
+    required = {
+        "controlled_interface_name": "controlled-memory-interface-mock-v1",
+        "controlled_topology_source": "unavailable",
+        "measurement_primitive": "controlled-memory-interface-mock",
+    }
+    for field, expected in required.items():
+        _require_all_values(_metadata_values(metadata, field), expected, field)
+    for value in _metadata_values(metadata, "controlled_topology"):
+        try:
+            record = json.loads(value)
+        except json.JSONDecodeError as exc:
+            raise IntegrityError("controlled mock contains invalid topology JSON") from exc
+        if not isinstance(record, dict) or record.get("source") != "unavailable":
+            raise IntegrityError("controlled mock shard contains a physical topology claim")
+    config_hash = provenance.get("controller_configuration_hash")
+    if not isinstance(config_hash, str) or not config_hash:
+        raise IntegrityError("controlled mock lacks controller configuration hash")
+    _require_all_values(
+        _metadata_values(metadata, "controller_config_hash"), config_hash, "controller_config_hash"
+    )
+
+
+def _validate_physical_controlled_dataset(
+    metadata: dict[str, np.ndarray], manifest: dict[str, Any], source: Path
+) -> None:
+    """Physical gate: an explicit mock dataset can never satisfy it."""
+
+    if manifest.get("dataset_purpose") != "physical_controlled_hardware":
+        raise IntegrityError(
+            f"dataset {source} is not explicitly marked for physical controlled-hardware analysis"
+        )
+    provenance = manifest.get("provenance")
+    if not isinstance(provenance, dict):
+        raise IntegrityError("physical controlled-hardware data requires provenance")
+    if provenance.get("evidence_plane") == "controlled_memory_interface_mock":
+        raise IntegrityError("physical controlled-hardware validation rejects controlled mock data")
+    if provenance.get("interface_name") != "controlled-memory-interface-v1":
+        raise IntegrityError("physical controlled-hardware data has no real interface identity")
+    if any(
+        value != "controlled_hardware"
+        for value in _metadata_values(metadata, "controlled_topology_source")
+    ):
+        raise IntegrityError("physical controlled-hardware data lacks hardware-sourced topology")
+
+
+def validate_physical_evidence_dataset(
+    run_dir: str | Path, *, expected_purpose: str = "physical_controlled_hardware"
+) -> dict[str, Any]:
+    """Load a dataset through an explicit physical-evidence claim boundary."""
+
+    _traces, _labels, _metadata, _shards, manifest = load_dataset(
+        run_dir, expected_purpose=expected_purpose
+    )
+    return manifest
 
 
 def _metadata_values(metadata: dict[str, np.ndarray], field: str) -> list[str]:

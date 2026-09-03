@@ -21,7 +21,7 @@ from .inventory import collect_inventory
 from .phase0 import run_phase0
 from .phase1a import run_phase1a
 from .recovery import recovery_test
-from .runner import daemon
+from .runner import AcquisitionRunner, daemon
 
 
 def _json(value: object) -> None:
@@ -75,6 +75,13 @@ def build_parser() -> argparse.ArgumentParser:
     phase1a.add_argument("--phase0-report", required=True)
     phase1a.add_argument("--output")
     phase1a.add_argument("--host")
+    phase2_mock = run_sub.add_parser(
+        "phase2-mock", help="run the Phase 2 controlled-memory software contract emulator"
+    )
+    phase2_mock.add_argument("--config", default="configs/phase2-controlled-mock.example.yaml")
+    phase2_mock.add_argument("--output", default="runs/phase2-controlled-mock")
+    phase2_mock.add_argument("--condition", default="null")
+    phase2_mock.add_argument("--stop-after", type=int)
 
     calibrate = sub.add_parser("calibrate", help="calibrate an analysis pipeline")
     calibrate_sub = calibrate.add_subparsers(dest="calibrate_command", required=True)
@@ -291,6 +298,17 @@ def main(argv: list[str] | None = None) -> int:
                     phase0_report=args.phase0_report,
                 )
             )
+        return 0
+    if args.command == "run" and args.run_command == "phase2-mock":
+        config = load_config(args.config)
+        if config.get("acquisition", {}).get("backend") != "controlled_mock":
+            raise SystemExit("run phase2-mock requires acquisition.backend=controlled_mock")
+        output = Path(args.output)
+        _json(
+            AcquisitionRunner(config, output, run_id=output.name).run(
+                condition=args.condition, stop_after=args.stop_after
+            )
+        )
         return 0
     if args.command == "calibrate" and args.calibrate_command == "phase0":
         config = validate_config(load_config(args.config))

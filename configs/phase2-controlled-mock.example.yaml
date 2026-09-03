@@ -1,0 +1,38 @@
+# Phase 2 contract dry-run only. This configuration cannot produce physical
+# controlled-hardware evidence or physical DRAM topology.
+experiment:
+  name: phase2-controlled-mock-dry-run
+  seed: 1337
+
+data:
+  samples: 64
+  trace_length: 32
+  target_balance: 0.5
+
+acquisition:
+  backend: controlled_mock
+  shard_target_mb: 1
+  max_samples_per_shard: 8
+
+phase2:
+  controlled_mock:
+    protocol_version: controlled-memory-interface-mock-v1
+    count: 64
+    trace_length: 32
+    seed: 1337
+    target_id: mock-controlled-target-0000
+    firmware_id: mock-controller-firmware-v0
+    topology: unavailable
+
+splits:
+  primary:
+    train_fraction: 0.7
+    validation_fraction: 0.15
+    test_fraction: 0.15
+    group_keys: [session_id, device_id, row_id, cell_or_offset_id]
+
+training:
+  seeds: [11, 23, 37]
+
+reporting:
+  ci_unit: session_id

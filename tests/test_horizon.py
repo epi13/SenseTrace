@@ -7,6 +7,13 @@ import pytest
 
 from sensetrace.acquisition.base import Sample
 from sensetrace.cli import build_parser
+from sensetrace.construction import (
+    TimingTargetDefinition,
+    build_timing_pairs,
+    generate_timing_surrogate,
+    raw_order_shuffle,
+    timing_diagnostics,
+)
 from sensetrace.errors import IntegrityError, SchemaError
 from sensetrace.horizon import (
     Horizon,
@@ -44,6 +51,10 @@ def test_horizon_cli_commands_are_explicitly_available():
     assert remote.results_command == "fetch-horizon"
     real = build_parser().parse_args(["run", "trace-horizon"])
     assert real.run_command == "trace-horizon"
+    construction = build_parser().parse_args(["run", "construction-falsification"])
+    assert construction.run_command == "construction-falsification"
+    remote_construction = build_parser().parse_args(["host", "run-construction-falsification"])
+    assert remote_construction.host_command == "run-construction-falsification"
 
 
 def test_index_horizon_uses_current_state_only_and_future_state_only_for_target():
@@ -261,3 +272,95 @@ def test_horizon_run_writes_reproducible_manifest_and_immutable_artifacts(tmp_pa
             source_fingerprint="different",
             split_fingerprints={},
         )
+
+
+def test_timing_target_a_and_b_have_explicit_indexing_and_tie_policy():
+    trajectories = [
+        StateTrajectory(
+            f"timing-{index}",
+            np.column_stack(
+                [
+                    np.asarray([0.0, 2.0, 1.0, 1.0, 4.0, 3.0]),
+                    np.asarray([0.0, 2.0, -1.0, 0.0, 3.0, -1.0]),
+                ]
+            ),
+        )
+        for index in range(6)
+    ]
+    adjacent = build_timing_pairs(
+        trajectories,
+        Horizon(1),
+        TimingTargetDefinition("future_adjacent_delta_sign", "zero_is_positive"),
+    )
+    current_to_future = build_timing_pairs(
+        trajectories,
+        Horizon(1),
+        TimingTargetDefinition("current_to_future_delta_sign", "zero_is_positive"),
+    )
+    # A at origin 1 uses x[2]-x[1] = -1; B uses x[2]-x[1] as well at h=1.
+    assert adjacent.alignment_rule.startswith("A: target=sign(raw[target_index]-raw[target_index-1])")
+    assert current_to_future.alignment_rule.startswith("B: target=sign(raw[target_index]-raw[origin_index])")
+    assert adjacent.metadata["target_tied"].tolist().count(True) > 0
+    excluded = build_timing_pairs(
+        trajectories,
+        Horizon(1),
+        TimingTargetDefinition("future_adjacent_delta_sign", "exclude"),
+    )
+    assert excluded.row_count < adjacent.row_count
+
+
+def test_construction_preserving_iid_baselines_reproduce_sign_expectations():
+    rng = np.random.default_rng(71)
+    reference = [
+        StateTrajectory(
+            f"reference-{index}",
+            np.column_stack(
+                [
+                    raw,
+                    np.r_[0.0, np.diff(raw)],
+                ]
+            ),
+        )
+        for index, raw in enumerate(rng.normal(size=(60, 48)))
+    ]
+    iid = generate_timing_surrogate(reference, condition="iid_continuous", seed=9)
+    definition = TimingTargetDefinition("future_adjacent_delta_sign")
+    pairs = build_timing_pairs(iid, Horizon(1), definition)
+    split = build_horizon_split(pairs, seed=12)
+    report = evaluate_horizon_curve(
+        {"step:1:index": pairs},
+        {"step:1:index": split},
+        model_names=[
+            "reverse_delta_sign",
+            "training_median_current_level",
+            "empirical_cdf",
+            "current_level_logistic",
+            "current_delta_logistic",
+            "linear_logistic",
+        ],
+        seeds=[11],
+        bootstrap_repetitions=20,
+        permutation_repetitions=20,
+    )
+    models = report["horizons"]["step:1:index"]["models"]
+    assert 0.55 < models["reverse_delta_sign"]["runs"][0]["test"]["balanced_accuracy"] < 0.80
+    assert 0.60 < models["training_median_current_level"]["runs"][0]["test"]["balanced_accuracy"] < 0.90
+    assert report["horizons"]["step:1:index"]["alignment_audit"]["status"] == "pass"
+
+
+def test_raw_shuffle_rebuilds_causal_differences_and_diagnostics_keep_trajectory_units():
+    trajectories = [
+        StateTrajectory(
+            f"timing-{index}",
+            np.column_stack((raw, np.r_[0.0, np.diff(raw)])),
+        )
+        for index, raw in enumerate(np.arange(48, dtype=np.float64).reshape(6, 8))
+    ]
+    shuffled = raw_order_shuffle(trajectories, seed=17)
+    assert [item.trajectory_id for item in shuffled] == [item.trajectory_id for item in trajectories]
+    for trajectory in shuffled:
+        assert np.allclose(trajectory.states[1:, 1], np.diff(trajectory.states[:, 0]))
+    diagnostics = timing_diagnostics(shuffled, max_lag=3)
+    assert diagnostics["trajectory_count"] == 6
+    assert len(diagnostics["per_trajectory"]) == 6
+    assert diagnostics["delta_sign_transition_matrix"]["counts"]

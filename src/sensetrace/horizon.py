@@ -535,10 +535,65 @@ def _fit_predict(
     seed: int,
     target_kind: TargetKind,
     shuffle_labels: bool = False,
+    empirical_cdf_tie_policy: str = "zero_is_positive",
 ) -> np.ndarray:
     if shuffle_labels:
         train_y = np.asarray(train_y).copy()
         np.random.default_rng(seed).shuffle(train_y)
+    if target_kind == "continuous" and model_name in {
+        "reverse_delta_sign",
+        "sign_transition",
+        "training_median_current_level",
+        "empirical_cdf",
+        "current_level_logistic",
+        "current_delta_logistic",
+    }:
+        raise SchemaError(f"{model_name} is only defined for binary timing-sign targets")
+    if model_name == "reverse_delta_sign":
+        if train_x.shape[1] < 2:
+            raise SchemaError("reverse_delta_sign requires [current level, current delta] features")
+        fallback = float(np.mean(train_y))
+        delta = np.asarray(values[:, 1], dtype=np.float64)
+        return np.where(delta < 0.0, 1.0, np.where(delta > 0.0, 0.0, fallback))
+    if model_name == "training_median_current_level":
+        if train_x.shape[1] < 1:
+            raise SchemaError("training_median_current_level requires a current-level feature")
+        median = float(np.median(train_x[:, 0]))
+        fallback = float(np.mean(train_y))
+        level = np.asarray(values[:, 0], dtype=np.float64)
+        return np.where(level < median, 1.0, np.where(level > median, 0.0, fallback))
+    if model_name == "sign_transition":
+        if train_x.shape[1] < 2:
+            raise SchemaError("sign_transition requires [current level, current delta] features")
+        delta = np.asarray(train_x[:, 1], dtype=np.float64)
+        value_delta = np.asarray(values[:, 1], dtype=np.float64)
+        categories = np.sign(delta).astype(np.int8)
+        value_categories = np.sign(value_delta).astype(np.int8)
+        fallback = float(np.mean(train_y))
+        probabilities = np.full(len(values), fallback, dtype=np.float64)
+        for category in (-1, 0, 1):
+            mask = categories == category
+            if np.any(mask):
+                probabilities[value_categories == category] = float(np.mean(train_y[mask]))
+        return probabilities
+    if model_name == "empirical_cdf":
+        if train_x.shape[1] < 1:
+            raise SchemaError("empirical_cdf requires a current-level feature")
+        training_levels = np.sort(np.asarray(train_x[:, 0], dtype=np.float64))
+        side = "left" if empirical_cdf_tie_policy == "zero_is_positive" else "right"
+        if empirical_cdf_tie_policy not in {"zero_is_positive", "zero_is_negative", "exclude"}:
+            raise SchemaError(f"unsupported empirical CDF tie policy {empirical_cdf_tie_policy!r}")
+        ranks = np.searchsorted(training_levels, np.asarray(values[:, 0]), side=side)
+        return np.clip(1.0 - ranks / max(len(training_levels), 1), 0.0, 1.0)
+    if model_name in {"current_level_logistic", "current_delta_logistic"}:
+        column = 0 if model_name == "current_level_logistic" else 1
+        if train_x.shape[1] <= column:
+            raise SchemaError(f"{model_name} requires feature column {column}")
+        train_x = train_x[:, [column]]
+        values = values[:, [column]]
+        model_name = "linear_logistic"
+    if model_name == "combined_logistic":
+        model_name = "linear_logistic"
     if model_name in {"majority", "random"}:
         if model_name == "majority":
             constant = _constant_prediction(train_y, target_kind)[0]
@@ -604,6 +659,31 @@ def _bootstrap_metric(
             values.append(float(mean_absolute_error(y, p)))
         elif metric == "rmse":
             values.append(float(np.sqrt(mean_squared_error(y, p))))
+    if not values:
+        return [float("nan"), float("nan")]
+    return [float(np.quantile(values, 0.025)), float(np.quantile(values, 0.975))]
+
+
+def _bootstrap_difference(
+    targets: np.ndarray,
+    left_predictions: np.ndarray,
+    right_predictions: np.ndarray,
+    groups: np.ndarray,
+    *,
+    seed: int,
+    repetitions: int,
+) -> list[float]:
+    """Bootstrap a paired correctness difference over complete trajectories."""
+
+    unique = np.unique(groups)
+    rng = np.random.default_rng(seed)
+    values: list[float] = []
+    for _ in range(repetitions):
+        selected = rng.choice(unique, size=len(unique), replace=True)
+        indices = np.concatenate([np.flatnonzero(groups == group) for group in selected])
+        left = np.asarray(left_predictions[indices]) >= 0.5
+        right = np.asarray(right_predictions[indices]) >= 0.5
+        values.append(float(np.mean(left == targets[indices]) - np.mean(right == targets[indices])))
     if not values:
         return [float("nan"), float("nan")]
     return [float(np.quantile(values, 0.025)), float(np.quantile(values, 0.975))]
@@ -863,6 +943,7 @@ def evaluate_horizon_curve(
     practical_balanced_accuracy: float = 0.55,
     practical_continuous_skill: float = 0.05,
     significance_alpha: float = 0.05,
+    empirical_cdf_tie_policy: str = "zero_is_positive",
 ) -> dict[str, Any]:
     """Evaluate fixed baselines and probes for every requested horizon."""
 
@@ -873,6 +954,13 @@ def evaluate_horizon_curve(
         "metadata_only",
         "linear_logistic",
         "nearest_neighbor",
+        "reverse_delta_sign",
+        "sign_transition",
+        "training_median_current_level",
+        "empirical_cdf",
+        "current_level_logistic",
+        "current_delta_logistic",
+        "combined_logistic",
         "linear_ridge",
         "temporally_shuffled_states",
         "wrong_trajectory_pairing",
@@ -886,6 +974,7 @@ def evaluate_horizon_curve(
         "schema": "sensetrace.predictive-horizon-curve.v1",
         "feature_view": feature_view,
         "models": list(model_names),
+        "empirical_cdf_tie_policy": empirical_cdf_tie_policy,
         "horizons": {},
         "selection_policy": "all predeclared models are reported; selected_model uses validation only",
         "test_policy": "test predictions are generated once per predeclared model/seed and never used for selection",
@@ -906,8 +995,20 @@ def evaluate_horizon_curve(
         "wrong_trajectory_pairing",
         "reversed_alignment",
         "same_state",
+        "reverse_delta_sign",
+        "sign_transition",
+        "training_median_current_level",
+        "empirical_cdf",
     }
     test_families: list[dict[str, Any]] = []
+    simple_baseline_names = (
+        "reverse_delta_sign",
+        "sign_transition",
+        "training_median_current_level",
+        "empirical_cdf",
+        "current_level_logistic",
+        "current_delta_logistic",
+    )
     for horizon_key, pairs in pairs_by_horizon.items():
         split = splits_by_horizon[horizon_key]
         partitions = horizon_partition_indices(pairs, split)
@@ -934,6 +1035,7 @@ def evaluate_horizon_curve(
         is_binary = pairs.target.kind == "binary"
         models_report: dict[str, Any] = {}
         validation_scores: dict[str, float] = {}
+        prediction_cache: dict[str, dict[int, dict[str, Any]]] = {}
         for model_name in model_names:
             if (control_features is not None and model_name in control_features) or (
                 control_targets is not None and model_name in control_targets
@@ -969,7 +1071,16 @@ def evaluate_horizon_curve(
             if model_name == "metadata_only" and model_features.shape[1] == 0:
                 models_report[model_name] = {"status": "unavailable", "reason": "empty metadata feature view"}
                 continue
-            if not is_binary and model_name == "linear_logistic":
+            if not is_binary and model_name in {
+                "linear_logistic",
+                "combined_logistic",
+                "reverse_delta_sign",
+                "sign_transition",
+                "training_median_current_level",
+                "empirical_cdf",
+                "current_level_logistic",
+                "current_delta_logistic",
+            }:
                 models_report[model_name] = {
                     "status": "unavailable",
                     "reason": "binary classifier is incompatible with continuous target",
@@ -994,6 +1105,7 @@ def evaluate_horizon_curve(
                         seed=seed,
                         target_kind=pairs.target.kind,
                         shuffle_labels=True,
+                        empirical_cdf_tie_policy=empirical_cdf_tie_policy,
                     )
                     test_predictions = _fit_predict(
                         control_model,
@@ -1003,6 +1115,7 @@ def evaluate_horizon_curve(
                         seed=seed,
                         target_kind=pairs.target.kind,
                         shuffle_labels=True,
+                        empirical_cdf_tie_policy=empirical_cdf_tie_policy,
                     )
                 else:
                     fit_name = (
@@ -1034,6 +1147,7 @@ def evaluate_horizon_curve(
                         model_features[validation],
                         seed=seed,
                         target_kind=pairs.target.kind,
+                        empirical_cdf_tie_policy=empirical_cdf_tie_policy,
                     )
                     test_predictions = _fit_predict(
                         fit_name,
@@ -1042,6 +1156,7 @@ def evaluate_horizon_curve(
                         model_features[test],
                         seed=seed,
                         target_kind=pairs.target.kind,
+                        empirical_cdf_tie_policy=empirical_cdf_tie_policy,
                     )
                 validation_result = _evaluate(
                     model_targets[validation],
@@ -1084,6 +1199,16 @@ def evaluate_horizon_curve(
                         target_kind=pairs.target.kind,
                         baseline_value=float(np.mean(train_y)),
                     )
+                prediction_cache.setdefault(model_name, {})[int(seed)] = {
+                    "validation_score": (
+                        float(validation_result["balanced_accuracy"])
+                        if is_binary
+                        else float(validation_result["rmse"])
+                    ),
+                    "test_predictions": np.asarray(test_predictions),
+                    "targets": np.asarray(model_targets[test]),
+                    "control_target": model_name in (control_targets or {}),
+                }
                 if model_name not in control_models:
                     test_families.append(
                         {
@@ -1105,6 +1230,57 @@ def evaluate_horizon_curve(
                 "control": model_name in control_models,
                 "runs": runs,
             }
+        available_simple = [
+            name
+            for name in simple_baseline_names
+            if name in prediction_cache
+            and any(not item["control_target"] for item in prediction_cache[name].values())
+        ]
+        for model_name, model_runs in models_report.items():
+            if model_runs.get("status") != "evaluated" or model_name not in prediction_cache:
+                continue
+            for run in model_runs["runs"]:
+                seed = int(run["seed"])
+                current = prediction_cache[model_name].get(seed)
+                if current is None or current["control_target"] or not is_binary:
+                    continue
+                candidates = [
+                    name
+                    for name in available_simple
+                    if seed in prediction_cache[name] and not prediction_cache[name][seed]["control_target"]
+                ]
+                if not candidates:
+                    continue
+                baseline_name = max(
+                    candidates,
+                    key=lambda name: prediction_cache[name][seed]["validation_score"],
+                )
+                baseline = prediction_cache[baseline_name][seed]
+                target_values = np.asarray(current["targets"], dtype=np.uint8)
+                current_predictions = np.asarray(current["test_predictions"])
+                baseline_predictions = np.asarray(baseline["test_predictions"])
+                current_correct = (current_predictions >= 0.5) == target_values
+                baseline_correct = (baseline_predictions >= 0.5) == target_values
+                run["paired_baseline_contrast"] = {
+                    "selection": "strongest declared simple baseline by validation balanced accuracy",
+                    "baseline_model": baseline_name,
+                    "balanced_accuracy_difference": float(
+                        _binary_balanced_accuracy(target_values, current_predictions >= 0.5)
+                        - _binary_balanced_accuracy(target_values, baseline_predictions >= 0.5)
+                    ),
+                    "paired_correctness_difference": float(
+                        np.mean(current_correct.astype(np.float64) - baseline_correct.astype(np.float64))
+                    ),
+                    "paired_correctness_confidence_interval_95": _bootstrap_difference(
+                        target_values,
+                        current_predictions,
+                        baseline_predictions,
+                        groups[test],
+                        seed=seed + 30_000,
+                        repetitions=bootstrap_repetitions,
+                    ),
+                    "confidence_interval_unit": "trajectory_id",
+                }
         available_for_selection = [
             name
             for name in model_names

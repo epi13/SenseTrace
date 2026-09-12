@@ -216,3 +216,26 @@ replicated measurement-trace observation, not a claim about SenseTrace
 predicting model computation, hidden physical state, DRAM-origin information,
 or precognition. Cross-boot replication and targeted autocorrelation controls
 remain the appropriate next tests.
+
+## 2026-09-12 — construction-preserving falsification protocol
+
+Status: frozen implementation; fresh worker-03 execution pending.
+
+The historical result's actual target is A, `sign(x[t+h]-x[t+h-1])`, because
+the real adapter exposes `[x[t], x[t]-x[t-1]]` and the target extracts the
+future state's delta component. At horizon 1 this shares `x[t]` with the
+feature vector. The distinct B target, `sign(x[t+h]-x[t])`, is implemented as
+an explicit indexing diagnostic because its shared-current-value effect would
+persist at every IID horizon.
+
+The new campaign generates independent raw measurements (continuous,
+skewed, quantized, and empirical-marginal), or shuffles raw observations
+within each trajectory, then rebuilds production features and targets. It
+reports the sign-reversal, transition, median-level, empirical-CDF,
+current-level-only, current-difference-only, combined, and nearest-neighbor
+baselines; trajectory-level uncertainty; paired contrasts; tie-aware sign
+transitions; and per-trajectory lag diagnostics. See
+`docs/SELF-FORECASTING-CONSTRUCTION-CAMPAIGN-20260912.md` for the frozen
+protocol and interpretation criteria. Historical worker JSON lacks raw timing
+trajectories, so it is retained as historical evidence rather than silently
+reprocessed through the new null.

@@ -181,3 +181,38 @@ The natural interpretation to test next is ordinary local timing
 autocorrelation or an acquisition artifact. The confirmation protocol is
 frozen in `docs/evidence/self-forecasting-confirmation-20260912.md`; no
 operational speculative computation is justified.
+
+## 2026-09-12 — independent real-trace confirmation
+
+Status: replicated bounded measurement-trace finding; no higher-level
+self-forecasting claim.
+
+The frozen confirmation protocol completed on worker-03 with a fresh session
+`session-197994c67b214e4289c2ce1db7a17449` and a distinct source trajectory
+fingerprint
+`e8a91611a686d38a9db60c0abd33eadf8f368421d577bc6e6e5e41413c94ea76`.
+The boot ID was unchanged
+(`92cdb521-ac36-4649-a35c-bfb55c6ac870`), so this is an independent
+same-boot acquisition rather than a cross-boot replication. The run used the
+same frozen source commit `4b9b2de592b88a098c16efcd21a1efa66bf431a6` and
+reported worker-03 for both execution host and requested node.
+
+The `future_timing_level` ridge probe remained null: skill was `-0.001,
+-0.002, -0.001, -0.006, +0.002` at horizons `1, 2, 4, 8, 16`, with no
+corrected significance. The `future_timing_delta_sign` logistic probe
+reproduced the one-step effect: balanced accuracy was `0.709` at horizon 1
+(95% trajectory-bootstrap interval `[0.674, 0.739]`; raw and max-statistic
+corrected permutation p-values `0.0025`) and `0.500` at every later horizon.
+The temporal-shuffle, wrong-trajectory, and reversed-alignment controls were
+chance; the same-state control was 1.0 by construction. The first-run effect
+(`0.689`) and confirmation effect (`0.709`) therefore reproduce only a
+short-range autocorrelation-like property of the measured timing trace.
+
+Confirmation artifacts are retained under
+`evidence/self-forecasting-trace-worker03-confirmation-20260912/`; hashes and
+the bounded interpretation are summarized in
+`docs/evidence/self-forecasting-worker03-real-20260912.md`. This supports a
+replicated measurement-trace observation, not a claim about SenseTrace
+predicting model computation, hidden physical state, DRAM-origin information,
+or precognition. Cross-boot replication and targeted autocorrelation controls
+remain the appropriate next tests.

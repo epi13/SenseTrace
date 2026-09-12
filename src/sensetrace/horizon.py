@@ -644,6 +644,55 @@ def _bootstrap_metric(
 ) -> list[float]:
     unique = np.unique(groups)
     rng = np.random.default_rng(seed)
+    if metric in {"balanced_accuracy", "mae", "rmse"} and repetitions > 0:
+        group_codes = np.searchsorted(unique, groups)
+        selected = rng.integers(0, len(unique), size=(repetitions, len(unique)))
+        multiplicity = np.zeros((repetitions, len(unique)), dtype=np.float64)
+        replicate_codes = np.broadcast_to(
+            np.arange(repetitions, dtype=np.int64)[:, None], selected.shape
+        )
+        np.add.at(multiplicity, (replicate_codes, selected), 1.0)
+        if metric == "balanced_accuracy":
+            labels = np.asarray(targets, dtype=np.uint8)
+            predicted = np.asarray(predictions) >= 0.5
+            positive = labels == 1
+            negative = ~positive
+            positive_denominator = multiplicity @ np.bincount(
+                group_codes, weights=positive.astype(np.float64), minlength=len(unique)
+            )
+            negative_denominator = multiplicity @ np.bincount(
+                group_codes, weights=negative.astype(np.float64), minlength=len(unique)
+            )
+            true_positive = multiplicity @ np.bincount(
+                group_codes,
+                weights=(positive & predicted).astype(np.float64),
+                minlength=len(unique),
+            )
+            true_negative = multiplicity @ np.bincount(
+                group_codes,
+                weights=(negative & ~predicted).astype(np.float64),
+                minlength=len(unique),
+            )
+            values_array = 0.5 * (
+                true_positive / np.maximum(positive_denominator, 1.0)
+                + true_negative / np.maximum(negative_denominator, 1.0)
+            )
+        else:
+            errors = (
+                np.abs(np.asarray(targets, dtype=np.float64) - np.asarray(predictions, dtype=np.float64))
+                if metric == "mae"
+                else (np.asarray(targets, dtype=np.float64) - np.asarray(predictions, dtype=np.float64)) ** 2
+            )
+            sums = multiplicity @ np.bincount(
+                group_codes, weights=errors, minlength=len(unique)
+            )
+            counts = multiplicity @ np.bincount(
+                group_codes, weights=np.ones(len(targets)), minlength=len(unique)
+            )
+            values_array = sums / np.maximum(counts, 1.0)
+            if metric == "rmse":
+                values_array = np.sqrt(values_array)
+        return [float(np.quantile(values_array, 0.025)), float(np.quantile(values_array, 0.975))]
     values: list[float] = []
     for _ in range(repetitions):
         selected = rng.choice(unique, size=len(unique), replace=True)

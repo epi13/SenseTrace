@@ -836,6 +836,69 @@ def _effect_statistic(
     return float(1.0 - rmse / baseline_rmse)
 
 
+def _group_shift_matrix(
+    targets: np.ndarray,
+    groups: np.ndarray,
+    repetitions: int,
+    rng: np.random.Generator,
+    shifts_by_group: Mapping[str, np.ndarray] | None = None,
+) -> np.ndarray:
+    """Vectorize circular within-group shifts over randomization replicates."""
+
+    targets = np.asarray(targets)
+    group_values = np.asarray(groups).astype(str)
+    result = np.empty((repetitions, len(targets)), dtype=targets.dtype)
+    for group in np.unique(group_values):
+        indices = np.flatnonzero(group_values == group)
+        if len(indices) < 2:
+            result[:, indices] = targets[indices]
+            continue
+        shifts = (
+            np.asarray(shifts_by_group[group], dtype=np.int64) % len(indices)
+            if shifts_by_group is not None
+            else rng.integers(0, len(indices), size=repetitions, dtype=np.int64)
+        )
+        source = (np.arange(len(indices), dtype=np.int64)[None, :] - shifts[:, None]) % len(indices)
+        result[:, indices] = targets[indices][source]
+    return result
+
+
+def _vectorized_effects(
+    targets: np.ndarray,
+    predictions: np.ndarray,
+    *,
+    groups: np.ndarray,
+    repetitions: int,
+    rng: np.random.Generator,
+    target_kind: TargetKind,
+    baseline_value: float | None = None,
+    shifts_by_group: Mapping[str, np.ndarray] | None = None,
+) -> np.ndarray:
+    permuted = _group_shift_matrix(
+        targets,
+        groups,
+        repetitions,
+        rng,
+        shifts_by_group=shifts_by_group,
+    )
+    if target_kind == "binary":
+        predicted_positive = np.asarray(predictions) >= 0.5
+        actual_positive = permuted == 1
+        positive_denominator = np.sum(actual_positive, axis=1)
+        negative_denominator = np.sum(~actual_positive, axis=1)
+        true_positive = np.sum(actual_positive & predicted_positive[None, :], axis=1)
+        true_negative = np.sum((~actual_positive) & (~predicted_positive[None, :]), axis=1)
+        return 0.5 * (
+            true_positive / np.maximum(positive_denominator, 1)
+            + true_negative / np.maximum(negative_denominator, 1)
+        ) - 0.5
+    predictions = np.asarray(predictions, dtype=np.float64)
+    baseline = float(np.mean(targets) if baseline_value is None else baseline_value)
+    baseline_rmse = np.sqrt(np.mean((permuted - baseline) ** 2, axis=1))
+    rmse = np.sqrt(np.mean((permuted - predictions[None, :]) ** 2, axis=1))
+    return np.where(baseline_rmse > 0.0, 1.0 - rmse / baseline_rmse, np.nan)
+
+
 def _permutation_p_value(
     targets: np.ndarray,
     predictions: np.ndarray,
@@ -853,6 +916,17 @@ def _permutation_p_value(
         baseline_value=baseline_value,
     )
     rng = np.random.default_rng(seed)
+    if target_kind == "binary":
+        effects = _vectorized_effects(
+            targets,
+            predictions,
+            groups=groups,
+            repetitions=repetitions,
+            rng=rng,
+            target_kind=target_kind,
+            baseline_value=baseline_value,
+        )
+        return float((1 + np.sum(effects >= observed)) / (repetitions + 1))
     null: list[float] = []
     for _ in range(repetitions):
         permuted = _group_preserving_permutation(targets, groups, rng)
@@ -902,24 +976,23 @@ def _max_statistic_permutation_p_values(
             for group in np.asarray(item["groups"]).astype(str)
         }
     )
-    null_maxima: list[float] = []
-    for _ in range(repetitions):
-        shifts = {group: int(rng.integers(0, 2**32)) for group in all_groups}
-        null_effects: list[float] = []
-        for item in families:
-            targets = np.asarray(item["targets"])
-            groups = np.asarray(item["groups"]).astype(str)
-            permuted = _group_preserving_permutation(targets, groups, rng, shifts)
-            effect = _effect_statistic(
-                permuted,
-                np.asarray(item["predictions"]),
-                target_kind=cast(TargetKind, item["target_kind"]),
-                baseline_value=item.get("baseline_value"),
-            )
-            if np.isfinite(effect):
-                null_effects.append(effect)
-        null_maxima.append(max(null_effects) if null_effects else float("nan"))
-    null_array = np.asarray(null_maxima, dtype=np.float64)
+    shifts = {
+        group: rng.integers(0, 2**32, size=repetitions, dtype=np.uint64)
+        for group in all_groups
+    }
+    null_array = np.full(repetitions, -np.inf, dtype=np.float64)
+    for item in families:
+        effects = _vectorized_effects(
+            np.asarray(item["targets"]),
+            np.asarray(item["predictions"]),
+            groups=np.asarray(item["groups"]).astype(str),
+            repetitions=repetitions,
+            rng=rng,
+            target_kind=cast(TargetKind, item["target_kind"]),
+            baseline_value=item.get("baseline_value"),
+            shifts_by_group=shifts,
+        )
+        null_array = np.maximum(null_array, np.where(np.isfinite(effects), effects, -np.inf))
     return {
         key: float((1 + np.sum(null_array >= effect)) / (repetitions + 1))
         if np.isfinite(effect)

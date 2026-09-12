@@ -218,6 +218,8 @@ The purpose of the project is to characterize physical information channels in m
 - [Phase 2 hardened recovery and evidence firewall](docs/ADR-016-phase2-hardened-evidence-firewall.md)
 - [worker-03 fragmented-evidence receiver](docs/ADR-017-worker03-fragmented-evidence-receiver.md)
 - [preregistered worker-03 fragmented pipeline](docs/ADR-018-worker03-preregistered-fragmented-pipeline.md)
+- [passive self-forecasting and predictive horizons](docs/SELF-FORECASTING.md)
+- [self-forecasting research log](docs/RESEARCH-LOG.md)
 - [Phase 0 v2 protocol](docs/PHASE0-PROTOCOL-V2.md)
 - [Architecture decisions](docs/ADR-001-storage-and-journal.md)
 
@@ -262,3 +264,13 @@ Mock controller configuration, command sequence, trigger and clock identities,
 trace channels, unavailable topology, recovery policy, and claim boundary are
 persisted in ordinary SenseTrace samples and manifests. This is a software and
 evidence-contract test, never physical DRAM evidence.
+
+SenseTrace also includes a passive self-forecasting analysis path. It aligns
+present trajectory states with future targets at explicit horizons, holds out
+whole trajectories, reports fixed baselines and shuffled-label controls, and
+materializes predictive-horizon and useful-lead curves. Run the synthetic
+falsification controls with `sensetrace run horizon --config
+configs/self-forecasting-worker03.example.yaml`. This is a synthetic analysis
+validation only; it does not reopen the commodity gate or establish a physical
+DRAM or model-inference result. See
+[passive self-forecasting](docs/SELF-FORECASTING.md).

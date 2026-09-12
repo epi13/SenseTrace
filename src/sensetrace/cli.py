@@ -17,6 +17,7 @@ from .characterization import run_measurement_primitive_characterization
 from .config import load_config, validate_config
 from .datasets import load_dataset
 from .experiment import run_preregistered_worker03_experiment
+from .horizon import run_synthetic_horizon_experiment
 from .host.client import RemoteHost
 from .inventory import collect_inventory
 from .phase0 import run_phase0
@@ -98,6 +99,16 @@ def build_parser() -> argparse.ArgumentParser:
     worker03_fragmented.add_argument("--output", default="runs/worker03-fragmented-exact-host-v1")
     worker03_fragmented.add_argument("--reference-samples", type=int)
     worker03_fragmented.add_argument("--controlled-samples", type=int)
+    horizon = run_sub.add_parser(
+        "horizon",
+        aliases=["self-forecast"],
+        help="run passive present-to-future predictive-horizon controls",
+    )
+    horizon.add_argument(
+        "--config", default="configs/self-forecasting-worker03.example.yaml"
+    )
+    horizon.add_argument("--output", default="runs/self-forecasting-horizon-v1")
+    horizon.add_argument("--conditions", nargs="*", choices=["predictable", "null"])
 
     protocol = sub.add_parser("protocol", help="print a frozen protocol and its fingerprint")
     protocol.add_argument("name", choices=["worker03-fragmented"])
@@ -245,6 +256,13 @@ def build_parser() -> argparse.ArgumentParser:
     remote_worker03.add_argument("--output")
     remote_worker03.add_argument("--reference-samples", type=int)
     remote_worker03.add_argument("--controlled-samples", type=int)
+    remote_horizon = host_sub.add_parser("run-horizon")
+    remote_horizon.add_argument("host", nargs="?", default="worker-03")
+    remote_horizon.add_argument(
+        "--config", default="configs/self-forecasting-worker03.example.yaml"
+    )
+    remote_horizon.add_argument("--output")
+    remote_horizon.add_argument("--conditions", nargs="*", choices=["predictable", "null"])
     remote_calibration = host_sub.add_parser("calibrate-phase0")
     remote_calibration.add_argument("host", nargs="?", default="worker-03")
     remote_calibration.add_argument("--config", default="configs/phase0.example.yaml")
@@ -359,6 +377,10 @@ def main(argv: list[str] | None = None) -> int:
                 controlled_samples=args.controlled_samples,
             )
         )
+        return 0
+    if args.command == "run" and args.run_command in {"horizon", "self-forecast"}:
+        config = validate_config(load_config(args.config))
+        _json(run_synthetic_horizon_experiment(config, args.output, conditions=args.conditions))
         return 0
     if args.command == "protocol" and args.name == "worker03-fragmented":
         from .protocol import (
@@ -555,6 +577,11 @@ def main(argv: list[str] | None = None) -> int:
                     reference_samples=args.reference_samples,
                     controlled_samples=args.controlled_samples,
                 ),
+                end="",
+            )
+        elif args.host_command == "run-horizon":
+            print(
+                remote.run_horizon(args.config, output=args.output, conditions=args.conditions),
                 end="",
             )
         elif args.host_command == "calibrate-phase0":

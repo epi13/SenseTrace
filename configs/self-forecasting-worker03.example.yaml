@@ -1,0 +1,58 @@
+experiment:
+  name: self-forecasting-horizon-v1
+  seed: 20260912
+  description: >-
+    Passive synthetic control for predicting future computational-state
+    properties from present state, with whole-trajectory holdout.
+
+data:
+  target_balance: 0.50
+  trajectories: 72
+  length: 64
+  state_dim: 8
+  autoregressive_coefficient: 0.85
+
+conditions:
+  - predictable
+  - "null"
+
+horizon:
+  distances: [1, 2, 4, 8, 16, 32]
+  unit: step
+  alignment: index
+
+target:
+  name: future_state_0_sign
+  kind: binary
+  state_index: 0
+  threshold: 0.0
+  positive_if: ge
+
+models:
+  - majority
+  - random
+  - shuffled_labels
+  - metadata_only
+  - linear_logistic
+  - nearest_neighbor
+
+splits:
+  primary:
+    train_fraction: 0.70
+    validation_fraction: 0.15
+    test_fraction: 0.15
+
+training:
+  seeds: [11, 23, 37]
+
+reporting:
+  bootstrap_repetitions: 400
+  permutation_repetitions: 400
+  practical_balanced_accuracy: 0.55
+  practical_continuous_skill: 0.05
+  significance_alpha: 0.05
+
+run_metadata:
+  node: worker-03
+  target_model: synthetic-ar1-v1
+  trace_collection: generated ordered state trajectories; no physical acquisition

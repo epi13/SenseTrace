@@ -820,6 +820,32 @@ class RemoteHost:
             raise RuntimeError(result.stderr or result.stdout)
         return result.stdout
 
+    def run_horizon(
+        self,
+        config: str | Path,
+        *,
+        output: str | None = None,
+        conditions: list[str] | None = None,
+    ) -> str:
+        """Run passive synthetic horizon controls on the dedicated node."""
+
+        home = self._home()
+        venv = f"{home}/.local/share/sensetrace/venv/bin/sensetrace"
+        remote_config = f"{home}/.config/sensetrace/self-forecasting.yaml"
+        self.connection.put(str(config), remote=remote_config)
+        destination = output or (
+            f"{home}/.local/share/sensetrace/runs/self-forecasting-horizon-v1"
+        )
+        command = (
+            f"{venv} run horizon --config {quote(remote_config)} --output {quote(destination)}"
+        )
+        if conditions:
+            command += " --conditions " + " ".join(quote(value) for value in conditions)
+        result = self.run(command, warn=True, hide=True)
+        if not result.ok:
+            raise RuntimeError(result.stderr or result.stdout)
+        return result.stdout
+
     def run_native_sensitivity_calibration(
         self,
         config: str | Path,

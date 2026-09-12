@@ -1179,25 +1179,33 @@ def evaluate_horizon_curve(
                 if is_binary:
                     validation_scores.setdefault(model_name, 0.0)
                     validation_scores[model_name] += float(validation_result["balanced_accuracy"]) / len(seeds)
-                    test_result["permutation_p_value"] = _permutation_p_value(
-                        model_targets[test],
-                        test_predictions,
-                        groups=groups[test],
-                        seed=seed + 10_000,
-                        repetitions=permutation_repetitions,
-                        target_kind=pairs.target.kind,
+                    test_result["permutation_p_value"] = (
+                        float("nan")
+                        if model_name in control_models
+                        else _permutation_p_value(
+                            model_targets[test],
+                            test_predictions,
+                            groups=groups[test],
+                            seed=seed + 10_000,
+                            repetitions=permutation_repetitions,
+                            target_kind=pairs.target.kind,
+                        )
                     )
                 else:
                     validation_scores.setdefault(model_name, 0.0)
                     validation_scores[model_name] += float(validation_result["rmse"]) / len(seeds)
-                    test_result["permutation_p_value"] = _permutation_p_value(
-                        model_targets[test],
-                        test_predictions,
-                        groups=groups[test],
-                        seed=seed + 10_000,
-                        repetitions=permutation_repetitions,
-                        target_kind=pairs.target.kind,
-                        baseline_value=float(np.mean(train_y)),
+                    test_result["permutation_p_value"] = (
+                        float("nan")
+                        if model_name in control_models
+                        else _permutation_p_value(
+                            model_targets[test],
+                            test_predictions,
+                            groups=groups[test],
+                            seed=seed + 10_000,
+                            repetitions=permutation_repetitions,
+                            target_kind=pairs.target.kind,
+                            baseline_value=float(np.mean(train_y)),
+                        )
                     )
                 prediction_cache.setdefault(model_name, {})[int(seed)] = {
                     "validation_score": (
@@ -1364,6 +1372,8 @@ def summarize_useful_lead(
                     float(run.get("permutation_p_value_max_statistic", float("nan")))
                     for run in test_runs
                 ]
+                finite_p_values = [p for p in p_values if np.isfinite(p)]
+                finite_corrected_p_values = [p for p in corrected_p_values if np.isfinite(p)]
                 score = float(np.mean(scores))
                 effect = score - 0.5
                 practical = score >= practical_balanced_accuracy
@@ -1379,10 +1389,10 @@ def summarize_useful_lead(
                         "practical_threshold": practical_balanced_accuracy,
                         "practical": practical,
                         "statistically_supported": supported,
-                        "permutation_p_value": float(np.nanmean(p_values)) if p_values else float("nan"),
+                        "permutation_p_value": float(np.mean(finite_p_values)) if finite_p_values else None,
                         "permutation_p_value_max_statistic": (
-                            float(np.nanmean(corrected_p_values))
-                            if any(np.isfinite(p) for p in corrected_p_values)
+                            float(np.mean(finite_corrected_p_values))
+                            if finite_corrected_p_values
                             else None
                         ),
                     }
@@ -1404,6 +1414,8 @@ def summarize_useful_lead(
                     float(run.get("permutation_p_value_max_statistic", float("nan")))
                     for run in test_runs
                 ]
+                finite_p_values = [p for p in p_values if np.isfinite(p)]
+                finite_corrected_p_values = [p for p in corrected_p_values if np.isfinite(p)]
                 supported = bool(
                     np.isfinite(skill)
                     and sum(
@@ -1420,10 +1432,10 @@ def summarize_useful_lead(
                         "practical_threshold": practical_continuous_skill,
                         "practical": practical,
                         "statistically_supported": supported,
-                        "permutation_p_value": float(np.nanmean(p_values)) if p_values else float("nan"),
+                        "permutation_p_value": float(np.mean(finite_p_values)) if finite_p_values else None,
                         "permutation_p_value_max_statistic": (
-                            float(np.nanmean(corrected_p_values))
-                            if any(np.isfinite(p) for p in corrected_p_values)
+                            float(np.mean(finite_corrected_p_values))
+                            if finite_corrected_p_values
                             else None
                         ),
                     }

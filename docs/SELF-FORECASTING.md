@@ -101,6 +101,12 @@ treated as physical worker evidence. Retrieve the JSON artifacts to durable
 controller storage and preserve the node identity, commit, config, split
 fingerprints, and result hashes.
 
+```bash
+sensetrace results fetch-horizon --host worker-03 \
+  --output /home/worker-03/.local/share/sensetrace/runs/self-forecasting-horizon-v1 \
+  --destination evidence/self-forecasting-worker03-20260912
+```
+
 Each condition directory contains:
 
 ```text

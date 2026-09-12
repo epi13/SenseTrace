@@ -55,3 +55,29 @@ failure occurred before authentication, deployment, or experiment startup.
 No local run is being relabeled as worker-03 evidence. Retry after the node or
 network route is restored, then deploy the exact committed source and preserve
 the remote manifest alongside the controller copy.
+
+## 2026-09-12 — controller synthetic full curve
+
+Status: confirmed synthetic-control behavior; not a SenseTrace physical or
+model-inference finding.
+
+The committed framework was exercised locally with the worker-03 protocol
+shape, 48 generated trajectories, six horizons (`1, 2, 4, 8, 16, 32`), three
+probe seeds, 120 trajectory-bootstrap repetitions, and 120 permutation
+repetitions. The durable local artifacts are under
+`runs/self-forecasting-horizon-local-20260912/`.
+
+For the predictable AR(1) condition, the linear probe's held-out balanced
+accuracy was `0.811, 0.721, 0.629, 0.541, 0.523, 0.527` across those horizons;
+the configured practical threshold gave a maximum practical horizon of 4.
+For the independent null condition the corresponding values were
+`0.525, 0.458, 0.517, 0.484, 0.542, 0.422`, with no practical horizon. Every
+causal alignment audit passed. The null curve's finite-sample deviations and
+occasional control p-values are retained as a warning that multiple horizons,
+models, and seeds require cautious interpretation; they are not evidence of a
+future-state signal.
+
+The manifests record commit `f14ddcc5200db6ed8953854537d0ecbf687dee9a`,
+execution host `fedora`, requested node `worker-03`, source trajectory
+fingerprints, split fingerprints, and result hashes. The requested worker run
+remains pending because the node was unreachable.

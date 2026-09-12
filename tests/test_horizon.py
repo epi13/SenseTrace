@@ -5,6 +5,7 @@ import json
 import numpy as np
 import pytest
 
+from sensetrace.cli import build_parser
 from sensetrace.errors import IntegrityError, SchemaError
 from sensetrace.horizon import (
     Horizon,
@@ -32,6 +33,13 @@ def _trajectories(count: int = 9) -> list[StateTrajectory]:
         )
         for index in range(count)
     ]
+
+
+def test_horizon_cli_commands_are_explicitly_available():
+    args = build_parser().parse_args(["run", "horizon", "--conditions", "predictable"])
+    assert args.run_command == "horizon"
+    remote = build_parser().parse_args(["results", "fetch-horizon", "--host", "worker-03"])
+    assert remote.results_command == "fetch-horizon"
 
 
 def test_index_horizon_uses_current_state_only_and_future_state_only_for_target():

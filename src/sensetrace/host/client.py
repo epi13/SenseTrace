@@ -1215,6 +1215,43 @@ class RemoteHost:
                 self.connection.get(remote, local=str(local_dir / name))
         return str(local_dir)
 
+    def fetch_horizon_results(
+        self, destination: str | Path, *, output: str | None = None
+    ) -> str:
+        """Fetch passive horizon JSON artifacts while preserving condition paths."""
+
+        home = self._home()
+        if output:
+            remote_root = output
+        else:
+            located = self.run(
+                f"find {quote(home)}/.local/share/sensetrace/runs -maxdepth 2 "
+                "-name experiment.json -type f -printf '%T@ %p\\n' 2>/dev/null "
+                "| sort -n | tail -1",
+                warn=True,
+                hide=True,
+            )
+            if not located.stdout.strip():
+                raise RuntimeError("no predictive-horizon experiment artifacts found")
+            remote_root = located.stdout.strip().split(maxsplit=1)[1].rsplit("/", 1)[0]
+        files = self.run(
+            f"find {quote(remote_root)} -maxdepth 2 -type f "
+            "\\( -name experiment.json -o -name manifest.json -o -name splits.json "
+            "-o -name results.json \\) -print",
+            warn=True,
+            hide=True,
+        )
+        if not files.stdout.strip():
+            raise RuntimeError(f"no predictive-horizon JSON artifacts found under {remote_root}")
+        local_root = Path(destination)
+        local_root.mkdir(parents=True, exist_ok=True)
+        for remote_file in files.stdout.splitlines():
+            relative = remote_file.removeprefix(remote_root).lstrip("/")
+            local_file = local_root / relative
+            local_file.parent.mkdir(parents=True, exist_ok=True)
+            self.connection.get(remote_file, local=str(local_file))
+        return str(local_root)
+
     def reboot(self) -> str:
         # A transient systemd timer detaches reboot scheduling from the SSH
         # channel.  Shell-backgrounding a one-second delay can still reset the

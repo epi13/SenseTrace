@@ -297,6 +297,10 @@ def build_parser() -> argparse.ArgumentParser:
     fetch.add_argument("--host", default="worker-03")
     fetch.add_argument("--destination", default="evidence/latest")
     fetch.add_argument("--run-id")
+    fetch_horizon = results_sub.add_parser("fetch-horizon")
+    fetch_horizon.add_argument("--host", default="worker-03")
+    fetch_horizon.add_argument("--destination", default="evidence/self-forecasting-latest")
+    fetch_horizon.add_argument("--output")
     return parser
 
 
@@ -627,8 +631,10 @@ def main(argv: list[str] | None = None) -> int:
         remote = RemoteHost(args.host)
         if args.results_command == "latest":
             _json(remote.latest_result())
-        else:
+        elif args.results_command == "fetch":
             print(remote.fetch_results(args.destination, run_id=args.run_id))
+        else:
+            print(remote.fetch_horizon_results(args.destination, output=args.output))
         return 0
     return 2
 

@@ -141,3 +141,43 @@ non-control model×horizon tests for one target and condition, with common
 trajectory-level circular shifts preserving group structure; repeated training
 seeds remain replications. Effect sizes and trajectory-bootstrap intervals are
 primary, and controls are not treated as positive evidence.
+
+## 2026-09-12 — first real worker measurement run
+
+Status: real experimental finding, exploratory only; independent confirmation
+required.
+
+Worker-03 acquired 64 complete `CommodityDramBackend` samples in fresh session
+`session-fa0248b94c5a407a91804c692ae82a48`, boot
+`92cdb521-ac36-4649-a35c-bfb55c6ac870`, using the committed
+`random_word`/eviction-buffer configuration. The two target reports share
+source trajectory fingerprint
+`693261b5a57765e17a96e897483fcd4b0a3449c5e2e5b4b780cbc993ef5486fa` and are
+stored under `evidence/self-forecasting-trace-worker03-20260912-4b9b2de/`.
+Execution host and requested node both report `worker-03`; both manifests bind
+to source commit `4b9b2de592b88a098c16efcd21a1efa66bf431a6`.
+
+For `future_timing_level`, the linear-ridge held-out skill over the constant
+training mean was `-0.002, -0.002, +0.001, +0.002, -0.000` at horizons
+`1, 2, 4, 8, 16`; no horizon cleared the 0.05 practical threshold or the
+corrected significance rule. The nearest-neighbor probe was worse than the
+constant baseline. Temporal-shuffle, wrong-trajectory, reversed-alignment,
+and shuffled-label controls were similarly null; metadata-only skill was below
+0.005 at every horizon.
+
+For `future_timing_delta_sign`, linear-logistic balanced accuracy was
+`0.689, 0.500, 0.500, 0.500, 0.500` at horizons `1, 2, 4, 8, 16`. At horizon
+1 the effect over chance was `+0.189`, the 95% trajectory-bootstrap interval
+was `[0.648, 0.728]`, and both raw and model×horizon max-statistic corrected
+permutation p-values were `0.0025`. The same-state control was 1.0 by design;
+temporal-shuffle, wrong-trajectory, and reversed-alignment controls were 0.5.
+The signal disappears after one native measurement repetition and was observed
+by both the linear and nearest-neighbor probes at that first horizon.
+
+This is a real, short-range predictability result for a commodity timing
+measurement trace. It is not evidence that SenseTrace predicts its own model
+computation, hidden physical state, DRAM-origin information, or precognition.
+The natural interpretation to test next is ordinary local timing
+autocorrelation or an acquisition artifact. The confirmation protocol is
+frozen in `docs/evidence/self-forecasting-confirmation-20260912.md`; no
+operational speculative computation is justified.

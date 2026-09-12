@@ -22,7 +22,7 @@ from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 import numpy as np
 from sklearn.linear_model import LogisticRegression, Ridge
@@ -301,6 +301,7 @@ def _target_index(trajectory: StateTrajectory, origin_index: int, horizon: Horiz
     if horizon.alignment == "index":
         target = origin_index + int(horizon.distance)
         return target if target < len(trajectory.states) else None
+    assert trajectory.positions is not None
     desired = float(trajectory.positions[origin_index]) + float(horizon.distance)
     target = int(np.searchsorted(trajectory.positions, desired, side="left"))
     return target if target < len(trajectory.states) else None
@@ -350,6 +351,7 @@ def build_forecast_pairs(
             metadata["trajectory_id"].append(trajectory.trajectory_id)
             metadata["origin_index"].append(origin_index)
             metadata["target_index"].append(target_index)
+            assert trajectory.positions is not None
             metadata["origin_position"].append(float(trajectory.positions[origin_index]))
             metadata["target_position"].append(float(trajectory.positions[target_index]))
     if not feature_rows:
@@ -1210,13 +1212,18 @@ def run_synthetic_horizon_experiment(
         raise SchemaError("horizon.distances must be a non-empty list")
     unit = str(horizon_config.get("unit", "step"))
     alignment = str(horizon_config.get("alignment", "index"))
-    horizons = [Horizon(distance=value, unit=unit, alignment=alignment) for value in requested_horizons]
+    horizons = [
+        Horizon(distance=value, unit=unit, alignment=cast(AlignmentMode, alignment))
+        for value in requested_horizons
+    ]
     target = TargetSpec(
         name=str(target_config.get("name", "future_state_0_sign")),
-        kind=str(target_config.get("kind", "binary")),
+        kind=cast(TargetKind, str(target_config.get("kind", "binary"))),
         state_index=int(target_config.get("state_index", 0)),
         threshold=float(target_config.get("threshold", 0.0)),
-        positive_if=str(target_config.get("positive_if", "ge")),
+        positive_if=cast(
+            Literal["ge", "gt", "le", "lt"], str(target_config.get("positive_if", "ge"))
+        ),
     )
     models = tuple(
         str(item)
@@ -1234,7 +1241,7 @@ def run_synthetic_horizon_experiment(
         if condition not in {"predictable", "null"}:
             raise SchemaError(f"unsupported horizon condition {condition!r}")
         trajectories = generate_synthetic_trajectories(
-            condition=condition,  # type: ignore[arg-type]
+            condition=cast(Literal["predictable", "null"], condition),
             trajectory_count=trajectory_count,
             length=length,
             state_dim=state_dim,
@@ -1286,7 +1293,8 @@ def run_synthetic_horizon_experiment(
             splits=splits_by_horizon,
             run_metadata={
                 "condition": condition,
-                "node": config.get("run_metadata", {}).get("node", "controller"),
+                "execution_host": platform.node() or "unavailable",
+                "requested_node": config.get("run_metadata", {}).get("node", "controller"),
                 "target_model": config.get("run_metadata", {}).get("target_model", "synthetic-ar1-v1"),
             },
         )

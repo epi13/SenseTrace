@@ -38,3 +38,20 @@ The current phase is passive observation only. Forecasts do not alter the
 trajectory that produces the target. Offline speculative-use simulation and
 closed-loop intervention require a separate explicitly labeled phase after
 credible passive evidence.
+
+## 2026-09-12 — worker-03 availability check
+
+Status: infrastructure blocker; no worker result was recorded.
+
+The existing controller path was used as requested:
+
+```text
+sensetrace host doctor worker-03
+```
+
+The SSH alias resolved to `192.168.1.113`, but both ICMP and SSH were
+unreachable from the controller (`No route to host` on TCP port 22). The
+failure occurred before authentication, deployment, or experiment startup.
+No local run is being relabeled as worker-03 evidence. Retry after the node or
+network route is restored, then deploy the exact committed source and preserve
+the remote manifest alongside the controller copy.

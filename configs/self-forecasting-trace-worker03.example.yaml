@@ -1,0 +1,97 @@
+host:
+  name: worker-03
+  role: dedicated_experiment_host
+
+experiment:
+  name: self-forecasting-trace-worker03-v1
+  description: Passive future-state prediction over complete SenseTrace commodity measurement traces.
+  seed: 20260912
+
+data:
+  target_balance: 0.50
+  samples: 64
+  trace_channels: 1
+  trace_length: 32
+
+acquisition:
+  backend: commodity
+  enabled: false
+  shard_target_mb: 64
+
+phase1a:
+  campaign_intent: measurement_characterization
+  protocol_version: phase1a-commodity-baseline-v1
+  measurement_primitive: commodity-clflush-timed-load
+  location_count: 1
+  trials_per_location: 64
+  labels_per_location: 32
+  samples: 64
+  trace_length: 32
+  pattern: random_word
+  target_bit: 0
+  word_count: 1024
+  lock_memory: true
+  cache_control: eviction_buffer
+  operation: memory_read
+  eviction_bytes: 4194304
+  cpu_affinity: null
+  use_native_kernel: true
+  require_native_kernel: true
+  session_count: 1
+
+targets:
+  - name: future_timing_level
+    kind: continuous
+    state_index: 0
+  - name: future_timing_delta_sign
+    kind: binary
+    state_index: 1
+    threshold: 0.0
+    positive_if: ge
+
+models:
+  logistic_regression: {enabled: false}
+  boosted_trees: {enabled: false}
+  tiny_mlp: {enabled: false}
+  tiny_cnn: {enabled: false}
+
+horizon:
+  distances: [1, 2, 4, 8, 16]
+  unit: native_measurement_repetition
+  alignment: index
+  models:
+    - majority
+    - random
+    - shuffled_labels
+    - metadata_only
+    - temporally_shuffled_states
+    - wrong_trajectory_pairing
+    - reversed_alignment
+    - same_state
+    - linear_logistic
+    - linear_ridge
+    - nearest_neighbor
+
+splits:
+  primary:
+    train_fraction: 0.70
+    validation_fraction: 0.15
+    test_fraction: 0.15
+    group_keys: [trajectory_id]
+
+training:
+  seeds: [11, 23, 37]
+
+reporting:
+  ci_unit: trajectory_id
+  bootstrap_repetitions: 400
+  permutation_repetitions: 400
+  practical_balanced_accuracy: 0.55
+  practical_continuous_skill: 0.05
+  significance_alpha: 0.05
+
+run_metadata:
+  node: worker-03
+  target_model: sensetrace-commodity-trace-v1
+  trace_collection: existing CommodityDramBackend; random-word null acquisition; no label features
+  claim_boundary: real SenseTrace commodity measurement-trajectory analysis only

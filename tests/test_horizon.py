@@ -5,6 +5,7 @@ import json
 import numpy as np
 import pytest
 
+from sensetrace.acquisition.base import Sample
 from sensetrace.cli import build_parser
 from sensetrace.errors import IntegrityError, SchemaError
 from sensetrace.horizon import (
@@ -21,6 +22,7 @@ from sensetrace.horizon import (
     validate_horizon_alignment,
     write_horizon_run,
 )
+from sensetrace.trajectory import build_real_controls, sample_to_trajectory, samples_to_trajectories
 
 
 def _trajectories(count: int = 9) -> list[StateTrajectory]:
@@ -40,6 +42,8 @@ def test_horizon_cli_commands_are_explicitly_available():
     assert args.run_command == "horizon"
     remote = build_parser().parse_args(["results", "fetch-horizon", "--host", "worker-03"])
     assert remote.results_command == "fetch-horizon"
+    real = build_parser().parse_args(["run", "trace-horizon"])
+    assert real.run_command == "trace-horizon"
 
 
 def test_index_horizon_uses_current_state_only_and_future_state_only_for_target():
@@ -152,6 +156,83 @@ def test_continuous_future_state_target_reports_regression_skill():
     assert test["linear_ridge"]["status"] == "evaluated"
     assert "skill_over_constant_mean" in report["useful_lead_summary"]["model_summaries"]["linear_ridge"]["curve"][0]
     assert test["linear_ridge"]["runs"][0]["test"]["rmse"] < test["majority"]["runs"][0]["test"]["rmse"]
+
+
+def test_real_sample_adapter_is_causal_and_ignores_labels_and_label_metadata():
+    sample = Sample(
+        trace=np.asarray([10.0, 13.0, 11.0, 18.0], dtype=np.float32),
+        label=1,
+        metadata={
+            "sample_id": "sample-a",
+            "session_id": "session-a",
+            "boot_id": "boot-a",
+            "label_semantics": "must never become a feature",
+        },
+    )
+    trajectory = sample_to_trajectory(sample)
+    assert trajectory.trajectory_id == "sample-a"
+    assert trajectory.metadata["label_used"] is False
+    assert trajectory.states.tolist() == [[10.0, 0.0], [13.0, 3.0], [11.0, -2.0], [18.0, 7.0]]
+    changed_future = Sample(
+        trace=np.asarray([10.0, 13.0, 111.0, 18.0], dtype=np.float32),
+        label=0,
+        metadata={"sample_id": "sample-a", "session_id": "different"},
+    )
+    changed = sample_to_trajectory(changed_future)
+    assert np.array_equal(trajectory.states[0], changed.states[0])
+    assert trajectory.states[0, 1] == 0.0
+
+
+def test_real_sample_adapter_rejects_missing_and_duplicate_boundary_ids():
+    missing = Sample(np.ones(4, dtype=np.float32), 0, {})
+    with pytest.raises(SchemaError, match="sample_id"):
+        sample_to_trajectory(missing)
+    samples = [
+        Sample(np.arange(4, dtype=np.float32), 0, {"sample_id": "same"}),
+        Sample(np.arange(4, dtype=np.float32), 1, {"sample_id": "same"}),
+    ]
+    with pytest.raises(SchemaError, match="duplicate"):
+        samples_to_trajectories(samples)
+
+
+def test_real_controls_and_max_statistic_correction_preserve_grouped_alignment():
+    trajectories = [
+        StateTrajectory(f"trajectory-{index}", np.asarray([[index + t, t] for t in range(12)], dtype=np.float32))
+        for index in range(9)
+    ]
+    pairs_by_horizon = {}
+    splits = {}
+    metadata = {}
+    for horizon in (Horizon(1), Horizon(4)):
+        key = f"step:{horizon.distance:g}:index"
+        pairs_by_horizon[key] = build_forecast_pairs(
+            trajectories, horizon, TargetSpec("future", "binary", threshold=4.0)
+        )
+        splits[key] = build_horizon_split(pairs_by_horizon[key], seed=7)
+        metadata[key], _ = numeric_metadata_matrix(pairs_by_horizon[key], ["origin_position"])
+    features, targets = build_real_controls(pairs_by_horizon, seed=19)
+    report = evaluate_horizon_curve(
+        pairs_by_horizon,
+        splits,
+        model_names=[
+            "temporally_shuffled_states",
+            "wrong_trajectory_pairing",
+            "reversed_alignment",
+            "same_state",
+            "linear_logistic",
+        ],
+        metadata_features=metadata,
+        control_features=features,
+        control_targets=targets,
+        seeds=[11],
+        bootstrap_repetitions=20,
+        permutation_repetitions=20,
+    )
+    row = report["horizons"]["step:1:index"]["models"]["linear_logistic"]["runs"][0]["test"]
+    assert "permutation_p_value" in row
+    assert "permutation_p_value_max_statistic" in row
+    assert report["multiplicity"]["method"] == "group-preserving max-statistic permutation"
+    assert report["horizons"]["step:1:index"]["alignment_audit"]["status"] == "pass"
 
 
 def test_horizon_run_writes_reproducible_manifest_and_immutable_artifacts(tmp_path):

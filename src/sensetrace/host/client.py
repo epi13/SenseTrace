@@ -846,6 +846,30 @@ class RemoteHost:
             raise RuntimeError(result.stderr or result.stdout)
         return result.stdout
 
+    def run_trace_horizon(
+        self,
+        config: str | Path,
+        *,
+        output: str | None = None,
+    ) -> str:
+        """Acquire and analyze real SenseTrace commodity measurement traces."""
+
+        home = self._home()
+        venv = f"{home}/.local/share/sensetrace/venv/bin/sensetrace"
+        remote_config = f"{home}/.config/sensetrace/self-forecasting-trace.yaml"
+        self.connection.put(str(config), remote=remote_config)
+        destination = output or (
+            f"{home}/.local/share/sensetrace/runs/self-forecasting-trace-worker03-v1"
+        )
+        command = (
+            f"{venv} run trace-horizon --config {quote(remote_config)} "
+            f"--output {quote(destination)}"
+        )
+        result = self.run(command, warn=True, hide=True)
+        if not result.ok:
+            raise RuntimeError(result.stderr or result.stdout)
+        return result.stdout
+
     def run_native_sensitivity_calibration(
         self,
         config: str | Path,
@@ -1236,7 +1260,7 @@ class RemoteHost:
             remote_root = located.stdout.strip().split(maxsplit=1)[1].rsplit("/", 1)[0]
         files = self.run(
             f"find {quote(remote_root)} -maxdepth 2 -type f "
-            "\\( -name experiment.json -o -name manifest.json -o -name splits.json "
+            "\\( -name experiment.json -o -name acquisition.json -o -name manifest.json -o -name splits.json "
             "-o -name results.json \\) -print",
             warn=True,
             hide=True,

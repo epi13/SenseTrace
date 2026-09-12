@@ -42,7 +42,9 @@ The current target adapter supports:
 Every horizon reports the predeclared majority/constant baseline, seeded
 random control, shuffled-label control, an explicit numeric metadata-only
 control, and simple probes where compatible: logistic/ridge and nearest
-neighbor. The metadata-only view rejects identity fields and future-index
+neighbor. The real-trace path additionally reports within-trajectory temporal
+shuffle, wrong-trajectory pairing, reversed alignment, and same-state
+controls. The metadata-only view rejects identity fields and future-index
 fields. It is intentionally useful for exposing an ordering or bookkeeping
 shortcut.
 
@@ -66,8 +68,12 @@ The report therefore includes `useful_lead_summary`:
 
 These are finite-grid summaries, not optional stopping. The full curve,
 sample counts, class balance, confidence intervals, AUROC, Brier score,
-calibration error, permutation p-values, and repeated-seed results remain the
-primary record.
+calibration error, raw permutation p-values, max-statistic corrected
+p-values, and repeated-seed results remain the primary record. Corrected
+p-values use circular target shifts within complete trajectory groups over the
+predeclared non-control model×horizon family for each target and condition;
+repeated seeds are replications, not additional opportunities to select a
+result.
 
 ## Synthetic falsification controls
 
@@ -115,6 +121,36 @@ splits.json     # immutable pair IDs and whole-trajectory partitions
 results.json    # predictive-horizon curve and useful-lead summary
 ```
 
+## Real SenseTrace measurement trajectories
+
+The first non-synthetic adapter uses the existing `CommodityDramBackend`
+measurement trace. Each complete `Sample` is one trajectory; no windows are
+formed across samples, sessions, allocations, or boots. State component 0 is
+the observed timing value and component 1 is its causal first difference. The
+sample label, label semantics, seed fields, and other target-adjacent metadata
+are excluded from both state features and the metadata-only baseline. This is
+an ordered measurement-trajectory experiment, not a model-layer trace and not
+evidence about hidden physical state.
+
+The worker configuration declares two simple future targets over the same
+acquisition: continuous future timing level and binary future timing-delta
+sign. Run it locally for a smoke check or on the dedicated worker:
+
+```bash
+sensetrace run trace-horizon \
+  --config configs/self-forecasting-trace-worker03.example.yaml \
+  --output runs/self-forecasting-trace-worker03-v1
+
+sensetrace host run-trace-horizon worker-03 \
+  --config configs/self-forecasting-trace-worker03.example.yaml \
+  --output /home/worker-03/.local/share/sensetrace/runs/self-forecasting-trace-worker03-v1
+```
+
+Fetch the target directories and `acquisition.json` with the same
+`results fetch-horizon` command. The real run's manifest uses the claim
+boundary `real SenseTrace commodity measurement-trajectory analysis; no hidden
+physical state, DRAM-origin, or model-inference claim`.
+
 ## Interpretation boundary and next work
 
 The first worker-03 run is a software and synthetic validation of the
@@ -122,10 +158,10 @@ self-forecasting analysis path. It must not be combined with the historical
 commodity PMU result or described as hidden-bit, DRAM-origin, or model
 precognition evidence.
 
-The next scientifically useful extension is a state adapter that emits
-trajectories from an explicitly defined computation (for example, a model
-layer/token trace or controlled-memory-interface trace), while retaining the
-same whole-run holdout and passive causal contract. Only after a passive signal
-survives natural-unit holdouts, null controls, and independent seeds should an
-offline speculative-use simulation be added. Closed-loop interventions remain
-out of scope for this phase.
+The next scientifically useful extension is independent real acquisition
+sessions and held-out boot/session analysis, followed by an adapter for an
+explicitly defined higher-level computation (for example, a model layer/token
+trace or controlled-memory-interface trace) if SenseTrace exposes one. Only
+after a passive signal survives natural-unit holdouts, null controls, and
+independent sessions should an offline speculative-use simulation be added.
+Closed-loop interventions remain out of scope for this phase.

@@ -15,6 +15,7 @@ can be added without changing horizon alignment or split semantics.
 from __future__ import annotations
 
 import json
+import os
 import platform
 import subprocess
 import sys
@@ -640,6 +641,7 @@ def _evaluate(
     groups: np.ndarray,
     seed: int,
     bootstrap_repetitions: int,
+    baseline_value: float | None = None,
 ) -> dict[str, Any]:
     targets = np.asarray(targets)
     predictions = np.asarray(predictions, dtype=np.float64)
@@ -677,12 +679,18 @@ def _evaluate(
         }
     rmse = float(np.sqrt(mean_squared_error(targets, predictions)))
     mae = float(mean_absolute_error(targets, predictions))
+    constant = float(np.mean(targets) if baseline_value is None else baseline_value)
+    baseline_rmse = float(np.sqrt(mean_squared_error(targets, np.full(len(targets), constant))))
     return {
         "sample_count": int(len(targets)),
         "target_mean": float(np.mean(targets)),
         "mae": mae,
         "rmse": rmse,
         "r2": float(r2_score(targets, predictions)) if len(np.unique(targets)) > 1 else float("nan"),
+        "skill_over_constant_mean": (
+            float(1.0 - rmse / baseline_rmse) if baseline_rmse > 0 else float("nan")
+        ),
+        "constant_baseline": constant,
         "confidence_interval_95": _bootstrap_metric(
             targets,
             predictions,
@@ -704,19 +712,140 @@ def _evaluate(
     }
 
 
+def _group_preserving_permutation(
+    targets: np.ndarray,
+    groups: np.ndarray,
+    rng: np.random.Generator,
+    shifts: Mapping[str, int] | None = None,
+) -> np.ndarray:
+    """Circularly shift target rows within each natural trajectory group.
+
+    A row-wise permutation would destroy the trajectory boundary structure and
+    can make a temporal null too easy.  Circular shifts retain each group's
+    target distribution and row count while breaking present/future alignment.
+    The optional common shifts are used by the max-statistic family test so
+    the null preserves dependence across horizons and models.
+    """
+
+    values = np.asarray(targets).copy()
+    group_values = np.asarray(groups).astype(str)
+    for group in np.unique(group_values):
+        indices = np.flatnonzero(group_values == group)
+        if len(indices) < 2:
+            continue
+        shift = int(shifts[group]) % len(indices) if shifts is not None else int(rng.integers(len(indices)))
+        if shift:
+            values[indices] = values[indices][np.roll(np.arange(len(indices)), shift)]
+    return values
+
+
+def _effect_statistic(
+    targets: np.ndarray,
+    predictions: np.ndarray,
+    *,
+    target_kind: TargetKind,
+    baseline_value: float | None = None,
+) -> float:
+    if target_kind == "binary":
+        return float(_binary_balanced_accuracy(targets, predictions >= 0.5) - 0.5)
+    baseline = float(np.mean(targets) if baseline_value is None else baseline_value)
+    baseline_rmse = float(np.sqrt(mean_squared_error(targets, np.full(len(targets), baseline))))
+    if baseline_rmse <= 0:
+        return float("nan")
+    rmse = float(np.sqrt(mean_squared_error(targets, predictions)))
+    return float(1.0 - rmse / baseline_rmse)
+
+
 def _permutation_p_value(
     targets: np.ndarray,
     predictions: np.ndarray,
     *,
+    groups: np.ndarray,
     seed: int,
     repetitions: int,
+    target_kind: TargetKind,
+    baseline_value: float | None = None,
 ) -> float:
-    observed = _binary_balanced_accuracy(targets, predictions >= 0.5)
+    observed = _effect_statistic(
+        targets,
+        predictions,
+        target_kind=target_kind,
+        baseline_value=baseline_value,
+    )
     rng = np.random.default_rng(seed)
-    null = []
+    null: list[float] = []
     for _ in range(repetitions):
-        null.append(_binary_balanced_accuracy(rng.permutation(targets), predictions >= 0.5))
+        permuted = _group_preserving_permutation(targets, groups, rng)
+        null.append(
+            _effect_statistic(
+                permuted,
+                predictions,
+                target_kind=target_kind,
+                baseline_value=baseline_value,
+            )
+        )
+    if not np.isfinite(observed):
+        return float("nan")
     return float((1 + np.sum(np.asarray(null) >= observed)) / (repetitions + 1))
+
+
+def _max_statistic_permutation_p_values(
+    families: Sequence[Mapping[str, Any]],
+    *,
+    seed: int,
+    repetitions: int,
+) -> dict[str, float]:
+    """Return max-statistic adjusted p-values for one declared test family.
+
+    The family is supplied by the caller and normally contains all requested
+    horizons and non-control probes for one target/condition.  One common
+    trajectory-level shift per permutation is reused across that family,
+    preserving the dependence created by shared trajectories and horizons.
+    """
+
+    if not families:
+        return {}
+    observed = {
+        str(item["key"]): _effect_statistic(
+            np.asarray(item["targets"]),
+            np.asarray(item["predictions"]),
+            target_kind=cast(TargetKind, item["target_kind"]),
+            baseline_value=item.get("baseline_value"),
+        )
+        for item in families
+    }
+    rng = np.random.default_rng(seed)
+    all_groups = sorted(
+        {
+            str(group)
+            for item in families
+            for group in np.asarray(item["groups"]).astype(str)
+        }
+    )
+    null_maxima: list[float] = []
+    for _ in range(repetitions):
+        shifts = {group: int(rng.integers(0, 2**32)) for group in all_groups}
+        null_effects: list[float] = []
+        for item in families:
+            targets = np.asarray(item["targets"])
+            groups = np.asarray(item["groups"]).astype(str)
+            permuted = _group_preserving_permutation(targets, groups, rng, shifts)
+            effect = _effect_statistic(
+                permuted,
+                np.asarray(item["predictions"]),
+                target_kind=cast(TargetKind, item["target_kind"]),
+                baseline_value=item.get("baseline_value"),
+            )
+            if np.isfinite(effect):
+                null_effects.append(effect)
+        null_maxima.append(max(null_effects) if null_effects else float("nan"))
+    null_array = np.asarray(null_maxima, dtype=np.float64)
+    return {
+        key: float((1 + np.sum(null_array >= effect)) / (repetitions + 1))
+        if np.isfinite(effect)
+        else float("nan")
+        for key, effect in observed.items()
+    }
 
 
 def evaluate_horizon_curve(
@@ -726,6 +855,8 @@ def evaluate_horizon_curve(
     model_names: Sequence[str],
     feature_view: str = "state",
     metadata_features: np.ndarray | Mapping[str, np.ndarray] | None = None,
+    control_features: Mapping[str, Mapping[str, np.ndarray]] | None = None,
+    control_targets: Mapping[str, Mapping[str, np.ndarray]] | None = None,
     seeds: Sequence[int] = (11, 23, 37),
     bootstrap_repetitions: int = 400,
     permutation_repetitions: int = 400,
@@ -743,6 +874,10 @@ def evaluate_horizon_curve(
         "linear_logistic",
         "nearest_neighbor",
         "linear_ridge",
+        "temporally_shuffled_states",
+        "wrong_trajectory_pairing",
+        "reversed_alignment",
+        "same_state",
     }
     unknown = sorted(set(model_names) - allowed)
     if unknown:
@@ -754,7 +889,25 @@ def evaluate_horizon_curve(
         "horizons": {},
         "selection_policy": "all predeclared models are reported; selected_model uses validation only",
         "test_policy": "test predictions are generated once per predeclared model/seed and never used for selection",
+        "multiplicity": {
+            "method": "group-preserving max-statistic permutation",
+            "family": "all predeclared non-control models multiplied by all requested horizons within one target and condition",
+            "replicate_unit": "training seed; repeated seeds are reported as replications, not extra hypothesis families",
+            "raw_p_value_field": "permutation_p_value",
+            "corrected_p_value_field": "permutation_p_value_max_statistic",
+        },
     }
+    control_models = {
+        "majority",
+        "random",
+        "shuffled_labels",
+        "metadata_only",
+        "temporally_shuffled_states",
+        "wrong_trajectory_pairing",
+        "reversed_alignment",
+        "same_state",
+    }
+    test_families: list[dict[str, Any]] = []
     for horizon_key, pairs in pairs_by_horizon.items():
         split = splits_by_horizon[horizon_key]
         partitions = horizon_partition_indices(pairs, split)
@@ -782,6 +935,14 @@ def evaluate_horizon_curve(
         models_report: dict[str, Any] = {}
         validation_scores: dict[str, float] = {}
         for model_name in model_names:
+            if (control_features is not None and model_name in control_features) or (
+                control_targets is not None and model_name in control_targets
+            ):
+                if (control_features is None or model_name not in control_features) and model_name not in {
+                    "same_state",
+                    "reversed_alignment",
+                }:
+                    raise SchemaError(f"control features are missing for {model_name!r}")
             if model_name == "metadata_only":
                 if metadata_features is None:
                     models_report[model_name] = {"status": "unavailable", "reason": "no metadata feature view"}
@@ -796,6 +957,15 @@ def evaluate_horizon_curve(
                 model_features = features
             else:
                 model_features = features
+            if model_name in {"temporally_shuffled_states", "wrong_trajectory_pairing"}:
+                if control_features is None or model_name not in control_features:
+                    raise SchemaError(f"control features are required for {model_name!r}")
+                model_features = np.asarray(control_features[model_name][horizon_key], dtype=np.float64)
+            model_targets = pairs.targets
+            if control_targets is not None and model_name in control_targets:
+                model_targets = np.asarray(control_targets[model_name][horizon_key])
+            if len(model_targets) != pairs.row_count:
+                raise SchemaError(f"control targets are not aligned for {model_name!r}")
             if model_name == "metadata_only" and model_features.shape[1] == 0:
                 models_report[model_name] = {"status": "unavailable", "reason": "empty metadata feature view"}
                 continue
@@ -805,9 +975,15 @@ def evaluate_horizon_curve(
                     "reason": "binary classifier is incompatible with continuous target",
                 }
                 continue
+            if is_binary and model_name == "linear_ridge":
+                models_report[model_name] = {
+                    "status": "unavailable",
+                    "reason": "continuous regressor is incompatible with binary target",
+                }
+                continue
             runs: list[dict[str, Any]] = []
             for seed in seeds:
-                train_y = pairs.targets[train]
+                train_y = model_targets[train]
                 if model_name == "shuffled_labels":
                     control_model = "linear_ridge" if not is_binary else "linear_logistic"
                     validation_predictions = _fit_predict(
@@ -834,6 +1010,21 @@ def evaluate_horizon_curve(
                         if model_name == "metadata_only" and not is_binary
                         else "linear_logistic"
                         if model_name == "metadata_only"
+                        else "linear_ridge"
+                        if model_name in {
+                            "temporally_shuffled_states",
+                            "wrong_trajectory_pairing",
+                            "reversed_alignment",
+                            "same_state",
+                        }
+                        and not is_binary
+                        else "linear_logistic"
+                        if model_name in {
+                            "temporally_shuffled_states",
+                            "wrong_trajectory_pairing",
+                            "reversed_alignment",
+                            "same_state",
+                        }
                         else model_name
                     )
                     validation_predictions = _fit_predict(
@@ -853,37 +1044,65 @@ def evaluate_horizon_curve(
                         target_kind=pairs.target.kind,
                     )
                 validation_result = _evaluate(
-                    pairs.targets[validation],
+                    model_targets[validation],
                     validation_predictions,
                     target_kind=pairs.target.kind,
                     groups=groups[validation],
                     seed=seed,
                     bootstrap_repetitions=max(20, min(bootstrap_repetitions, 100)),
+                    baseline_value=float(np.mean(train_y)) if not is_binary else None,
                 )
                 test_result = _evaluate(
-                    pairs.targets[test],
+                    model_targets[test],
                     test_predictions,
                     target_kind=pairs.target.kind,
                     groups=groups[test],
                     seed=seed,
                     bootstrap_repetitions=bootstrap_repetitions,
+                    baseline_value=float(np.mean(train_y)) if not is_binary else None,
                 )
                 if is_binary:
                     validation_scores.setdefault(model_name, 0.0)
                     validation_scores[model_name] += float(validation_result["balanced_accuracy"]) / len(seeds)
                     test_result["permutation_p_value"] = _permutation_p_value(
-                        pairs.targets[test],
+                        model_targets[test],
                         test_predictions,
+                        groups=groups[test],
                         seed=seed + 10_000,
                         repetitions=permutation_repetitions,
+                        target_kind=pairs.target.kind,
                     )
                 else:
                     validation_scores.setdefault(model_name, 0.0)
                     validation_scores[model_name] += float(validation_result["rmse"]) / len(seeds)
+                    test_result["permutation_p_value"] = _permutation_p_value(
+                        model_targets[test],
+                        test_predictions,
+                        groups=groups[test],
+                        seed=seed + 10_000,
+                        repetitions=permutation_repetitions,
+                        target_kind=pairs.target.kind,
+                        baseline_value=float(np.mean(train_y)),
+                    )
+                if model_name not in control_models:
+                    test_families.append(
+                        {
+                            "key": f"{horizon_key}:{model_name}:{seed}",
+                            "horizon_key": horizon_key,
+                            "model_name": model_name,
+                            "seed": int(seed),
+                            "targets": model_targets[test],
+                            "predictions": test_predictions,
+                            "groups": groups[test],
+                            "target_kind": pairs.target.kind,
+                            "baseline_value": float(np.mean(train_y)) if not is_binary else None,
+                            "result": test_result,
+                        }
+                    )
                 runs.append({"seed": int(seed), "validation": validation_result, "test": test_result})
             models_report[model_name] = {
                 "status": "evaluated",
-                "control": model_name in {"majority", "random", "shuffled_labels", "metadata_only"},
+                "control": model_name in control_models,
                 "runs": runs,
             }
         available_for_selection = [
@@ -912,6 +1131,13 @@ def evaluate_horizon_curve(
             },
             "models": models_report,
         }
+    corrected = _max_statistic_permutation_p_values(
+        test_families,
+        seed=10_000_019,
+        repetitions=permutation_repetitions,
+    )
+    for family in test_families:
+        family["result"]["permutation_p_value_max_statistic"] = corrected[family["key"]]
     report["useful_lead_summary"] = summarize_useful_lead(
         report,
         practical_balanced_accuracy=practical_balanced_accuracy,
@@ -958,11 +1184,15 @@ def summarize_useful_lead(
             if record["target"]["kind"] == "binary":
                 scores = [float(run["balanced_accuracy"]) for run in test_runs]
                 p_values = [float(run.get("permutation_p_value", float("nan"))) for run in test_runs]
+                corrected_p_values = [
+                    float(run.get("permutation_p_value_max_statistic", float("nan")))
+                    for run in test_runs
+                ]
                 score = float(np.mean(scores))
                 effect = score - 0.5
                 practical = score >= practical_balanced_accuracy
                 supported = effect > 0 and sum(
-                    p <= significance_alpha for p in p_values if np.isfinite(p)
+                    p <= significance_alpha for p in corrected_p_values if np.isfinite(p)
                 ) >= max(1, int(np.ceil(len(p_values) / 2)))
                 curve.append(
                     {
@@ -973,6 +1203,12 @@ def summarize_useful_lead(
                         "practical_threshold": practical_balanced_accuracy,
                         "practical": practical,
                         "statistically_supported": supported,
+                        "permutation_p_value": float(np.nanmean(p_values)) if p_values else float("nan"),
+                        "permutation_p_value_max_statistic": (
+                            float(np.nanmean(corrected_p_values))
+                            if any(np.isfinite(p) for p in corrected_p_values)
+                            else None
+                        ),
                     }
                 )
             else:
@@ -987,6 +1223,18 @@ def summarize_useful_lead(
                 ) if record.get("models", {}).get("majority", {}).get("runs") else float("nan")
                 skill = float(1.0 - np.mean(scores) / baseline) if baseline > 0 else float("nan")
                 practical = bool(np.isfinite(skill) and skill >= practical_continuous_skill)
+                p_values = [float(run.get("permutation_p_value", float("nan"))) for run in test_runs]
+                corrected_p_values = [
+                    float(run.get("permutation_p_value_max_statistic", float("nan")))
+                    for run in test_runs
+                ]
+                supported = bool(
+                    np.isfinite(skill)
+                    and sum(
+                        p <= significance_alpha for p in corrected_p_values if np.isfinite(p)
+                    )
+                    >= max(1, int(np.ceil(len(corrected_p_values) / 2)))
+                )
                 curve.append(
                     {
                         "distance": distance,
@@ -995,7 +1243,13 @@ def summarize_useful_lead(
                         "skill_over_constant_mean": skill,
                         "practical_threshold": practical_continuous_skill,
                         "practical": practical,
-                        "statistically_supported": None,
+                        "statistically_supported": supported,
+                        "permutation_p_value": float(np.nanmean(p_values)) if p_values else float("nan"),
+                        "permutation_p_value_max_statistic": (
+                            float(np.nanmean(corrected_p_values))
+                            if any(np.isfinite(p) for p in corrected_p_values)
+                            else None
+                        ),
                     }
                 )
         curve.sort(key=lambda item: item["distance"])
@@ -1044,10 +1298,23 @@ def summarize_useful_lead(
 
 
 def _git_commit() -> str:
+    declared = os.environ.get("SENSETRACE_COMMIT")
+    if declared:
+        return declared
+    # Remote editable installs are intentionally deployed without .git.  The
+    # host deployment writes this marker next to the installed source so
+    # analysis artifacts still bind to the exact source that ran them.
+    source_root = Path(__file__).resolve().parents[2]
+    deployed_marker = source_root / ".sensetrace-commit"
+    if deployed_marker.is_file():
+        try:
+            value = deployed_marker.read_text(encoding="utf-8").strip()
+        except OSError:
+            value = ""
+        if value:
+            return value
     try:
-        result = subprocess.run(
-            ["git", "rev-parse", "HEAD"], capture_output=True, text=True, check=False
-        )
+        result = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True, check=False)
     except OSError:
         return "unavailable"
     return result.stdout.strip() if result.returncode == 0 else "unavailable"
@@ -1076,6 +1343,7 @@ def write_horizon_run(
     split_fingerprints: Mapping[str, str],
     splits: Mapping[str, Mapping[str, Any]] | None = None,
     run_metadata: Mapping[str, Any] | None = None,
+    claim_boundary: str = "synthetic trajectory-analysis validation; no physical DRAM or model-inference claim",
 ) -> dict[str, Any]:
     """Persist machine-readable reproducibility metadata and curve results."""
 
@@ -1110,7 +1378,7 @@ def write_horizon_run(
             "feature_source": "present state at forecast origin only",
             "future_state_used_for": "target extraction only",
         },
-        "claim_boundary": "synthetic trajectory-analysis validation; no physical DRAM or model-inference claim",
+        "claim_boundary": claim_boundary,
     }
     _immutable_json(root / "manifest.json", manifest)
     if splits is not None:

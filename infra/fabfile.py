@@ -66,6 +66,15 @@ def run_phase1a(
 
 
 @task
+def run_trace_horizon(
+    c: Connection,
+    config: str = "configs/self-forecasting-trace-worker03.example.yaml",
+    output: str | None = None,
+) -> None:
+    print(_remote(c).run_trace_horizon(config, output=output))
+
+
+@task
 def calibrate_phase0(
     c: Connection,
     config: str = "configs/phase0.example.yaml",
@@ -201,6 +210,7 @@ for _name in [
     "status",
     "run_phase0",
     "run_phase1a",
+    "run_trace_horizon",
     "calibrate_phase0",
     "calibrate_native_sensitivity",
     "characterize_primitive",

@@ -81,3 +81,63 @@ The manifests record commit `f14ddcc5200db6ed8953854537d0ecbf687dee9a`,
 execution host `fedora`, requested node `worker-03`, source trajectory
 fingerprints, split fingerprints, and result hashes. The requested worker run
 remains pending because the node was unreachable.
+
+## 2026-09-12 — worker-03 synthetic validation
+
+Status: confirmed worker execution and synthetic-control behavior; not a real
+SenseTrace self-forecasting finding.
+
+The worker became available through the existing MNCS/Fabric rendezvous and
+reported authenticated identity `worker-03`, session generation 63, hostname
+`worker-03`, address `192.168.1.114`, Fedora kernel `6.17.1-300.fc43`, eight
+logical CPUs, and approximately 32 GiB of memory. The SSH diagnostic initially
+disagreed because the local alias still resolved to the worker's previous
+address; after resolution recovered, `sensetrace host doctor` passed with an
+authoritative system service and one active runner. No alternate transport was
+introduced.
+
+The exact committed source at `12814f9c4fc6c3f14a44725294de51849f3351a1` was
+deployed, the native library rebuilt, and the full configured synthetic run
+completed on worker-03 with 72 trajectories, six horizons (`1, 2, 4, 8, 16,
+32`), three training seeds, and 400 bootstrap/permutation repetitions. The
+linear-logistic predictable curve was `0.822, 0.755, 0.684, 0.564, 0.529,
+0.497`; the null curve was `0.513, 0.479, 0.519, 0.493, 0.492, 0.487`. Every
+causal audit passed. The fetched result hashes are recorded in the immutable
+worker manifests: predictable results
+`2b59aa70a8b32361ab172c87180ba5b278555d11f5a506c7641855f7cb84af4c`, null
+results `75f4c892e78b708625bf52d77f25d8ba837d1eb3edfae0135ce5ca537908f009`.
+
+The controller smoke run and worker run differ in sample count and therefore
+are not byte-identical, but both recover the expected short-horizon AR(1)
+decay and independent-null behavior. The worker manifest initially recorded
+`sensetrace_commit=unavailable` because the horizon writer only tried local Git
+discovery; deployment provenance separately confirmed the exact SHA. The
+writer has now been corrected to read the deployed source marker, and future
+runs will bind the manifest directly to that SHA.
+
+## 2026-09-12 — real measurement-trajectory adapter
+
+Status: confirmed framework behavior; local smoke acquisition only, pending
+the worker real run.
+
+The first naturally generated non-synthetic trajectory is one complete
+`Sample` from the existing `CommodityDramBackend`. The trace is retained in
+its native measurement-repetition order; no windows cross samples, sessions,
+allocations, or boots. The adapter exposes the measured timing level and a
+causal first difference. It deliberately excludes `Sample.label`, label
+semantics, and target-adjacent metadata from state features and the
+metadata-only baseline. The real configuration uses `random_word` so the
+balanced label stream is not encoded in the observed word.
+
+The local native smoke path acquired two target families (future timing level
+and future timing-delta sign), completed the full adapter/control round trip,
+and retained the expected source commit in its manifests. This is not worker
+evidence and makes no physical DRAM, hidden-state, or model inference claim.
+The worker run must be interpreted with the same boundary.
+
+The evaluator now reports raw group-preserving permutation p-values and
+max-statistic corrected p-values. The correction family is all predeclared
+non-control model×horizon tests for one target and condition, with common
+trajectory-level circular shifts preserving group structure; repeated training
+seeds remain replications. Effect sizes and trajectory-bootstrap intervals are
+primary, and controls are not treated as positive evidence.

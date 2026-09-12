@@ -22,6 +22,7 @@ from .host.client import RemoteHost
 from .inventory import collect_inventory
 from .phase0 import run_phase0
 from .phase1a import run_phase1a
+from .real_horizon import run_real_trace_horizon_experiment
 from .recovery import recovery_test
 from .runner import AcquisitionRunner, daemon
 
@@ -109,6 +110,15 @@ def build_parser() -> argparse.ArgumentParser:
     )
     horizon.add_argument("--output", default="runs/self-forecasting-horizon-v1")
     horizon.add_argument("--conditions", nargs="*", choices=["predictable", "null"])
+    real_horizon = run_sub.add_parser(
+        "trace-horizon",
+        aliases=["real-horizon"],
+        help="acquire real SenseTrace commodity traces and evaluate passive future-state targets",
+    )
+    real_horizon.add_argument(
+        "--config", default="configs/self-forecasting-trace-worker03.example.yaml"
+    )
+    real_horizon.add_argument("--output", default="runs/self-forecasting-trace-worker03-v1")
 
     protocol = sub.add_parser("protocol", help="print a frozen protocol and its fingerprint")
     protocol.add_argument("name", choices=["worker03-fragmented"])
@@ -263,6 +273,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     remote_horizon.add_argument("--output")
     remote_horizon.add_argument("--conditions", nargs="*", choices=["predictable", "null"])
+    remote_real_horizon = host_sub.add_parser("run-trace-horizon")
+    remote_real_horizon.add_argument("host", nargs="?", default="worker-03")
+    remote_real_horizon.add_argument(
+        "--config", default="configs/self-forecasting-trace-worker03.example.yaml"
+    )
+    remote_real_horizon.add_argument("--output")
     remote_calibration = host_sub.add_parser("calibrate-phase0")
     remote_calibration.add_argument("host", nargs="?", default="worker-03")
     remote_calibration.add_argument("--config", default="configs/phase0.example.yaml")
@@ -385,6 +401,10 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "run" and args.run_command in {"horizon", "self-forecast"}:
         config = validate_config(load_config(args.config))
         _json(run_synthetic_horizon_experiment(config, args.output, conditions=args.conditions))
+        return 0
+    if args.command == "run" and args.run_command in {"trace-horizon", "real-horizon"}:
+        config = validate_config(load_config(args.config))
+        _json(run_real_trace_horizon_experiment(config, args.output))
         return 0
     if args.command == "protocol" and args.name == "worker03-fragmented":
         from .protocol import (
@@ -588,6 +608,8 @@ def main(argv: list[str] | None = None) -> int:
                 remote.run_horizon(args.config, output=args.output, conditions=args.conditions),
                 end="",
             )
+        elif args.host_command == "run-trace-horizon":
+            print(remote.run_trace_horizon(args.config, output=args.output), end="")
         elif args.host_command == "calibrate-phase0":
             print(
                 remote.run_phase0_calibration(

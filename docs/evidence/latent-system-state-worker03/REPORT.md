@@ -66,8 +66,8 @@ variance, 20 TSC ticks median shift, and 25% thread CPU utilization.
 
 | tier | added median wall time | wall ratio | timing variance ratio | median timing shift | thread CPU utilization | threshold |
 | --- | ---: | ---: | ---: | ---: | ---: | --- |
-| Tier 1 | 132,116 ns | 5.39× | 0.86× | +1 tick | 1.00 | failed |
-| Tier 2 | 711,249 ns | 24.62× | 304.62× | 0 ticks | 0.95 | failed |
+| Tier 1 | 127,636 ns | 5.41× | 0.61× | 0 ticks | 0.98 | failed |
+| Tier 2 | 705,726 ns | 25.38× | 0.93× | 0 ticks | 0.99 | failed |
 
 This benchmark includes the configured origin PMU window; it is therefore an
 empirical warning about the PMU witness path, not a claim that PMU overhead is

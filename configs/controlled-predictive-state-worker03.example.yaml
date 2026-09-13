@@ -1,0 +1,104 @@
+host:
+  name: worker-03
+  role: dedicated_experiment_host
+
+experiment:
+  name: controlled-predictive-state-worker03
+  description: Bounded excitation followed by a disjoint quiet forecast interval.
+  seed: 20260912
+
+data:
+  target_balance: 0.50
+  samples: 64
+  trace_channels: 1
+  trace_length: 128
+
+acquisition:
+  backend: commodity
+  enabled: false
+  target_source: generated_random_words
+  target_balance: 0.50
+  buffer_samples: 64
+  shard_target_mb: 64
+  temporary_suffix: .tmp
+  finalize_atomically: true
+  checksum: sha256
+
+# Retained because the repository's top-level validator requires a valid
+# commodity Phase 1A contract. The controlled campaign uses the explicitly
+# versioned trajectory primitive below, not this historical adapter.
+phase1a:
+  campaign_intent: measurement_characterization
+  protocol_version: phase1a-commodity-baseline-v1
+  measurement_primitive: commodity-clflush-timed-load
+  location_count: 1
+  trials_per_location: 4
+  labels_per_location: 2
+  samples: 4
+  trace_length: 4
+  pattern: random_word
+  target_bit: 0
+  word_count: 8192
+  lock_memory: true
+  cache_control: eviction_buffer
+  eviction_bytes: 4194304
+  operation: memory_read
+  timing_perturbation_cycles: 0
+  timing_perturbation_label: 1
+  use_native_kernel: true
+  require_native_kernel: true
+  session_count: 1
+
+controlled_forecast:
+  protocol_version: controlled-predictive-state-v1
+  stage: development
+  sessions_per_cell: 3
+  trajectories_per_session: 4
+  baseline_repetitions: 16
+  excitation_length: 8
+  repetitions_per_phase: 8
+  quiet_future_repetitions: 32
+  future_block_length: 8
+  history_length: 16
+  phase_duration_us: 1500
+  word_count: 8192
+  eviction_bytes: 4194304
+  measurement_cpu_affinity: [0]
+  excitation_cores: [2, 3, 4, 5, 6]
+  lock_memory: true
+  calibration_repetitions: 128
+  synthetic_calibration_repetitions: 64
+  synthetic_delay_cycles: 256
+  excitation_families: [read_pressure, active_quiet, sham, passive]
+  measurement_conditions: [cached_preloaded, clflush, eviction, timer_only]
+  horizons: [1, 4, 8, 16]
+  state_rank: 3
+  ridge_alpha: 1.0
+  primary:
+    excitation_family: read_pressure
+    measurement_condition: cached_preloaded
+    target: future_block_mean
+    horizon: 8
+
+splits:
+  primary:
+    group_keys: [session_id]
+    train_fraction: 0.70
+    validation_fraction: 0.15
+    test_fraction: 0.15
+
+training:
+  enabled_during_acquisition: false
+  device_preference: cpu
+  seeds: [11, 23, 37]
+
+reporting:
+  ci_unit: session_id
+  bootstrap_repetitions: 500
+  practical_effect_threshold_ticks2: 1.0
+
+run_metadata:
+  node: worker-03
+  confirmation_policy: fresh output directory, fresh allocation, fresh schedule seeds, no retuning
+  witness_status: unavailable_in_this_campaign
+  claim_boundary: ordinary user-space timing trajectory prediction; no hidden DRAM-state claim

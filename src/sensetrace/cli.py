@@ -16,6 +16,12 @@ from .calibration import (
 from .characterization import run_measurement_primitive_characterization
 from .config import load_config, validate_config
 from .construction import run_construction_falsification_experiment
+from .controlled_forecast import (
+    analyze_controlled_forecast,
+    run_controlled_forecast_acquisition,
+    run_predictive_calibration,
+    run_predictive_synthetic_validation,
+)
 from .datasets import load_dataset
 from .experiment import run_preregistered_worker03_experiment
 from .horizon import run_synthetic_horizon_experiment
@@ -130,6 +136,24 @@ def build_parser() -> argparse.ArgumentParser:
     construction.add_argument(
         "--output", default="runs/self-forecasting-construction-worker03-v1"
     )
+    controlled = run_sub.add_parser(
+        "controlled-forecast",
+        aliases=["predictive-state"],
+        help="acquire bounded controlled-excitation/quiet trajectories",
+    )
+    controlled.add_argument("--config", default="configs/controlled-predictive-state-worker03.example.yaml")
+    controlled.add_argument("--output", default="runs/controlled-predictive-state-development")
+    controlled.add_argument("--stage", choices=["development", "confirmation"])
+
+    analysis = sub.add_parser("analyze", help="analyze persisted experiment artifacts")
+    analysis_sub = analysis.add_subparsers(dest="analyze_command", required=True)
+    controlled_analysis = analysis_sub.add_parser(
+        "controlled-forecast", help="fit on development and evaluate held-out confirmation"
+    )
+    controlled_analysis.add_argument("--config", default="configs/controlled-predictive-state-worker03.example.yaml")
+    controlled_analysis.add_argument("--development", required=True)
+    controlled_analysis.add_argument("--confirmation")
+    controlled_analysis.add_argument("--output", default="runs/controlled-predictive-state-analysis")
 
     protocol = sub.add_parser("protocol", help="print a frozen protocol and its fingerprint")
     protocol.add_argument("name", choices=["worker03-fragmented"])
@@ -168,6 +192,17 @@ def build_parser() -> argparse.ArgumentParser:
     native_sensitivity.add_argument("--development-magnitudes", nargs="+", type=int)
     native_sensitivity.add_argument("--development-replicates", type=int)
     native_sensitivity.add_argument("--validation-replicates", type=int)
+    predictive_calibration = calibrate_sub.add_parser(
+        "predictive", help="calibrate the versioned trajectory instrument"
+    )
+    predictive_calibration.add_argument("--config", default="configs/controlled-predictive-state-worker03.example.yaml")
+    predictive_calibration.add_argument("--output", default="runs/controlled-predictive-state-calibration")
+    predictive_validation = sub.add_parser(
+        "validate-controlled-forecast",
+        help="run independent predictive-state synthetic validation controls",
+    )
+    predictive_validation.add_argument("--config", default="configs/controlled-predictive-state-worker03.example.yaml")
+    predictive_validation.add_argument("--output", default="runs/controlled-predictive-state-synthetic-validation")
 
     characterize = sub.add_parser("characterize", help="characterize a measurement primitive")
     characterize_sub = characterize.add_subparsers(dest="characterize_command", required=True)
@@ -296,6 +331,15 @@ def build_parser() -> argparse.ArgumentParser:
         "--config", default="configs/self-forecasting-construction-worker03.example.yaml"
     )
     remote_construction.add_argument("--output")
+    remote_controlled = host_sub.add_parser("run-controlled-forecast")
+    remote_controlled.add_argument("host", nargs="?", default="worker-03")
+    remote_controlled.add_argument("--config", default="configs/controlled-predictive-state-worker03.example.yaml")
+    remote_controlled.add_argument("--output")
+    remote_controlled.add_argument("--stage", choices=["development", "confirmation"])
+    remote_predictive_calibration = host_sub.add_parser("calibrate-controlled-forecast")
+    remote_predictive_calibration.add_argument("host", nargs="?", default="worker-03")
+    remote_predictive_calibration.add_argument("--config", default="configs/controlled-predictive-state-worker03.example.yaml")
+    remote_predictive_calibration.add_argument("--output")
     remote_calibration = host_sub.add_parser("calibrate-phase0")
     remote_calibration.add_argument("host", nargs="?", default="worker-03")
     remote_calibration.add_argument("--config", default="configs/phase0.example.yaml")
@@ -334,6 +378,10 @@ def build_parser() -> argparse.ArgumentParser:
     fetch_horizon.add_argument("--host", default="worker-03")
     fetch_horizon.add_argument("--destination", default="evidence/self-forecasting-latest")
     fetch_horizon.add_argument("--output")
+    fetch_controlled = results_sub.add_parser("fetch-controlled-forecast")
+    fetch_controlled.add_argument("--host", default="worker-03")
+    fetch_controlled.add_argument("--destination", default="evidence/controlled-predictive-state-worker03")
+    fetch_controlled.add_argument("--output", required=True)
     return parser
 
 
@@ -427,6 +475,18 @@ def main(argv: list[str] | None = None) -> int:
         config = validate_config(load_config(args.config))
         _json(run_construction_falsification_experiment(config, args.output))
         return 0
+    if args.command == "run" and args.run_command in {"controlled-forecast", "predictive-state"}:
+        config = validate_config(load_config(args.config))
+        _json(run_controlled_forecast_acquisition(config, args.output, stage=args.stage))
+        return 0
+    if args.command == "analyze" and args.analyze_command == "controlled-forecast":
+        config = validate_config(load_config(args.config))
+        _json(
+            analyze_controlled_forecast(
+                args.development, config, args.output, confirmation=args.confirmation
+            )
+        )
+        return 0
     if args.command == "protocol" and args.name == "worker03-fragmented":
         from .protocol import (
             worker03_fragmented_exact_host_protocol,
@@ -481,6 +541,14 @@ def main(argv: list[str] | None = None) -> int:
                 validation_replicates=args.validation_replicates,
             )
         )
+        return 0
+    if args.command == "calibrate" and args.calibrate_command == "predictive":
+        config = validate_config(load_config(args.config))
+        _json(run_predictive_calibration(config, args.output))
+        return 0
+    if args.command == "validate-controlled-forecast":
+        config = validate_config(load_config(args.config))
+        _json(run_predictive_synthetic_validation(config, args.output))
         return 0
     if args.command == "characterize" and args.characterize_command == "primitive":
         _json(
@@ -633,6 +701,15 @@ def main(argv: list[str] | None = None) -> int:
             print(remote.run_trace_horizon(args.config, output=args.output), end="")
         elif args.host_command == "run-construction-falsification":
             print(remote.run_construction_falsification(args.config, output=args.output), end="")
+        elif args.host_command == "run-controlled-forecast":
+            print(
+                remote.run_controlled_forecast(
+                    args.config, output=args.output, stage=args.stage
+                ),
+                end="",
+            )
+        elif args.host_command == "calibrate-controlled-forecast":
+            print(remote.calibrate_controlled_forecast(args.config, output=args.output), end="")
         elif args.host_command == "calibrate-phase0":
             print(
                 remote.run_phase0_calibration(
@@ -679,7 +756,10 @@ def main(argv: list[str] | None = None) -> int:
         elif args.results_command == "fetch":
             print(remote.fetch_results(args.destination, run_id=args.run_id))
         else:
-            print(remote.fetch_horizon_results(args.destination, output=args.output))
+            if args.results_command == "fetch-horizon":
+                print(remote.fetch_horizon_results(args.destination, output=args.output))
+            else:
+                print(remote.fetch_controlled_forecast_results(args.destination, output=args.output))
         return 0
     return 2
 

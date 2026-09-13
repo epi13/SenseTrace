@@ -627,7 +627,9 @@ def analyze_construction_conditions(
                 ]
                 == [item.trajectory_id for item in reference],
                 "diagnostics_file": "../diagnostics.json",
-                "raw_source_artifact": "../raw_trajectories.npz",
+                # ``target_dir`` is root/condition/target; resolve from that
+                # artifact's directory rather than the condition directory.
+                "raw_source_artifact": "../../raw_trajectories.npz",
             }
             target_dir = condition_dir / definition.name
             from .horizon import write_horizon_run

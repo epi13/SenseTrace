@@ -894,6 +894,54 @@ class RemoteHost:
             raise RuntimeError(result.stderr or result.stdout)
         return result.stdout
 
+    def run_controlled_forecast(
+        self,
+        config: str | Path,
+        *,
+        output: str | None = None,
+        stage: str | None = None,
+    ) -> str:
+        """Run one resumable controlled-excitation predictive campaign stage."""
+
+        home = self._home()
+        venv = f"{home}/.local/share/sensetrace/venv/bin/sensetrace"
+        remote_config = f"{home}/.config/sensetrace/controlled-predictive-state.yaml"
+        self.connection.put(str(config), remote=remote_config)
+        destination = output or (
+            f"{home}/.local/share/sensetrace/runs/controlled-predictive-state-development"
+        )
+        command = (
+            f"{venv} run controlled-forecast --config {quote(remote_config)} "
+            f"--output {quote(destination)}"
+        )
+        if stage is not None:
+            command += f" --stage {quote(stage)}"
+        result = self.run(command, warn=True, hide=True)
+        if not result.ok:
+            raise RuntimeError(result.stderr or result.stdout)
+        return result.stdout
+
+    def calibrate_controlled_forecast(
+        self, config: str | Path, *, output: str | None = None
+    ) -> str:
+        """Run the separate real-instrument calibration namespace on worker-03."""
+
+        home = self._home()
+        venv = f"{home}/.local/share/sensetrace/venv/bin/sensetrace"
+        remote_config = f"{home}/.config/sensetrace/controlled-predictive-state.yaml"
+        self.connection.put(str(config), remote=remote_config)
+        destination = output or (
+            f"{home}/.local/share/sensetrace/runs/controlled-predictive-state-calibration"
+        )
+        command = (
+            f"{venv} calibrate predictive --config {quote(remote_config)} "
+            f"--output {quote(destination)}"
+        )
+        result = self.run(command, warn=True, hide=True)
+        if not result.ok:
+            raise RuntimeError(result.stderr or result.stdout)
+        return result.stdout
+
     def run_native_sensitivity_calibration(
         self,
         config: str | Path,
@@ -1297,6 +1345,33 @@ class RemoteHost:
         local_root.mkdir(parents=True, exist_ok=True)
         for remote_file in files.stdout.splitlines():
             relative = remote_file.removeprefix(remote_root).lstrip("/")
+            local_file = local_root / relative
+            local_file.parent.mkdir(parents=True, exist_ok=True)
+            self.connection.get(remote_file, local=str(local_file))
+        return str(local_root)
+
+    def fetch_controlled_forecast_results(
+        self, destination: str | Path, *, output: str
+    ) -> str:
+        """Fetch only the immutable artifacts from an explicit campaign directory."""
+
+        remote_root = quote(output)
+        files = self.run(
+            f"find {remote_root} -maxdepth 2 -type f "
+            "\\( -name design.json -o -name progress.json -o -name acquisition.json "
+            "-o -name experiment.json -o -name trajectory_journal.jsonl "
+            "-o -name trajectory_metadata.json -o -name raw_trajectories.npz "
+            "-o -name calibration.json -o -name calibration_raw.npz "
+            "-o -name synthetic_validation.json \\) -print",
+            warn=True,
+            hide=True,
+        )
+        if not files.stdout.strip():
+            raise RuntimeError(f"no controlled-forecast artifacts found under {output}")
+        local_root = Path(destination)
+        local_root.mkdir(parents=True, exist_ok=True)
+        for remote_file in files.stdout.splitlines():
+            relative = remote_file.removeprefix(output).lstrip("/")
             local_file = local_root / relative
             local_file.parent.mkdir(parents=True, exist_ok=True)
             self.connection.get(remote_file, local=str(local_file))

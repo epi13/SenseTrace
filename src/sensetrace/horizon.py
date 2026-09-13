@@ -580,10 +580,10 @@ def _fit_predict(
         if train_x.shape[1] < 1:
             raise SchemaError("empirical_cdf requires a current-level feature")
         training_levels = np.sort(np.asarray(train_x[:, 0], dtype=np.float64))
-        side = "left" if empirical_cdf_tie_policy == "zero_is_positive" else "right"
+        side: Literal["left", "right"] = "left" if empirical_cdf_tie_policy == "zero_is_positive" else "right"
         if empirical_cdf_tie_policy not in {"zero_is_positive", "zero_is_negative", "exclude"}:
             raise SchemaError(f"unsupported empirical CDF tie policy {empirical_cdf_tie_policy!r}")
-        ranks = np.searchsorted(training_levels, np.asarray(values[:, 0]), side=side)
+        ranks = np.searchsorted(training_levels, values[:, 0].astype(np.float64), side=side)
         return np.clip(1.0 - ranks / max(len(training_levels), 1), 0.0, 1.0)
     if model_name in {"current_level_logistic", "current_delta_logistic"}:
         column = 0 if model_name == "current_level_logistic" else 1

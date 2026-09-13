@@ -281,3 +281,39 @@ not silently reconstructed. The one-step observation is explained by
 shared-value target construction and ordinary timing-trace statistics. No
 reboot, cross-boot, CLFLUSH/eviction, cached-load, or target-address hardware
 follow-up is warranted for this question.
+
+## 2026-09-12 — controlled predictive-state campaign on worker-03
+
+Status: completed; primary incremental-history gate not met.
+
+The versioned `controlled-predictive-state-v1` pipeline added a native
+trajectory loop and native bounded memory-pressure exciter while preserving the
+historical v4 entry points. It retained raw paired durations, acquisition
+order, TSC endpoints, endpoint AUX quality, requested-versus-actual workload
+records, session/boot/allocation/configuration identities, and append-only
+journals. Calibration on worker-03 separated the real cached, CLFLUSH,
+eviction, and timer-only controls, with an artificial delay retained only as a
+labeled instrument control.
+
+Development and untouched confirmation each completed 192 trajectories across
+48 independently started sessions on boot
+`92cdb521-ac36-4649-a35c-bfb55c6ac870`. Each trajectory had 16 baseline, 64
+bounded excitation, one quiet forecast-origin, and 32 future observations.
+The primary was read-pressure excitation, cached/preloaded measurement, and
+the future eight-repetition block mean. Development selected current
+observation as the strongest eligible baseline and delay-embedded state as the
+history candidate. The paired loss improvement was `-7.35` TSC-tick² in
+development and `-6.74` TSC-tick² in confirmation; the confirmation
+session-bootstrap interval was `[-20.09, 2.38]`. Current-plus-workload history
+matched current observation, while the history candidate was worse.
+
+Passive forecasting was analyzed separately and also did not replicate a
+history gain. Some secondary cells were positive, but were heterogeneous and
+not the frozen primary; the campaign stopped model expansion. Offline
+streaming replay agreed with the causal interface, but the sampled future
+interval was shorter than inference latency in the lower tail, so no actionable
+live-shadow capability was claimed. This is a same-boot negative result for
+incremental observation history, not evidence against ordinary timing response
+or a claim about hidden DRAM state. See
+`docs/evidence/controlled-predictive-state-worker03-20260912.md` for exact
+artifacts, hashes, and claim boundaries.

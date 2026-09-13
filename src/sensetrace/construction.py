@@ -302,7 +302,9 @@ def generate_timing_surrogate(
             # Standardize a log-normal draw to the observed level/scale so the
             # null exercises skew without introducing a scale shortcut.
             skewed = rng.lognormal(mean=0.0, sigma=0.8, size=length)
-            values = mean + scale * (skewed - np.mean(skewed)) / max(np.std(skewed), 1e-12)
+            skewed_mean = float(np.mean(skewed))
+            skewed_scale = float(np.std(skewed))
+            values = mean + scale * (skewed - skewed_mean) / max(skewed_scale, 1e-12)
         elif condition in {"iid_quantized", "iid_discrete"}:
             values = rng.choice(pool, size=length, replace=True)
             step = float(quantization_step)

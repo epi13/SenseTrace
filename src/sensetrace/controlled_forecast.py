@@ -16,12 +16,12 @@ import platform
 import threading
 import time
 import uuid
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Literal, cast
 
 import numpy as np
 from sklearn.decomposition import PCA
@@ -441,8 +441,8 @@ def _run_pressure_phase(
     cores: Sequence[int],
     duration_cycles: int,
     requested_active: tuple[int, ...],
-    operation: str,
-    measure: callable,
+    operation: Literal["read", "write"],
+    measure: Callable[[], dict[str, np.ndarray]],
 ) -> tuple[dict[str, np.ndarray], dict[str, Any], float]:
     active_cores = [cpu for cpu, active in zip(cores, requested_active, strict=True) if active]
     barrier = threading.Barrier(len(active_cores) + 1)
@@ -507,12 +507,17 @@ def _run_pressure_phase(
 
 
 def _schedule_for(family: str, length: int, seed: int) -> CodedExcitationSchedule:
+    schedule_family = cast(
+        Literal["prbs", "walsh", "read_pressure", "write_pressure", "active_quiet", "sham"],
+        "sham" if family in {"sham", "passive"} else family,
+    )
     if family in {"sham", "passive"}:
         return CodedExcitationSchedule(
             f"{family}-{seed}", "sham", length, seed, operation="idle", phase_ticks=1
         )
-    operation = "read"
-    return CodedExcitationSchedule(f"{family}-{seed}", cast(Any, family), length, seed, operation=operation, phase_ticks=1)
+    return CodedExcitationSchedule(
+        f"{family}-{seed}", schedule_family, length, seed, operation="read", phase_ticks=1
+    )
 
 
 def _acquire_trajectory(
@@ -580,6 +585,22 @@ def _acquire_trajectory(
         )
         for step in schedule.steps():
             orders = _counterbalanced_orders(rng, phase_count) if paired else np.zeros(phase_count, dtype=np.uint8)
+
+            def measure_phase(
+                count: int = phase_count, block_orders: np.ndarray = orders
+            ) -> dict[str, np.ndarray]:
+                return _measure_block(
+                    kernel,
+                    buffer,
+                    0,
+                    reference_index,
+                    condition,
+                    count,
+                    block_orders,
+                    eviction,
+                    paired=paired,
+                )
+
             measured, actual, active_fraction = _run_pressure_phase(
                 kernel,
                 buffer,
@@ -589,9 +610,7 @@ def _acquire_trajectory(
                 duration_ticks,
                 tuple(int(value) for value in step.active),
                 "read",
-                lambda count=phase_count, orders=orders: _measure_block(
-                    kernel, buffer, 0, reference_index, condition, count, orders, eviction, paired=paired
-                ),
+                measure_phase,
             )
             measured["orders"] = orders
             all_channels.append(measured)
@@ -919,10 +938,10 @@ def run_predictive_calibration(config: Mapping[str, Any], output: str | Path) ->
             paired = condition != "timer_only"
             count = int(campaign.get("calibration_repetitions", 128))
             orders = _counterbalanced_orders(np.random.default_rng(17), count) if paired else np.zeros(count, dtype=np.uint8)
-            result = _measure_block(
+            measured_result = _measure_block(
                 kernel, buffer, 0, line_words, condition, count, orders, eviction, paired=paired
             )
-            mapped = _map_native_channels(result, orders, paired=paired)
+            mapped = _map_native_channels(measured_result, orders, paired=paired)
             values = np.asarray(mapped["target_ticks"], dtype=np.float64)
             raw[condition] = mapped["target_ticks"]
             rows[condition] = {
@@ -938,8 +957,8 @@ def run_predictive_calibration(config: Mapping[str, Any], output: str | Path) ->
             extra_delay_cycles=int(campaign.get("synthetic_delay_cycles", 256)),
         )
         raw["synthetic_delay_control"] = synthetic.astype(np.uint64)
-        np.savez_compressed(root / "calibration_raw.npz", **raw)
-        result = {
+        np.savez_compressed(str(root / "calibration_raw.npz"), **cast(Any, raw))
+        calibration_result = {
             "schema": "sensetrace.controlled-forecast-calibration.v1",
             "dataset_role": "instrument_calibration_only; not a model reference corpus",
             "protocol_version": CONTROLLED_FORECAST_PROTOCOL_VERSION,
@@ -959,8 +978,8 @@ def run_predictive_calibration(config: Mapping[str, Any], output: str | Path) ->
             "raw_sha256": sha256_file(root / "calibration_raw.npz"),
             "claim_boundary": "native timer/cache-path calibration; no physical DRAM or hidden-state claim",
         }
-        _atomic_json(root / "calibration.json", result)
-        return result
+        _atomic_json(root / "calibration.json", calibration_result)
+        return calibration_result
     finally:
         buffer.close()
 
@@ -1199,7 +1218,7 @@ def _target_values(
     return np.asarray(values, dtype=np.float64), np.asarray(valid, dtype=bool)
 
 
-def _split_sessions(records: Sequence[ForecastTrajectory], seed: int, fractions: Sequence[float]) -> dict[str, list[int]]:
+def _split_sessions(records: Sequence[ForecastTrajectory], seed: int, fractions: Sequence[float]) -> dict[str, Any]:
     sessions = sorted({record.session_id for record in records})
     if len(sessions) < 3:
         raise SchemaError("controlled forecast requires at least three sessions for grouped evaluation")
@@ -1219,7 +1238,7 @@ def _split_sessions(records: Sequence[ForecastTrajectory], seed: int, fractions:
     return {
         name: [index for index, record in enumerate(records) if record.session_id in values]
         for name, values in partitions.items()
-    } | {"session_ids": shuffled}  # type: ignore[dict-item]
+    } | {"session_ids": shuffled}
 
 
 def _model_features(batch: FeatureBatch, model: str) -> np.ndarray:
@@ -1352,7 +1371,7 @@ class CausalForecastInterface:
 def _replay_predictions(
     models: Mapping[int, FittedModel], records: Sequence[ForecastTrajectory], indices: Sequence[int], horizons: Sequence[int], history_length: int
 ) -> tuple[dict[int, np.ndarray], dict[str, Any]]:
-    predictions = {int(horizon): [] for horizon in horizons}
+    predictions: dict[int, list[float]] = {int(horizon): [] for horizon in horizons}
     latencies: list[int] = []
     offline_batch = _feature_batch([records[index] for index in indices], history_length)
     offline = {int(horizon): models[int(horizon)].predict_batch(offline_batch) for horizon in horizons}
@@ -1551,7 +1570,7 @@ def _analyze_cell(
                     confirm_target[str(horizon)] = confirm_target.pop("paired_primary_contrast")
                     # Keep per-horizon model records under a stable key.
                     confirm_target.setdefault("horizon_models", {})[str(horizon)] = confirm_target.pop("models")
-                selected_streaming: dict[str, Any] = {}
+                confirmation_streaming: dict[str, Any] = {}
                 for model_name in _MODEL_NAMES:
                     model_by_horizon = {
                         horizon: _fit_model(model_name, target, horizon, selected, train_indices, config)
@@ -1564,8 +1583,8 @@ def _analyze_cell(
                         horizons,
                         history_length,
                     )
-                    selected_streaming[model_name] = replay
-                confirm_target["streaming_replay"] = selected_streaming
+                    confirmation_streaming[model_name] = replay
+                confirm_target["streaming_replay"] = confirmation_streaming
                 confirmation_report[target] = confirm_target
     primary = campaign.get("primary", {})
     primary_target = str(primary.get("target", "future_block_mean"))

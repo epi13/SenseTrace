@@ -259,8 +259,8 @@ class NativeMeasurementKernel:
             second_start, second_end = zeros64(), zeros64()
             second_aux_start, second_aux_end = zeros32(), zeros32()
             second_quality = (ctypes.c_uint8 * repetitions)()
-        condition_buffer = (ctypes.c_uint8 * repetitions).from_buffer_copy(conditions)
-        order_buffer = (ctypes.c_uint8 * repetitions).from_buffer_copy(orders)
+        condition_buffer = (ctypes.c_uint8 * repetitions).from_buffer_copy(conditions.tobytes())
+        order_buffer = (ctypes.c_uint8 * repetitions).from_buffer_copy(orders.tobytes())
         result = self.library.st_measure_trajectory(
             ctypes.c_void_p(target_address),
             ctypes.c_void_p(reference_address) if reference_address is not None else None,

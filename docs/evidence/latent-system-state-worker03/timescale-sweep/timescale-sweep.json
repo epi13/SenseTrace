@@ -1,0 +1,28 @@
+{
+  "claim_boundary": "development timescale exploration only; no confirmation claim",
+  "intervals_us": [
+    50,
+    100,
+    1000
+  ],
+  "outputs": {
+    "100": {
+      "path": "/home/worker-03/.local/share/sensetrace/runs/latent-system-state-timescale-sweep/interval-100us",
+      "session_count": 16,
+      "trajectory_count": 16
+    },
+    "1000": {
+      "path": "/home/worker-03/.local/share/sensetrace/runs/latent-system-state-timescale-sweep/interval-1000us",
+      "session_count": 16,
+      "trajectory_count": 16
+    },
+    "50": {
+      "path": "/home/worker-03/.local/share/sensetrace/runs/latent-system-state-timescale-sweep/interval-50us",
+      "session_count": 16,
+      "trajectory_count": 16
+    }
+  },
+  "protocol_version": "latent-system-state-v1",
+  "schema": "sensetrace.latent-system-state-timescale-sweep.v1",
+  "sessions_per_cell": 2
+}

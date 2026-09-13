@@ -1,0 +1,704 @@
+{
+  "cells": {
+    "1000us/active_quiet/cached_preloaded": {
+      "1": {
+        "current_future_correlation": NaN,
+        "current_to_future_mse_ticks2": 47.125,
+        "future_variance_ticks2": 138.0625,
+        "independent_session_warning": "two or fewer independent sessions; interval is not a confirmation result",
+        "row_count": 2,
+        "session_count": 2,
+        "status": "descriptive_only"
+      },
+      "4": {
+        "current_future_correlation": NaN,
+        "current_to_future_mse_ticks2": 60.25,
+        "future_variance_ticks2": 121.0,
+        "independent_session_warning": "two or fewer independent sessions; interval is not a confirmation result",
+        "row_count": 2,
+        "session_count": 2,
+        "status": "descriptive_only"
+      },
+      "8": {
+        "current_future_correlation": NaN,
+        "current_to_future_mse_ticks2": 65.03125,
+        "future_variance_ticks2": 107.640625,
+        "independent_session_warning": "two or fewer independent sessions; interval is not a confirmation result",
+        "row_count": 2,
+        "session_count": 2,
+        "status": "descriptive_only"
+      }
+    },
+    "1000us/active_quiet/timer_only": {
+      "1": {
+        "current_future_correlation": NaN,
+        "current_to_future_mse_ticks2": 25.90625,
+        "future_variance_ticks2": 594.140625,
+        "independent_session_warning": "two or fewer independent sessions; interval is not a confirmation result",
+        "row_count": 2,
+        "session_count": 2,
+        "status": "descriptive_only"
+      },
+      "4": {
+        "current_future_correlation": NaN,
+        "current_to_future_mse_ticks2": 56.8125,
+        "future_variance_ticks2": 462.25,
+        "independent_session_warning": "two or fewer independent sessions; interval is not a confirmation result",
+        "row_count": 2,
+        "session_count": 2,
+        "status": "descriptive_only"
+      },
+      "8": {
+        "current_future_correlation": NaN,
+        "current_to_future_mse_ticks2": 23.5625,
+        "future_variance_ticks2": 689.0625,
+        "independent_session_warning": "two or fewer independent sessions; interval is not a confirmation result",
+        "row_count": 2,
+        "session_count": 2,
+        "status": "descriptive_only"
+      }
+    },
+    "1000us/passive/cached_preloaded": {
+      "1": {
+        "current_future_correlation": NaN,
+        "current_to_future_mse_ticks2": 34.53125,
+        "future_variance_ticks2": 1287.015625,
+        "independent_session_warning": "two or fewer independent sessions; interval is not a confirmation result",
+        "row_count": 2,
+        "session_count": 2,
+        "status": "descriptive_only"
+      },
+      "4": {
+        "current_future_correlation": NaN,
+        "current_to_future_mse_ticks2": 15.15625,
+        "future_variance_ticks2": 1181.640625,
+        "independent_session_warning": "two or fewer independent sessions; interval is not a confirmation result",
+        "row_count": 2,
+        "session_count": 2,
+        "status": "descriptive_only"
+      },
+      "8": {
+        "current_future_correlation": NaN,
+        "current_to_future_mse_ticks2": 88.625,
+        "future_variance_ticks2": 1580.0625,
+        "independent_session_warning": "two or fewer independent sessions; interval is not a confirmation result",
+        "row_count": 2,
+        "session_count": 2,
+        "status": "descriptive_only"
+      }
+    },
+    "1000us/passive/timer_only": {
+      "1": {
+        "current_future_correlation": NaN,
+        "current_to_future_mse_ticks2": 26.28125,
+        "future_variance_ticks2": 1774.515625,
+        "independent_session_warning": "two or fewer independent sessions; interval is not a confirmation result",
+        "row_count": 2,
+        "session_count": 2,
+        "status": "descriptive_only"
+      },
+      "4": {
+        "current_future_correlation": NaN,
+        "current_to_future_mse_ticks2": 42.90625,
+        "future_variance_ticks2": 1881.390625,
+        "independent_session_warning": "two or fewer independent sessions; interval is not a confirmation result",
+        "row_count": 2,
+        "session_count": 2,
+        "status": "descriptive_only"
+      },
+      "8": {
+        "current_future_correlation": NaN,
+        "current_to_future_mse_ticks2": 26.28125,
+        "future_variance_ticks2": 1774.515625,
+        "independent_session_warning": "two or fewer independent sessions; interval is not a confirmation result",
+        "row_count": 2,
+        "session_count": 2,
+        "status": "descriptive_only"
+      }
+    },
+    "1000us/read_pressure/cached_preloaded": {
+      "1": {
+        "current_future_correlation": NaN,
+        "current_to_future_mse_ticks2": 7.3125,
+        "future_variance_ticks2": 1260.25,
+        "independent_session_warning": "two or fewer independent sessions; interval is not a confirmation result",
+        "row_count": 2,
+        "session_count": 2,
+        "status": "descriptive_only"
+      },
+      "4": {
+        "current_future_correlation": NaN,
+        "current_to_future_mse_ticks2": 4.28125,
+        "future_variance_ticks2": 1305.015625,
+        "independent_session_warning": "two or fewer independent sessions; interval is not a confirmation result",
+        "row_count": 2,
+        "session_count": 2,
+        "status": "descriptive_only"
+      },
+      "8": {
+        "current_future_correlation": NaN,
+        "current_to_future_mse_ticks2": 0.15625,
+        "future_variance_ticks2": 1396.890625,
+        "independent_session_warning": "two or fewer independent sessions; interval is not a confirmation result",
+        "row_count": 2,
+        "session_count": 2,
+        "status": "descriptive_only"
+      }
+    },
+    "1000us/read_pressure/timer_only": {
+      "1": {
+        "current_future_correlation": NaN,
+        "current_to_future_mse_ticks2": 15.125,
+        "future_variance_ticks2": 0.5625,
+        "independent_session_warning": "two or fewer independent sessions; interval is not a confirmation result",
+        "row_count": 2,
+        "session_count": 2,
+        "status": "descriptive_only"
+      },
+      "4": {
+        "current_future_correlation": NaN,
+        "current_to_future_mse_ticks2": 7.03125,
+        "future_variance_ticks2": 0.015625,
+        "independent_session_warning": "two or fewer independent sessions; interval is not a confirmation result",
+        "row_count": 2,
+        "session_count": 2,
+        "status": "descriptive_only"
+      },
+      "8": {
+        "current_future_correlation": NaN,
+        "current_to_future_mse_ticks2": 16.5625,
+        "future_variance_ticks2": 4.0,
+        "independent_session_warning": "two or fewer independent sessions; interval is not a confirmation result",
+        "row_count": 2,
+        "session_count": 2,
+        "status": "descriptive_only"
+      }
+    },
+    "1000us/sham/cached_preloaded": {
+      "1": {
+        "current_future_correlation": NaN,
+        "current_to_future_mse_ticks2": 167.3125,
+        "future_variance_ticks2": 1207.5625,
+        "independent_session_warning": "two or fewer independent sessions; interval is not a confirmation result",
+        "row_count": 2,
+        "session_count": 2,
+        "status": "descriptive_only"
+      },
+      "4": {
+        "current_future_correlation": NaN,
+        "current_to_future_mse_ticks2": 118.28125,
+        "future_variance_ticks2": 1287.015625,
+        "independent_session_warning": "two or fewer independent sessions; interval is not a confirmation result",
+        "row_count": 2,
+        "session_count": 2,
+        "status": "descriptive_only"
+      },
+      "8": {
+        "current_future_correlation": NaN,
+        "current_to_future_mse_ticks2": 21.625,
+        "future_variance_ticks2": 1660.5625,
+        "independent_session_warning": "two or fewer independent sessions; interval is not a confirmation result",
+        "row_count": 2,
+        "session_count": 2,
+        "status": "descriptive_only"
+      }
+    },
+    "1000us/sham/timer_only": {
+      "1": {
+        "current_future_correlation": NaN,
+        "current_to_future_mse_ticks2": 2468.03125,
+        "future_variance_ticks2": 4641.015625,
+        "independent_session_warning": "two or fewer independent sessions; interval is not a confirmation result",
+        "row_count": 2,
+        "session_count": 2,
+        "status": "descriptive_only"
+      },
+      "4": {
+        "current_future_correlation": NaN,
+        "current_to_future_mse_ticks2": 2557.65625,
+        "future_variance_ticks2": 4675.140625,
+        "independent_session_warning": "two or fewer independent sessions; interval is not a confirmation result",
+        "row_count": 2,
+        "session_count": 2,
+        "status": "descriptive_only"
+      },
+      "8": {
+        "current_future_correlation": NaN,
+        "current_to_future_mse_ticks2": 2703.65625,
+        "future_variance_ticks2": 4778.265625,
+        "independent_session_warning": "two or fewer independent sessions; interval is not a confirmation result",
+        "row_count": 2,
+        "session_count": 2,
+        "status": "descriptive_only"
+      }
+    },
+    "100us/active_quiet/cached_preloaded": {
+      "1": {
+        "current_future_correlation": NaN,
+        "current_to_future_mse_ticks2": 1848.125,
+        "future_variance_ticks2": 1.5625,
+        "independent_session_warning": "two or fewer independent sessions; interval is not a confirmation result",
+        "row_count": 2,
+        "session_count": 2,
+        "status": "descriptive_only"
+      },
+      "4": {
+        "current_future_correlation": NaN,
+        "current_to_future_mse_ticks2": 1700.28125,
+        "future_variance_ticks2": 0.390625,
+        "independent_session_warning": "two or fewer independent sessions; interval is not a confirmation result",
+        "row_count": 2,
+        "session_count": 2,
+        "status": "descriptive_only"
+      },
+      "8": {
+        "current_future_correlation": NaN,
+        "current_to_future_mse_ticks2": 1585.65625,
+        "future_variance_ticks2": 0.140625,
+        "independent_session_warning": "two or fewer independent sessions; interval is not a confirmation result",
+        "row_count": 2,
+        "session_count": 2,
+        "status": "descriptive_only"
+      }
+    },
+    "100us/active_quiet/timer_only": {
+      "1": {
+        "current_future_correlation": NaN,
+        "current_to_future_mse_ticks2": 247.65625,
+        "future_variance_ticks2": 17.015625,
+        "independent_session_warning": "two or fewer independent sessions; interval is not a confirmation result",
+        "row_count": 2,
+        "session_count": 2,
+        "status": "descriptive_only"
+      },
+      "4": {
+        "current_future_correlation": NaN,
+        "current_to_future_mse_ticks2": 259.5625,
+        "future_variance_ticks2": 12.25,
+        "independent_session_warning": "two or fewer independent sessions; interval is not a confirmation result",
+        "row_count": 2,
+        "session_count": 2,
+        "status": "descriptive_only"
+      },
+      "8": {
+        "current_future_correlation": NaN,
+        "current_to_future_mse_ticks2": 276.90625,
+        "future_variance_ticks2": 9.765625,
+        "independent_session_warning": "two or fewer independent sessions; interval is not a confirmation result",
+        "row_count": 2,
+        "session_count": 2,
+        "status": "descriptive_only"
+      }
+    },
+    "100us/passive/cached_preloaded": {
+      "1": {
+        "current_future_correlation": NaN,
+        "current_to_future_mse_ticks2": 17.78125,
+        "future_variance_ticks2": 9.765625,
+        "independent_session_warning": "two or fewer independent sessions; interval is not a confirmation result",
+        "row_count": 2,
+        "session_count": 2,
+        "status": "descriptive_only"
+      },
+      "4": {
+        "current_future_correlation": NaN,
+        "current_to_future_mse_ticks2": 5.28125,
+        "future_variance_ticks2": 1.265625,
+        "independent_session_warning": "two or fewer independent sessions; interval is not a confirmation result",
+        "row_count": 2,
+        "session_count": 2,
+        "status": "descriptive_only"
+      },
+      "8": {
+        "current_future_correlation": NaN,
+        "current_to_future_mse_ticks2": 5.625,
+        "future_variance_ticks2": 0.0625,
+        "independent_session_warning": "two or fewer independent sessions; interval is not a confirmation result",
+        "row_count": 2,
+        "session_count": 2,
+        "status": "descriptive_only"
+      }
+    },
+    "100us/passive/timer_only": {
+      "1": {
+        "current_future_correlation": NaN,
+        "current_to_future_mse_ticks2": 432.28125,
+        "future_variance_ticks2": 83.265625,
+        "independent_session_warning": "two or fewer independent sessions; interval is not a confirmation result",
+        "row_count": 2,
+        "session_count": 2,
+        "status": "descriptive_only"
+      },
+      "4": {
+        "current_future_correlation": NaN,
+        "current_to_future_mse_ticks2": 437.125,
+        "future_variance_ticks2": 138.0625,
+        "independent_session_warning": "two or fewer independent sessions; interval is not a confirmation result",
+        "row_count": 2,
+        "session_count": 2,
+        "status": "descriptive_only"
+      },
+      "8": {
+        "current_future_correlation": NaN,
+        "current_to_future_mse_ticks2": 416.25,
+        "future_variance_ticks2": 156.25,
+        "independent_session_warning": "two or fewer independent sessions; interval is not a confirmation result",
+        "row_count": 2,
+        "session_count": 2,
+        "status": "descriptive_only"
+      }
+    },
+    "100us/read_pressure/cached_preloaded": {
+      "1": {
+        "current_future_correlation": NaN,
+        "current_to_future_mse_ticks2": 6.25,
+        "future_variance_ticks2": 650.25,
+        "independent_session_warning": "two or fewer independent sessions; interval is not a confirmation result",
+        "row_count": 2,
+        "session_count": 2,
+        "status": "descriptive_only"
+      },
+      "4": {
+        "current_future_correlation": NaN,
+        "current_to_future_mse_ticks2": 8.28125,
+        "future_variance_ticks2": 669.515625,
+        "independent_session_warning": "two or fewer independent sessions; interval is not a confirmation result",
+        "row_count": 2,
+        "session_count": 2,
+        "status": "descriptive_only"
+      },
+      "8": {
+        "current_future_correlation": NaN,
+        "current_to_future_mse_ticks2": 4.53125,
+        "future_variance_ticks2": 631.265625,
+        "independent_session_warning": "two or fewer independent sessions; interval is not a confirmation result",
+        "row_count": 2,
+        "session_count": 2,
+        "status": "descriptive_only"
+      }
+    },
+    "100us/read_pressure/timer_only": {
+      "1": {
+        "current_future_correlation": NaN,
+        "current_to_future_mse_ticks2": 5.3125,
+        "future_variance_ticks2": 1.0,
+        "independent_session_warning": "two or fewer independent sessions; interval is not a confirmation result",
+        "row_count": 2,
+        "session_count": 2,
+        "status": "descriptive_only"
+      },
+      "4": {
+        "current_future_correlation": NaN,
+        "current_to_future_mse_ticks2": 38.03125,
+        "future_variance_ticks2": 5.640625,
+        "independent_session_warning": "two or fewer independent sessions; interval is not a confirmation result",
+        "row_count": 2,
+        "session_count": 2,
+        "status": "descriptive_only"
+      },
+      "8": {
+        "current_future_correlation": NaN,
+        "current_to_future_mse_ticks2": 15.625,
+        "future_variance_ticks2": 7.5625,
+        "independent_session_warning": "two or fewer independent sessions; interval is not a confirmation result",
+        "row_count": 2,
+        "session_count": 2,
+        "status": "descriptive_only"
+      }
+    },
+    "100us/sham/cached_preloaded": {
+      "1": {
+        "current_future_correlation": NaN,
+        "current_to_future_mse_ticks2": 11.25,
+        "future_variance_ticks2": 0.0,
+        "independent_session_warning": "two or fewer independent sessions; interval is not a confirmation result",
+        "row_count": 2,
+        "session_count": 2,
+        "status": "descriptive_only"
+      },
+      "4": {
+        "current_future_correlation": NaN,
+        "current_to_future_mse_ticks2": 11.25,
+        "future_variance_ticks2": 2.25,
+        "independent_session_warning": "two or fewer independent sessions; interval is not a confirmation result",
+        "row_count": 2,
+        "session_count": 2,
+        "status": "descriptive_only"
+      },
+      "8": {
+        "current_future_correlation": NaN,
+        "current_to_future_mse_ticks2": 18.625,
+        "future_variance_ticks2": 1.5625,
+        "independent_session_warning": "two or fewer independent sessions; interval is not a confirmation result",
+        "row_count": 2,
+        "session_count": 2,
+        "status": "descriptive_only"
+      }
+    },
+    "100us/sham/timer_only": {
+      "1": {
+        "current_future_correlation": NaN,
+        "current_to_future_mse_ticks2": 40.5,
+        "future_variance_ticks2": 16.0,
+        "independent_session_warning": "two or fewer independent sessions; interval is not a confirmation result",
+        "row_count": 2,
+        "session_count": 2,
+        "status": "descriptive_only"
+      },
+      "4": {
+        "current_future_correlation": NaN,
+        "current_to_future_mse_ticks2": 30.3125,
+        "future_variance_ticks2": 0.5625,
+        "independent_session_warning": "two or fewer independent sessions; interval is not a confirmation result",
+        "row_count": 2,
+        "session_count": 2,
+        "status": "descriptive_only"
+      },
+      "8": {
+        "current_future_correlation": NaN,
+        "current_to_future_mse_ticks2": 29.03125,
+        "future_variance_ticks2": 0.015625,
+        "independent_session_warning": "two or fewer independent sessions; interval is not a confirmation result",
+        "row_count": 2,
+        "session_count": 2,
+        "status": "descriptive_only"
+      }
+    },
+    "50us/active_quiet/cached_preloaded": {
+      "1": {
+        "current_future_correlation": NaN,
+        "current_to_future_mse_ticks2": 820.40625,
+        "future_variance_ticks2": 4.515625,
+        "independent_session_warning": "two or fewer independent sessions; interval is not a confirmation result",
+        "row_count": 2,
+        "session_count": 2,
+        "status": "descriptive_only"
+      },
+      "4": {
+        "current_future_correlation": NaN,
+        "current_to_future_mse_ticks2": 778.28125,
+        "future_variance_ticks2": 19.140625,
+        "independent_session_warning": "two or fewer independent sessions; interval is not a confirmation result",
+        "row_count": 2,
+        "session_count": 2,
+        "status": "descriptive_only"
+      },
+      "8": {
+        "current_future_correlation": NaN,
+        "current_to_future_mse_ticks2": 904.25,
+        "future_variance_ticks2": 0.0,
+        "independent_session_warning": "two or fewer independent sessions; interval is not a confirmation result",
+        "row_count": 2,
+        "session_count": 2,
+        "status": "descriptive_only"
+      }
+    },
+    "50us/active_quiet/timer_only": {
+      "1": {
+        "current_future_correlation": NaN,
+        "current_to_future_mse_ticks2": 648.0,
+        "future_variance_ticks2": 225.0,
+        "independent_session_warning": "two or fewer independent sessions; interval is not a confirmation result",
+        "row_count": 2,
+        "session_count": 2,
+        "status": "descriptive_only"
+      },
+      "4": {
+        "current_future_correlation": NaN,
+        "current_to_future_mse_ticks2": 612.78125,
+        "future_variance_ticks2": 199.515625,
+        "independent_session_warning": "two or fewer independent sessions; interval is not a confirmation result",
+        "row_count": 2,
+        "session_count": 2,
+        "status": "descriptive_only"
+      },
+      "8": {
+        "current_future_correlation": NaN,
+        "current_to_future_mse_ticks2": 605.78125,
+        "future_variance_ticks2": 236.390625,
+        "independent_session_warning": "two or fewer independent sessions; interval is not a confirmation result",
+        "row_count": 2,
+        "session_count": 2,
+        "status": "descriptive_only"
+      }
+    },
+    "50us/passive/cached_preloaded": {
+      "1": {
+        "current_future_correlation": NaN,
+        "current_to_future_mse_ticks2": 4.53125,
+        "future_variance_ticks2": 3066.390625,
+        "independent_session_warning": "two or fewer independent sessions; interval is not a confirmation result",
+        "row_count": 2,
+        "session_count": 2,
+        "status": "descriptive_only"
+      },
+      "4": {
+        "current_future_correlation": NaN,
+        "current_to_future_mse_ticks2": 2.125,
+        "future_variance_ticks2": 2997.5625,
+        "independent_session_warning": "two or fewer independent sessions; interval is not a confirmation result",
+        "row_count": 2,
+        "session_count": 2,
+        "status": "descriptive_only"
+      },
+      "8": {
+        "current_future_correlation": NaN,
+        "current_to_future_mse_ticks2": 7.0625,
+        "future_variance_ticks2": 3108.0625,
+        "independent_session_warning": "two or fewer independent sessions; interval is not a confirmation result",
+        "row_count": 2,
+        "session_count": 2,
+        "status": "descriptive_only"
+      }
+    },
+    "50us/passive/timer_only": {
+      "1": {
+        "current_future_correlation": NaN,
+        "current_to_future_mse_ticks2": 0.25,
+        "future_variance_ticks2": 16.0,
+        "independent_session_warning": "two or fewer independent sessions; interval is not a confirmation result",
+        "row_count": 2,
+        "session_count": 2,
+        "status": "descriptive_only"
+      },
+      "4": {
+        "current_future_correlation": NaN,
+        "current_to_future_mse_ticks2": 22.5,
+        "future_variance_ticks2": 30.25,
+        "independent_session_warning": "two or fewer independent sessions; interval is not a confirmation result",
+        "row_count": 2,
+        "session_count": 2,
+        "status": "descriptive_only"
+      },
+      "8": {
+        "current_future_correlation": NaN,
+        "current_to_future_mse_ticks2": 22.625,
+        "future_variance_ticks2": 18.0625,
+        "independent_session_warning": "two or fewer independent sessions; interval is not a confirmation result",
+        "row_count": 2,
+        "session_count": 2,
+        "status": "descriptive_only"
+      }
+    },
+    "50us/read_pressure/cached_preloaded": {
+      "1": {
+        "current_future_correlation": NaN,
+        "current_to_future_mse_ticks2": 1.0625,
+        "future_variance_ticks2": 540.5625,
+        "independent_session_warning": "two or fewer independent sessions; interval is not a confirmation result",
+        "row_count": 2,
+        "session_count": 2,
+        "status": "descriptive_only"
+      },
+      "4": {
+        "current_future_correlation": NaN,
+        "current_to_future_mse_ticks2": 0.3125,
+        "future_variance_ticks2": 540.5625,
+        "independent_session_warning": "two or fewer independent sessions; interval is not a confirmation result",
+        "row_count": 2,
+        "session_count": 2,
+        "status": "descriptive_only"
+      },
+      "8": {
+        "current_future_correlation": NaN,
+        "current_to_future_mse_ticks2": 0.40625,
+        "future_variance_ticks2": 558.140625,
+        "independent_session_warning": "two or fewer independent sessions; interval is not a confirmation result",
+        "row_count": 2,
+        "session_count": 2,
+        "status": "descriptive_only"
+      }
+    },
+    "50us/read_pressure/timer_only": {
+      "1": {
+        "current_future_correlation": NaN,
+        "current_to_future_mse_ticks2": 17.5625,
+        "future_variance_ticks2": 0.5625,
+        "independent_session_warning": "two or fewer independent sessions; interval is not a confirmation result",
+        "row_count": 2,
+        "session_count": 2,
+        "status": "descriptive_only"
+      },
+      "4": {
+        "current_future_correlation": NaN,
+        "current_to_future_mse_ticks2": 16.90625,
+        "future_variance_ticks2": 0.390625,
+        "independent_session_warning": "two or fewer independent sessions; interval is not a confirmation result",
+        "row_count": 2,
+        "session_count": 2,
+        "status": "descriptive_only"
+      },
+      "8": {
+        "current_future_correlation": NaN,
+        "current_to_future_mse_ticks2": 18.03125,
+        "future_variance_ticks2": 1.265625,
+        "independent_session_warning": "two or fewer independent sessions; interval is not a confirmation result",
+        "row_count": 2,
+        "session_count": 2,
+        "status": "descriptive_only"
+      }
+    },
+    "50us/sham/cached_preloaded": {
+      "1": {
+        "current_future_correlation": NaN,
+        "current_to_future_mse_ticks2": 11.65625,
+        "future_variance_ticks2": 1.890625,
+        "independent_session_warning": "two or fewer independent sessions; interval is not a confirmation result",
+        "row_count": 2,
+        "session_count": 2,
+        "status": "descriptive_only"
+      },
+      "4": {
+        "current_future_correlation": NaN,
+        "current_to_future_mse_ticks2": 13.53125,
+        "future_variance_ticks2": 0.390625,
+        "independent_session_warning": "two or fewer independent sessions; interval is not a confirmation result",
+        "row_count": 2,
+        "session_count": 2,
+        "status": "descriptive_only"
+      },
+      "8": {
+        "current_future_correlation": NaN,
+        "current_to_future_mse_ticks2": 5.0625,
+        "future_variance_ticks2": 0.0,
+        "independent_session_warning": "two or fewer independent sessions; interval is not a confirmation result",
+        "row_count": 2,
+        "session_count": 2,
+        "status": "descriptive_only"
+      }
+    },
+    "50us/sham/timer_only": {
+      "1": {
+        "current_future_correlation": NaN,
+        "current_to_future_mse_ticks2": 7.53125,
+        "future_variance_ticks2": 19.140625,
+        "independent_session_warning": "two or fewer independent sessions; interval is not a confirmation result",
+        "row_count": 2,
+        "session_count": 2,
+        "status": "descriptive_only"
+      },
+      "4": {
+        "current_future_correlation": NaN,
+        "current_to_future_mse_ticks2": 2.8125,
+        "future_variance_ticks2": 12.25,
+        "independent_session_warning": "two or fewer independent sessions; interval is not a confirmation result",
+        "row_count": 2,
+        "session_count": 2,
+        "status": "descriptive_only"
+      },
+      "8": {
+        "current_future_correlation": NaN,
+        "current_to_future_mse_ticks2": 6.90625,
+        "future_variance_ticks2": 21.390625,
+        "independent_session_warning": "two or fewer independent sessions; interval is not a confirmation result",
+        "row_count": 2,
+        "session_count": 2,
+        "status": "descriptive_only"
+      }
+    }
+  },
+  "claim_boundary": "descriptive development timescale summary; no confirmation or causal mechanism claim",
+  "protocol_version": "latent-system-state-v1",
+  "schema": "sensetrace.latent-system-state-timescale-analysis.v1",
+  "source": "docs/evidence/latent-system-state-worker03/timescale-sweep"
+}

@@ -1,0 +1,2928 @@
+{
+  "acquisition": {
+    "boot_ids": [
+      "92cdb521-ac36-4649-a35c-bfb55c6ac870"
+    ],
+    "claim_boundary": "ordinary worker-03 timing plus contextual system-witness prediction; no hidden DRAM state/topology/unique mechanism claim",
+    "code_commit": "7a52a174862d8662c7b656b94b6a0f447da4c53c",
+    "configuration_hash": "4ace49761be2e1273772744e96620b5fd6626b3c59515e9929753c702f66bd6b",
+    "created_at": "2026-09-13T04:30:00.162676+00:00",
+    "design": {
+      "config_hash": "4ace49761be2e1273772744e96620b5fd6626b3c59515e9929753c702f66bd6b",
+      "created_at": "2026-09-13T04:29:57.902859+00:00",
+      "fresh_sequence_policy": "fresh session IDs and confirmation seed offset; completed design is immutable",
+      "protocol_version": "latent-system-state-v1",
+      "schema": "sensetrace.latent-system-state-design.v1",
+      "sessions": [
+        {
+          "family": "read_pressure",
+          "measurement_condition": "cached_preloaded",
+          "repeat": 0,
+          "seed": 20260913,
+          "session_id": "development-latent-session-0000-a904f45ee1964c5f8a826a4387e56282",
+          "trajectory_ids": [
+            "development-latent-session-0000-a904f45ee1964c5f8a826a4387e56282-trajectory-000"
+          ]
+        },
+        {
+          "family": "read_pressure",
+          "measurement_condition": "cached_preloaded",
+          "repeat": 1,
+          "seed": 20368835,
+          "session_id": "development-latent-session-0001-f60b6cb76d034ef4a430a7850082f566",
+          "trajectory_ids": [
+            "development-latent-session-0001-f60b6cb76d034ef4a430a7850082f566-trajectory-000"
+          ]
+        },
+        {
+          "family": "read_pressure",
+          "measurement_condition": "timer_only",
+          "repeat": 0,
+          "seed": 20460919,
+          "session_id": "development-latent-session-0002-4b781c057d86434f895a26d4dc4514ea",
+          "trajectory_ids": [
+            "development-latent-session-0002-4b781c057d86434f895a26d4dc4514ea-trajectory-000"
+          ]
+        },
+        {
+          "family": "read_pressure",
+          "measurement_condition": "timer_only",
+          "repeat": 1,
+          "seed": 20568841,
+          "session_id": "development-latent-session-0003-b5c3912a9fd14c7cba9024d338dd2e13",
+          "trajectory_ids": [
+            "development-latent-session-0003-b5c3912a9fd14c7cba9024d338dd2e13-trajectory-000"
+          ]
+        },
+        {
+          "family": "active_quiet",
+          "measurement_condition": "cached_preloaded",
+          "repeat": 0,
+          "seed": 20660925,
+          "session_id": "development-latent-session-0004-b6916242064f4499b9ef259a7db74457",
+          "trajectory_ids": [
+            "development-latent-session-0004-b6916242064f4499b9ef259a7db74457-trajectory-000"
+          ]
+        },
+        {
+          "family": "active_quiet",
+          "measurement_condition": "cached_preloaded",
+          "repeat": 1,
+          "seed": 20768847,
+          "session_id": "development-latent-session-0005-980ea8bfd802450483eca77f5d33cfe2",
+          "trajectory_ids": [
+            "development-latent-session-0005-980ea8bfd802450483eca77f5d33cfe2-trajectory-000"
+          ]
+        },
+        {
+          "family": "active_quiet",
+          "measurement_condition": "timer_only",
+          "repeat": 0,
+          "seed": 20860931,
+          "session_id": "development-latent-session-0006-0e8629e0618b4b319928b61da877a456",
+          "trajectory_ids": [
+            "development-latent-session-0006-0e8629e0618b4b319928b61da877a456-trajectory-000"
+          ]
+        },
+        {
+          "family": "active_quiet",
+          "measurement_condition": "timer_only",
+          "repeat": 1,
+          "seed": 20968853,
+          "session_id": "development-latent-session-0007-82b219d8bb3f4d57beed27b6f076eace",
+          "trajectory_ids": [
+            "development-latent-session-0007-82b219d8bb3f4d57beed27b6f076eace-trajectory-000"
+          ]
+        },
+        {
+          "family": "sham",
+          "measurement_condition": "cached_preloaded",
+          "repeat": 0,
+          "seed": 21060937,
+          "session_id": "development-latent-session-0008-68a292ed1657426996fd88182d5fc710",
+          "trajectory_ids": [
+            "development-latent-session-0008-68a292ed1657426996fd88182d5fc710-trajectory-000"
+          ]
+        },
+        {
+          "family": "sham",
+          "measurement_condition": "cached_preloaded",
+          "repeat": 1,
+          "seed": 21168859,
+          "session_id": "development-latent-session-0009-3dddc4e6d53f4676a02d22a0bd1045c1",
+          "trajectory_ids": [
+            "development-latent-session-0009-3dddc4e6d53f4676a02d22a0bd1045c1-trajectory-000"
+          ]
+        },
+        {
+          "family": "sham",
+          "measurement_condition": "timer_only",
+          "repeat": 0,
+          "seed": 21260943,
+          "session_id": "development-latent-session-0010-cc1ce7cb0ef74207b88e0c39d404478f",
+          "trajectory_ids": [
+            "development-latent-session-0010-cc1ce7cb0ef74207b88e0c39d404478f-trajectory-000"
+          ]
+        },
+        {
+          "family": "sham",
+          "measurement_condition": "timer_only",
+          "repeat": 1,
+          "seed": 21368865,
+          "session_id": "development-latent-session-0011-c5493046cb9844f7b30afc75f95a4064",
+          "trajectory_ids": [
+            "development-latent-session-0011-c5493046cb9844f7b30afc75f95a4064-trajectory-000"
+          ]
+        },
+        {
+          "family": "passive",
+          "measurement_condition": "cached_preloaded",
+          "repeat": 0,
+          "seed": 21460949,
+          "session_id": "development-latent-session-0012-2b6e5abf38544b11a37d6a4813e33178",
+          "trajectory_ids": [
+            "development-latent-session-0012-2b6e5abf38544b11a37d6a4813e33178-trajectory-000"
+          ]
+        },
+        {
+          "family": "passive",
+          "measurement_condition": "cached_preloaded",
+          "repeat": 1,
+          "seed": 21568871,
+          "session_id": "development-latent-session-0013-74c8142bb0d0498f87a0359bddfc9ac7",
+          "trajectory_ids": [
+            "development-latent-session-0013-74c8142bb0d0498f87a0359bddfc9ac7-trajectory-000"
+          ]
+        },
+        {
+          "family": "passive",
+          "measurement_condition": "timer_only",
+          "repeat": 0,
+          "seed": 21660955,
+          "session_id": "development-latent-session-0014-7016cf5cb62746b897e7be29c5366509",
+          "trajectory_ids": [
+            "development-latent-session-0014-7016cf5cb62746b897e7be29c5366509-trajectory-000"
+          ]
+        },
+        {
+          "family": "passive",
+          "measurement_condition": "timer_only",
+          "repeat": 1,
+          "seed": 21768877,
+          "session_id": "development-latent-session-0015-e8a3678d1732406eb4eff2ed7b58630c",
+          "trajectory_ids": [
+            "development-latent-session-0015-e8a3678d1732406eb4eff2ed7b58630c-trajectory-000"
+          ]
+        }
+      ],
+      "sessions_per_cell": 2,
+      "stage": "development"
+    },
+    "execution_host": "worker-03",
+    "feature_firewall": {
+      "allowed": [
+        "origin bundle timing channels",
+        "causal witness values available by origin_end_ns",
+        "target condition workload fraction through origin"
+      ],
+      "eligibility_is_explicit": true,
+      "forbidden": [
+        "post-origin witness values",
+        "future target/reference values",
+        "IDs/seeds/schedules/boot/allocation",
+        "whole-trajectory normalization",
+        "confirmation values for preprocessing"
+      ]
+    },
+    "instrumentation": {
+      "bpftrace_capabilities": {
+        "requested_hooks": [],
+        "status": "not_requested"
+      },
+      "channel_specs": [
+        {
+          "acquisition": "one RDTSCP read in the userspace snapshot",
+          "availability": "snapshot available at capture_end_ns",
+          "causal_eligible": true,
+          "measurement_overhead": "one native RDTSCP call",
+          "missing_value_policy": "NaN plus valid=false",
+          "name": "tsc_aux",
+          "normalization": "categorical; never whole-trajectory normalized",
+          "observer_tier": 1,
+          "raw_source": "RDTSCP auxiliary CPU identity at capture",
+          "units": "integer CPU/AUX value"
+        },
+        {
+          "acquisition": "single small PMU window around one native measurement block",
+          "availability": "counter read available at block end",
+          "causal_eligible": true,
+          "measurement_overhead": "one opened/enabled/read scoped PMU event; measured in observer characterization",
+          "missing_value_policy": "NaN plus valid=false on permission/error/multiplex ambiguity",
+          "name": "pmu_cache_references_count",
+          "normalization": "development-train median and scale only; retain raw/scaled/multiplex state",
+          "observer_tier": 1,
+          "raw_source": "perf_event_open('cache-references') calling-thread event",
+          "units": "events per block"
+        },
+        {
+          "acquisition": "single small PMU window around one native measurement block",
+          "availability": "counter read available at block end",
+          "causal_eligible": true,
+          "measurement_overhead": "one opened/enabled/read scoped PMU event; measured in observer characterization",
+          "missing_value_policy": "NaN plus valid=false on permission/error/multiplex ambiguity",
+          "name": "pmu_cache_misses_count",
+          "normalization": "development-train median and scale only; retain raw/scaled/multiplex state",
+          "observer_tier": 1,
+          "raw_source": "perf_event_open('cache-misses') calling-thread event",
+          "units": "events per block"
+        }
+      ],
+      "claim_boundary": "contextual host/system witnesses only; no direct DRAM command/topology/cell evidence",
+      "local_channels_requested": [
+        "tsc_aux"
+      ],
+      "pmu_capabilities": {
+        "architecture": "x86_64",
+        "collection_policy": "No system-wide or unrelated-process collection. A future reader must use a SenseTrace-owned process/thread scope and record permission failures explicitly.",
+        "cpu_model": "Intel(R) Core(TM) i7-9700 CPU @ 3.00GHz",
+        "event_multiplexing": {
+          "reason": "capability discovery does not collect or multiplex counters",
+          "status": "not_tested"
+        },
+        "events": [
+          {
+            "available_events": [
+              "cache-references"
+            ],
+            "candidate_events": [
+              "cache-references"
+            ],
+            "encodings": [
+              {
+                "alias": "cache-references",
+                "config": 20270,
+                "config_fields": {
+                  "event": "0x2e",
+                  "umask": "0x4f"
+                },
+                "config_width_bits": 64,
+                "device": "cpu",
+                "event_source_type": {
+                  "name": "PERF_TYPE_RAW",
+                  "value": 4
+                },
+                "qualified_name": "cpu/cache-references/",
+                "raw_spec": "event=0x2e,umask=0x4f",
+                "selection": "qualified device plus alias; bare aliases are never used for selection",
+                "sysfs_format_fields": {
+                  "any": "config:21",
+                  "cmask": "config:24-31",
+                  "edge": "config:18",
+                  "event": "config:0-7",
+                  "frontend": "config1:0-23",
+                  "inv": "config:23",
+                  "ldlat": "config1:0-15",
+                  "offcore_rsp": "config1:0-63",
+                  "pc": "config:19",
+                  "umask": "config:8-15"
+                }
+              }
+            ],
+            "logical_name": "cache_references",
+            "probe": {
+              "collection": "not_started; open-and-close capability probe only",
+              "errno": 0,
+              "errno_name": "none",
+              "event": "cache-references",
+              "perf_event_attr": {
+                "config": 2,
+                "config_width_bits": 64,
+                "device": "kernel-generic",
+                "encoding": "PERF_TYPE_HARDWARE:2",
+                "event_source_type": {
+                  "device": "kernel-generic",
+                  "name": "PERF_TYPE_HARDWARE",
+                  "value": 0
+                },
+                "flags": 97,
+                "flags_by_name": {
+                  "disabled": true,
+                  "exclude_hypervisor": true,
+                  "exclude_idle": false,
+                  "exclude_kernel": true,
+                  "exclude_user": false,
+                  "inherit": false,
+                  "pinned": false
+                },
+                "read_format": 3,
+                "read_format_fields": {
+                  "total_time_enabled": true,
+                  "total_time_running": true
+                },
+                "size": 128,
+                "type": 0
+              },
+              "scope": {
+                "cpu_argument": -1,
+                "inherit": false,
+                "kind": "calling_thread",
+                "pid_argument": 97793,
+                "system_wide": false
+              },
+              "status": "opened_scoped_probe"
+            },
+            "probe_status": "opened_scoped_probe",
+            "provenance": "Linux PMU sysfs and perf list",
+            "scope": "SenseTrace-owned calling thread only; cpu=-1 follows that thread; no system-wide collection",
+            "selection_status": "qualified_encoding_available",
+            "status": "available"
+          },
+          {
+            "available_events": [
+              "cache-misses"
+            ],
+            "candidate_events": [
+              "cache-misses"
+            ],
+            "encodings": [
+              {
+                "alias": "cache-misses",
+                "config": 16686,
+                "config_fields": {
+                  "event": "0x2e",
+                  "umask": "0x41"
+                },
+                "config_width_bits": 64,
+                "device": "cpu",
+                "event_source_type": {
+                  "name": "PERF_TYPE_RAW",
+                  "value": 4
+                },
+                "qualified_name": "cpu/cache-misses/",
+                "raw_spec": "event=0x2e,umask=0x41",
+                "selection": "qualified device plus alias; bare aliases are never used for selection",
+                "sysfs_format_fields": {
+                  "any": "config:21",
+                  "cmask": "config:24-31",
+                  "edge": "config:18",
+                  "event": "config:0-7",
+                  "frontend": "config1:0-23",
+                  "inv": "config:23",
+                  "ldlat": "config1:0-15",
+                  "offcore_rsp": "config1:0-63",
+                  "pc": "config:19",
+                  "umask": "config:8-15"
+                }
+              }
+            ],
+            "logical_name": "cache_misses",
+            "probe": {
+              "collection": "not_started; open-and-close capability probe only",
+              "errno": 0,
+              "errno_name": "none",
+              "event": "cache-misses",
+              "perf_event_attr": {
+                "config": 3,
+                "config_width_bits": 64,
+                "device": "kernel-generic",
+                "encoding": "PERF_TYPE_HARDWARE:3",
+                "event_source_type": {
+                  "device": "kernel-generic",
+                  "name": "PERF_TYPE_HARDWARE",
+                  "value": 0
+                },
+                "flags": 97,
+                "flags_by_name": {
+                  "disabled": true,
+                  "exclude_hypervisor": true,
+                  "exclude_idle": false,
+                  "exclude_kernel": true,
+                  "exclude_user": false,
+                  "inherit": false,
+                  "pinned": false
+                },
+                "read_format": 3,
+                "read_format_fields": {
+                  "total_time_enabled": true,
+                  "total_time_running": true
+                },
+                "size": 128,
+                "type": 0
+              },
+              "scope": {
+                "cpu_argument": -1,
+                "inherit": false,
+                "kind": "calling_thread",
+                "pid_argument": 97793,
+                "system_wide": false
+              },
+              "status": "opened_scoped_probe"
+            },
+            "probe_status": "opened_scoped_probe",
+            "provenance": "Linux PMU sysfs and perf list",
+            "scope": "SenseTrace-owned calling thread only; cpu=-1 follows that thread; no system-wide collection",
+            "selection_status": "qualified_encoding_available",
+            "status": "available"
+          },
+          {
+            "available_events": [],
+            "candidate_events": [
+              "mem_load_retired.llc_miss",
+              "longest_lat_cache.miss",
+              "LLC-load-misses"
+            ],
+            "encodings": [],
+            "logical_name": "llc_load_misses",
+            "probe": {},
+            "probe_status": "not_requested",
+            "provenance": "Linux PMU sysfs and perf list",
+            "scope": "SenseTrace-owned calling thread only; cpu=-1 follows that thread; no system-wide collection",
+            "selection_status": "generic_or_vocabulary_only",
+            "status": "unavailable"
+          },
+          {
+            "available_events": [],
+            "candidate_events": [
+              "mem_inst_retired.all_loads"
+            ],
+            "encodings": [],
+            "logical_name": "retired_memory_loads",
+            "probe": {},
+            "probe_status": "not_requested",
+            "provenance": "Linux PMU sysfs and perf list",
+            "scope": "SenseTrace-owned calling thread only; cpu=-1 follows that thread; no system-wide collection",
+            "selection_status": "generic_or_vocabulary_only",
+            "status": "unavailable"
+          },
+          {
+            "available_events": [],
+            "candidate_events": [
+              "cycle_activity.stalls_mem_any"
+            ],
+            "encodings": [],
+            "logical_name": "memory_stall_cycles",
+            "probe": {},
+            "probe_status": "not_requested",
+            "provenance": "Linux PMU sysfs and perf list",
+            "scope": "SenseTrace-owned calling thread only; cpu=-1 follows that thread; no system-wide collection",
+            "selection_status": "generic_or_vocabulary_only",
+            "status": "unavailable"
+          },
+          {
+            "available_events": [],
+            "candidate_events": [
+              "dtlb_load_misses.miss_causes_a_walk"
+            ],
+            "encodings": [],
+            "logical_name": "data_tlb_load_misses",
+            "probe": {},
+            "probe_status": "not_requested",
+            "provenance": "Linux PMU sysfs and perf list",
+            "scope": "SenseTrace-owned calling thread only; cpu=-1 follows that thread; no system-wide collection",
+            "selection_status": "generic_or_vocabulary_only",
+            "status": "unavailable"
+          },
+          {
+            "available_events": [],
+            "candidate_events": [
+              "uncore_imc_0/cas_count_read/"
+            ],
+            "encodings": [],
+            "logical_name": "uncore_memory_reads",
+            "probe": {},
+            "probe_status": "not_requested",
+            "provenance": "Linux PMU sysfs and perf list",
+            "scope": "SenseTrace-owned calling thread only; cpu=-1 follows that thread; no system-wide collection",
+            "selection_status": "generic_or_vocabulary_only",
+            "status": "unavailable"
+          }
+        ],
+        "operation_scoped_read": {
+          "reason": "capability discovery does not run an operation-scoped measurement",
+          "scope": "calling thread only; cpu=-1; inherit=0; no system-wide or unrelated-process collection",
+          "status": "implemented_not_run_by_discovery"
+        },
+        "perf_list_status": "unavailable",
+        "perf_path": "unavailable",
+        "permission_boundary": {
+          "cap_perfmon": false,
+          "cap_sys_admin_equivalent": false,
+          "capability_source": "/proc/self/status",
+          "effective_capabilities_hex": "0000000000000000",
+          "perf_event_paranoid": 2,
+          "perf_event_paranoid_source": "/proc/sys/kernel/perf_event_paranoid",
+          "permission_interpretation": "no CAP_PERFMON or CAP_SYS_ADMIN bit observed"
+        },
+        "pmu_descriptors": [
+          {
+            "cpumask": "unavailable",
+            "cpus": "unavailable",
+            "name": "breakpoint",
+            "type": "5"
+          },
+          {
+            "cpumask": "unavailable",
+            "cpus": "unavailable",
+            "name": "cpu",
+            "type": "4"
+          },
+          {
+            "cpumask": "0-7",
+            "cpus": "unavailable",
+            "name": "cstate_core",
+            "type": "24"
+          },
+          {
+            "cpumask": "0",
+            "cpus": "unavailable",
+            "name": "cstate_pkg",
+            "type": "25"
+          },
+          {
+            "cpumask": "0",
+            "cpus": "unavailable",
+            "name": "i915",
+            "type": "13"
+          },
+          {
+            "cpumask": "unavailable",
+            "cpus": "unavailable",
+            "name": "intel_bts",
+            "type": "10"
+          },
+          {
+            "cpumask": "unavailable",
+            "cpus": "unavailable",
+            "name": "intel_pt",
+            "type": "11"
+          },
+          {
+            "cpumask": "unavailable",
+            "cpus": "unavailable",
+            "name": "kprobe",
+            "type": "8"
+          },
+          {
+            "cpumask": "unavailable",
+            "cpus": "unavailable",
+            "name": "msr",
+            "type": "12"
+          },
+          {
+            "cpumask": "0",
+            "cpus": "unavailable",
+            "name": "power",
+            "type": "26"
+          },
+          {
+            "cpumask": "unavailable",
+            "cpus": "unavailable",
+            "name": "software",
+            "type": "1"
+          },
+          {
+            "cpumask": "unavailable",
+            "cpus": "unavailable",
+            "name": "tracepoint",
+            "type": "2"
+          },
+          {
+            "cpumask": "0",
+            "cpus": "unavailable",
+            "name": "uncore_arb",
+            "type": "23"
+          },
+          {
+            "cpumask": "0",
+            "cpus": "unavailable",
+            "name": "uncore_cbox_0",
+            "type": "15"
+          },
+          {
+            "cpumask": "0",
+            "cpus": "unavailable",
+            "name": "uncore_cbox_1",
+            "type": "16"
+          },
+          {
+            "cpumask": "0",
+            "cpus": "unavailable",
+            "name": "uncore_cbox_2",
+            "type": "17"
+          },
+          {
+            "cpumask": "0",
+            "cpus": "unavailable",
+            "name": "uncore_cbox_3",
+            "type": "18"
+          },
+          {
+            "cpumask": "0",
+            "cpus": "unavailable",
+            "name": "uncore_cbox_4",
+            "type": "19"
+          },
+          {
+            "cpumask": "0",
+            "cpus": "unavailable",
+            "name": "uncore_cbox_5",
+            "type": "20"
+          },
+          {
+            "cpumask": "0",
+            "cpus": "unavailable",
+            "name": "uncore_cbox_6",
+            "type": "21"
+          },
+          {
+            "cpumask": "0",
+            "cpus": "unavailable",
+            "name": "uncore_cbox_7",
+            "type": "22"
+          },
+          {
+            "cpumask": "0",
+            "cpus": "unavailable",
+            "name": "uncore_imc",
+            "type": "14"
+          },
+          {
+            "cpumask": "unavailable",
+            "cpus": "unavailable",
+            "name": "uprobe",
+            "type": "9"
+          }
+        ],
+        "pmu_devices": [
+          "breakpoint",
+          "cpu",
+          "cstate_core",
+          "cstate_pkg",
+          "i915",
+          "intel_bts",
+          "intel_pt",
+          "kprobe",
+          "msr",
+          "power",
+          "software",
+          "tracepoint",
+          "uncore_arb",
+          "uncore_cbox_0",
+          "uncore_cbox_1",
+          "uncore_cbox_2",
+          "uncore_cbox_3",
+          "uncore_cbox_4",
+          "uncore_cbox_5",
+          "uncore_cbox_6",
+          "uncore_cbox_7",
+          "uncore_imc",
+          "uprobe"
+        ],
+        "privilege_policy": "Do not broaden kernel perf permissions or disable security controls for discovery.",
+        "probe_policy": "An opened_scoped_probe only opens and closes a generic event for the current SenseTrace-owned calling thread with disabled creation flags; it does not collect a sample or observe another process.",
+        "process_thread_scope": {
+          "cpu_argument": -1,
+          "inherit": false,
+          "kind": "calling_thread",
+          "pid_argument": 97793,
+          "system_wide": false,
+          "unrelated_processes": "not attached"
+        },
+        "raw_core_event_support": {
+          "raw_encoding_probe": "not_requested_for_non-generic_events",
+          "selection_policy": "qualified PMU device/type/config/format records are preserved; ambiguous bare aliases are never selected",
+          "status": "vocabulary_discovered",
+          "sysfs_event_encodings": [
+            {
+              "alias": "branch-instructions",
+              "config": 196,
+              "config_fields": {
+                "event": "0xc4"
+              },
+              "config_width_bits": 64,
+              "device": "cpu",
+              "event_source_type": {
+                "name": "PERF_TYPE_RAW",
+                "value": 4
+              },
+              "qualified_name": "cpu/branch-instructions/",
+              "raw_spec": "event=0xc4",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "any": "config:21",
+                "cmask": "config:24-31",
+                "edge": "config:18",
+                "event": "config:0-7",
+                "frontend": "config1:0-23",
+                "inv": "config:23",
+                "ldlat": "config1:0-15",
+                "offcore_rsp": "config1:0-63",
+                "pc": "config:19",
+                "umask": "config:8-15"
+              }
+            },
+            {
+              "alias": "branch-misses",
+              "config": 197,
+              "config_fields": {
+                "event": "0xc5"
+              },
+              "config_width_bits": 64,
+              "device": "cpu",
+              "event_source_type": {
+                "name": "PERF_TYPE_RAW",
+                "value": 4
+              },
+              "qualified_name": "cpu/branch-misses/",
+              "raw_spec": "event=0xc5",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "any": "config:21",
+                "cmask": "config:24-31",
+                "edge": "config:18",
+                "event": "config:0-7",
+                "frontend": "config1:0-23",
+                "inv": "config:23",
+                "ldlat": "config1:0-15",
+                "offcore_rsp": "config1:0-63",
+                "pc": "config:19",
+                "umask": "config:8-15"
+              }
+            },
+            {
+              "alias": "bus-cycles",
+              "config": 316,
+              "config_fields": {
+                "event": "0x3c",
+                "umask": "0x01"
+              },
+              "config_width_bits": 64,
+              "device": "cpu",
+              "event_source_type": {
+                "name": "PERF_TYPE_RAW",
+                "value": 4
+              },
+              "qualified_name": "cpu/bus-cycles/",
+              "raw_spec": "event=0x3c,umask=0x01",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "any": "config:21",
+                "cmask": "config:24-31",
+                "edge": "config:18",
+                "event": "config:0-7",
+                "frontend": "config1:0-23",
+                "inv": "config:23",
+                "ldlat": "config1:0-15",
+                "offcore_rsp": "config1:0-63",
+                "pc": "config:19",
+                "umask": "config:8-15"
+              }
+            },
+            {
+              "alias": "cache-misses",
+              "config": 16686,
+              "config_fields": {
+                "event": "0x2e",
+                "umask": "0x41"
+              },
+              "config_width_bits": 64,
+              "device": "cpu",
+              "event_source_type": {
+                "name": "PERF_TYPE_RAW",
+                "value": 4
+              },
+              "qualified_name": "cpu/cache-misses/",
+              "raw_spec": "event=0x2e,umask=0x41",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "any": "config:21",
+                "cmask": "config:24-31",
+                "edge": "config:18",
+                "event": "config:0-7",
+                "frontend": "config1:0-23",
+                "inv": "config:23",
+                "ldlat": "config1:0-15",
+                "offcore_rsp": "config1:0-63",
+                "pc": "config:19",
+                "umask": "config:8-15"
+              }
+            },
+            {
+              "alias": "cache-references",
+              "config": 20270,
+              "config_fields": {
+                "event": "0x2e",
+                "umask": "0x4f"
+              },
+              "config_width_bits": 64,
+              "device": "cpu",
+              "event_source_type": {
+                "name": "PERF_TYPE_RAW",
+                "value": 4
+              },
+              "qualified_name": "cpu/cache-references/",
+              "raw_spec": "event=0x2e,umask=0x4f",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "any": "config:21",
+                "cmask": "config:24-31",
+                "edge": "config:18",
+                "event": "config:0-7",
+                "frontend": "config1:0-23",
+                "inv": "config:23",
+                "ldlat": "config1:0-15",
+                "offcore_rsp": "config1:0-63",
+                "pc": "config:19",
+                "umask": "config:8-15"
+              }
+            },
+            {
+              "alias": "cpu-cycles",
+              "config": 60,
+              "config_fields": {
+                "event": "0x3c"
+              },
+              "config_width_bits": 64,
+              "device": "cpu",
+              "event_source_type": {
+                "name": "PERF_TYPE_RAW",
+                "value": 4
+              },
+              "qualified_name": "cpu/cpu-cycles/",
+              "raw_spec": "event=0x3c",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "any": "config:21",
+                "cmask": "config:24-31",
+                "edge": "config:18",
+                "event": "config:0-7",
+                "frontend": "config1:0-23",
+                "inv": "config:23",
+                "ldlat": "config1:0-15",
+                "offcore_rsp": "config1:0-63",
+                "pc": "config:19",
+                "umask": "config:8-15"
+              }
+            },
+            {
+              "alias": "instructions",
+              "config": 192,
+              "config_fields": {
+                "event": "0xc0"
+              },
+              "config_width_bits": 64,
+              "device": "cpu",
+              "event_source_type": {
+                "name": "PERF_TYPE_RAW",
+                "value": 4
+              },
+              "qualified_name": "cpu/instructions/",
+              "raw_spec": "event=0xc0",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "any": "config:21",
+                "cmask": "config:24-31",
+                "edge": "config:18",
+                "event": "config:0-7",
+                "frontend": "config1:0-23",
+                "inv": "config:23",
+                "ldlat": "config1:0-15",
+                "offcore_rsp": "config1:0-63",
+                "pc": "config:19",
+                "umask": "config:8-15"
+              }
+            },
+            {
+              "alias": "mem-loads",
+              "config": null,
+              "config_fields": {
+                "event": "0xcd",
+                "ldlat": "3",
+                "umask": "0x1"
+              },
+              "config_width_bits": 64,
+              "device": "cpu",
+              "event_source_type": {
+                "name": "PERF_TYPE_RAW",
+                "value": 4
+              },
+              "qualified_name": "cpu/mem-loads/",
+              "raw_spec": "event=0xcd,umask=0x1,ldlat=3",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "any": "config:21",
+                "cmask": "config:24-31",
+                "edge": "config:18",
+                "event": "config:0-7",
+                "frontend": "config1:0-23",
+                "inv": "config:23",
+                "ldlat": "config1:0-15",
+                "offcore_rsp": "config1:0-63",
+                "pc": "config:19",
+                "umask": "config:8-15"
+              }
+            },
+            {
+              "alias": "mem-stores",
+              "config": 33488,
+              "config_fields": {
+                "event": "0xd0",
+                "umask": "0x82"
+              },
+              "config_width_bits": 64,
+              "device": "cpu",
+              "event_source_type": {
+                "name": "PERF_TYPE_RAW",
+                "value": 4
+              },
+              "qualified_name": "cpu/mem-stores/",
+              "raw_spec": "event=0xd0,umask=0x82",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "any": "config:21",
+                "cmask": "config:24-31",
+                "edge": "config:18",
+                "event": "config:0-7",
+                "frontend": "config1:0-23",
+                "inv": "config:23",
+                "ldlat": "config1:0-15",
+                "offcore_rsp": "config1:0-63",
+                "pc": "config:19",
+                "umask": "config:8-15"
+              }
+            },
+            {
+              "alias": "ref-cycles",
+              "config": 768,
+              "config_fields": {
+                "event": "0x00",
+                "umask": "0x03"
+              },
+              "config_width_bits": 64,
+              "device": "cpu",
+              "event_source_type": {
+                "name": "PERF_TYPE_RAW",
+                "value": 4
+              },
+              "qualified_name": "cpu/ref-cycles/",
+              "raw_spec": "event=0x00,umask=0x03",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "any": "config:21",
+                "cmask": "config:24-31",
+                "edge": "config:18",
+                "event": "config:0-7",
+                "frontend": "config1:0-23",
+                "inv": "config:23",
+                "ldlat": "config1:0-15",
+                "offcore_rsp": "config1:0-63",
+                "pc": "config:19",
+                "umask": "config:8-15"
+              }
+            },
+            {
+              "alias": "topdown-fetch-bubbles",
+              "config": 412,
+              "config_fields": {
+                "event": "0x9c",
+                "umask": "0x1"
+              },
+              "config_width_bits": 64,
+              "device": "cpu",
+              "event_source_type": {
+                "name": "PERF_TYPE_RAW",
+                "value": 4
+              },
+              "qualified_name": "cpu/topdown-fetch-bubbles/",
+              "raw_spec": "event=0x9c,umask=0x1",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "any": "config:21",
+                "cmask": "config:24-31",
+                "edge": "config:18",
+                "event": "config:0-7",
+                "frontend": "config1:0-23",
+                "inv": "config:23",
+                "ldlat": "config1:0-15",
+                "offcore_rsp": "config1:0-63",
+                "pc": "config:19",
+                "umask": "config:8-15"
+              }
+            },
+            {
+              "alias": "topdown-recovery-bubbles",
+              "config": 16777485,
+              "config_fields": {
+                "cmask": "1",
+                "event": "0xd",
+                "umask": "0x1"
+              },
+              "config_width_bits": 64,
+              "device": "cpu",
+              "event_source_type": {
+                "name": "PERF_TYPE_RAW",
+                "value": 4
+              },
+              "qualified_name": "cpu/topdown-recovery-bubbles/",
+              "raw_spec": "event=0xd,umask=0x1,cmask=1",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "any": "config:21",
+                "cmask": "config:24-31",
+                "edge": "config:18",
+                "event": "config:0-7",
+                "frontend": "config1:0-23",
+                "inv": "config:23",
+                "ldlat": "config1:0-15",
+                "offcore_rsp": "config1:0-63",
+                "pc": "config:19",
+                "umask": "config:8-15"
+              }
+            },
+            {
+              "alias": "topdown-recovery-bubbles.scale",
+              "config": null,
+              "config_fields": {
+                "unparsed": "4"
+              },
+              "config_width_bits": 64,
+              "device": "cpu",
+              "event_source_type": {
+                "name": "PERF_TYPE_RAW",
+                "value": 4
+              },
+              "qualified_name": "cpu/topdown-recovery-bubbles.scale/",
+              "raw_spec": "4",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "any": "config:21",
+                "cmask": "config:24-31",
+                "edge": "config:18",
+                "event": "config:0-7",
+                "frontend": "config1:0-23",
+                "inv": "config:23",
+                "ldlat": "config1:0-15",
+                "offcore_rsp": "config1:0-63",
+                "pc": "config:19",
+                "umask": "config:8-15"
+              }
+            },
+            {
+              "alias": "topdown-slots-issued",
+              "config": 270,
+              "config_fields": {
+                "event": "0xe",
+                "umask": "0x1"
+              },
+              "config_width_bits": 64,
+              "device": "cpu",
+              "event_source_type": {
+                "name": "PERF_TYPE_RAW",
+                "value": 4
+              },
+              "qualified_name": "cpu/topdown-slots-issued/",
+              "raw_spec": "event=0xe,umask=0x1",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "any": "config:21",
+                "cmask": "config:24-31",
+                "edge": "config:18",
+                "event": "config:0-7",
+                "frontend": "config1:0-23",
+                "inv": "config:23",
+                "ldlat": "config1:0-15",
+                "offcore_rsp": "config1:0-63",
+                "pc": "config:19",
+                "umask": "config:8-15"
+              }
+            },
+            {
+              "alias": "topdown-slots-retired",
+              "config": 706,
+              "config_fields": {
+                "event": "0xc2",
+                "umask": "0x2"
+              },
+              "config_width_bits": 64,
+              "device": "cpu",
+              "event_source_type": {
+                "name": "PERF_TYPE_RAW",
+                "value": 4
+              },
+              "qualified_name": "cpu/topdown-slots-retired/",
+              "raw_spec": "event=0xc2,umask=0x2",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "any": "config:21",
+                "cmask": "config:24-31",
+                "edge": "config:18",
+                "event": "config:0-7",
+                "frontend": "config1:0-23",
+                "inv": "config:23",
+                "ldlat": "config1:0-15",
+                "offcore_rsp": "config1:0-63",
+                "pc": "config:19",
+                "umask": "config:8-15"
+              }
+            },
+            {
+              "alias": "topdown-total-slots",
+              "config": 60,
+              "config_fields": {
+                "event": "0x3c",
+                "umask": "0x0"
+              },
+              "config_width_bits": 64,
+              "device": "cpu",
+              "event_source_type": {
+                "name": "PERF_TYPE_RAW",
+                "value": 4
+              },
+              "qualified_name": "cpu/topdown-total-slots/",
+              "raw_spec": "event=0x3c,umask=0x0",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "any": "config:21",
+                "cmask": "config:24-31",
+                "edge": "config:18",
+                "event": "config:0-7",
+                "frontend": "config1:0-23",
+                "inv": "config:23",
+                "ldlat": "config1:0-15",
+                "offcore_rsp": "config1:0-63",
+                "pc": "config:19",
+                "umask": "config:8-15"
+              }
+            },
+            {
+              "alias": "topdown-total-slots.scale",
+              "config": null,
+              "config_fields": {
+                "unparsed": "4"
+              },
+              "config_width_bits": 64,
+              "device": "cpu",
+              "event_source_type": {
+                "name": "PERF_TYPE_RAW",
+                "value": 4
+              },
+              "qualified_name": "cpu/topdown-total-slots.scale/",
+              "raw_spec": "4",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "any": "config:21",
+                "cmask": "config:24-31",
+                "edge": "config:18",
+                "event": "config:0-7",
+                "frontend": "config1:0-23",
+                "inv": "config:23",
+                "ldlat": "config1:0-15",
+                "offcore_rsp": "config1:0-63",
+                "pc": "config:19",
+                "umask": "config:8-15"
+              }
+            },
+            {
+              "alias": "c3-residency",
+              "config": 1,
+              "config_fields": {
+                "event": "0x01"
+              },
+              "config_width_bits": 64,
+              "device": "cstate_core",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 24
+              },
+              "qualified_name": "cstate_core/c3-residency/",
+              "raw_spec": "event=0x01",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "event": "config:0-63"
+              }
+            },
+            {
+              "alias": "c6-residency",
+              "config": 2,
+              "config_fields": {
+                "event": "0x02"
+              },
+              "config_width_bits": 64,
+              "device": "cstate_core",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 24
+              },
+              "qualified_name": "cstate_core/c6-residency/",
+              "raw_spec": "event=0x02",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "event": "config:0-63"
+              }
+            },
+            {
+              "alias": "c7-residency",
+              "config": 3,
+              "config_fields": {
+                "event": "0x03"
+              },
+              "config_width_bits": 64,
+              "device": "cstate_core",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 24
+              },
+              "qualified_name": "cstate_core/c7-residency/",
+              "raw_spec": "event=0x03",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "event": "config:0-63"
+              }
+            },
+            {
+              "alias": "c10-residency",
+              "config": 6,
+              "config_fields": {
+                "event": "0x06"
+              },
+              "config_width_bits": 64,
+              "device": "cstate_pkg",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 25
+              },
+              "qualified_name": "cstate_pkg/c10-residency/",
+              "raw_spec": "event=0x06",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "event": "config:0-63"
+              }
+            },
+            {
+              "alias": "c2-residency",
+              "config": 0,
+              "config_fields": {
+                "event": "0x00"
+              },
+              "config_width_bits": 64,
+              "device": "cstate_pkg",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 25
+              },
+              "qualified_name": "cstate_pkg/c2-residency/",
+              "raw_spec": "event=0x00",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "event": "config:0-63"
+              }
+            },
+            {
+              "alias": "c3-residency",
+              "config": 1,
+              "config_fields": {
+                "event": "0x01"
+              },
+              "config_width_bits": 64,
+              "device": "cstate_pkg",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 25
+              },
+              "qualified_name": "cstate_pkg/c3-residency/",
+              "raw_spec": "event=0x01",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "event": "config:0-63"
+              }
+            },
+            {
+              "alias": "c6-residency",
+              "config": 2,
+              "config_fields": {
+                "event": "0x02"
+              },
+              "config_width_bits": 64,
+              "device": "cstate_pkg",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 25
+              },
+              "qualified_name": "cstate_pkg/c6-residency/",
+              "raw_spec": "event=0x02",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "event": "config:0-63"
+              }
+            },
+            {
+              "alias": "c7-residency",
+              "config": 3,
+              "config_fields": {
+                "event": "0x03"
+              },
+              "config_width_bits": 64,
+              "device": "cstate_pkg",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 25
+              },
+              "qualified_name": "cstate_pkg/c7-residency/",
+              "raw_spec": "event=0x03",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "event": "config:0-63"
+              }
+            },
+            {
+              "alias": "c8-residency",
+              "config": 4,
+              "config_fields": {
+                "event": "0x04"
+              },
+              "config_width_bits": 64,
+              "device": "cstate_pkg",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 25
+              },
+              "qualified_name": "cstate_pkg/c8-residency/",
+              "raw_spec": "event=0x04",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "event": "config:0-63"
+              }
+            },
+            {
+              "alias": "c9-residency",
+              "config": 5,
+              "config_fields": {
+                "event": "0x05"
+              },
+              "config_width_bits": 64,
+              "device": "cstate_pkg",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 25
+              },
+              "qualified_name": "cstate_pkg/c9-residency/",
+              "raw_spec": "event=0x05",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "event": "config:0-63"
+              }
+            },
+            {
+              "alias": "actual-frequency",
+              "config": null,
+              "config_fields": {
+                "config": "0x100000"
+              },
+              "config_width_bits": 64,
+              "device": "i915",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 13
+              },
+              "qualified_name": "i915/actual-frequency/",
+              "raw_spec": "config=0x100000",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "i915_eventid": "config:0-20"
+              }
+            },
+            {
+              "alias": "actual-frequency.unit",
+              "config": null,
+              "config_fields": {
+                "unparsed": "M"
+              },
+              "config_width_bits": 64,
+              "device": "i915",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 13
+              },
+              "qualified_name": "i915/actual-frequency.unit/",
+              "raw_spec": "M",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "i915_eventid": "config:0-20"
+              }
+            },
+            {
+              "alias": "bcs0-busy",
+              "config": null,
+              "config_fields": {
+                "config": "0x1000"
+              },
+              "config_width_bits": 64,
+              "device": "i915",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 13
+              },
+              "qualified_name": "i915/bcs0-busy/",
+              "raw_spec": "config=0x1000",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "i915_eventid": "config:0-20"
+              }
+            },
+            {
+              "alias": "bcs0-busy.unit",
+              "config": null,
+              "config_fields": {
+                "unparsed": "ns"
+              },
+              "config_width_bits": 64,
+              "device": "i915",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 13
+              },
+              "qualified_name": "i915/bcs0-busy.unit/",
+              "raw_spec": "ns",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "i915_eventid": "config:0-20"
+              }
+            },
+            {
+              "alias": "bcs0-sema",
+              "config": null,
+              "config_fields": {
+                "config": "0x1002"
+              },
+              "config_width_bits": 64,
+              "device": "i915",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 13
+              },
+              "qualified_name": "i915/bcs0-sema/",
+              "raw_spec": "config=0x1002",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "i915_eventid": "config:0-20"
+              }
+            },
+            {
+              "alias": "bcs0-sema.unit",
+              "config": null,
+              "config_fields": {
+                "unparsed": "ns"
+              },
+              "config_width_bits": 64,
+              "device": "i915",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 13
+              },
+              "qualified_name": "i915/bcs0-sema.unit/",
+              "raw_spec": "ns",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "i915_eventid": "config:0-20"
+              }
+            },
+            {
+              "alias": "bcs0-wait",
+              "config": null,
+              "config_fields": {
+                "config": "0x1001"
+              },
+              "config_width_bits": 64,
+              "device": "i915",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 13
+              },
+              "qualified_name": "i915/bcs0-wait/",
+              "raw_spec": "config=0x1001",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "i915_eventid": "config:0-20"
+              }
+            },
+            {
+              "alias": "bcs0-wait.unit",
+              "config": null,
+              "config_fields": {
+                "unparsed": "ns"
+              },
+              "config_width_bits": 64,
+              "device": "i915",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 13
+              },
+              "qualified_name": "i915/bcs0-wait.unit/",
+              "raw_spec": "ns",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "i915_eventid": "config:0-20"
+              }
+            },
+            {
+              "alias": "interrupts",
+              "config": null,
+              "config_fields": {
+                "config": "0x100002"
+              },
+              "config_width_bits": 64,
+              "device": "i915",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 13
+              },
+              "qualified_name": "i915/interrupts/",
+              "raw_spec": "config=0x100002",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "i915_eventid": "config:0-20"
+              }
+            },
+            {
+              "alias": "rc6-residency",
+              "config": null,
+              "config_fields": {
+                "config": "0x100003"
+              },
+              "config_width_bits": 64,
+              "device": "i915",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 13
+              },
+              "qualified_name": "i915/rc6-residency/",
+              "raw_spec": "config=0x100003",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "i915_eventid": "config:0-20"
+              }
+            },
+            {
+              "alias": "rc6-residency.unit",
+              "config": null,
+              "config_fields": {
+                "unparsed": "ns"
+              },
+              "config_width_bits": 64,
+              "device": "i915",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 13
+              },
+              "qualified_name": "i915/rc6-residency.unit/",
+              "raw_spec": "ns",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "i915_eventid": "config:0-20"
+              }
+            },
+            {
+              "alias": "rcs0-busy",
+              "config": null,
+              "config_fields": {
+                "config": "0x0"
+              },
+              "config_width_bits": 64,
+              "device": "i915",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 13
+              },
+              "qualified_name": "i915/rcs0-busy/",
+              "raw_spec": "config=0x0",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "i915_eventid": "config:0-20"
+              }
+            },
+            {
+              "alias": "rcs0-busy.unit",
+              "config": null,
+              "config_fields": {
+                "unparsed": "ns"
+              },
+              "config_width_bits": 64,
+              "device": "i915",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 13
+              },
+              "qualified_name": "i915/rcs0-busy.unit/",
+              "raw_spec": "ns",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "i915_eventid": "config:0-20"
+              }
+            },
+            {
+              "alias": "rcs0-sema",
+              "config": null,
+              "config_fields": {
+                "config": "0x2"
+              },
+              "config_width_bits": 64,
+              "device": "i915",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 13
+              },
+              "qualified_name": "i915/rcs0-sema/",
+              "raw_spec": "config=0x2",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "i915_eventid": "config:0-20"
+              }
+            },
+            {
+              "alias": "rcs0-sema.unit",
+              "config": null,
+              "config_fields": {
+                "unparsed": "ns"
+              },
+              "config_width_bits": 64,
+              "device": "i915",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 13
+              },
+              "qualified_name": "i915/rcs0-sema.unit/",
+              "raw_spec": "ns",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "i915_eventid": "config:0-20"
+              }
+            },
+            {
+              "alias": "rcs0-wait",
+              "config": null,
+              "config_fields": {
+                "config": "0x1"
+              },
+              "config_width_bits": 64,
+              "device": "i915",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 13
+              },
+              "qualified_name": "i915/rcs0-wait/",
+              "raw_spec": "config=0x1",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "i915_eventid": "config:0-20"
+              }
+            },
+            {
+              "alias": "rcs0-wait.unit",
+              "config": null,
+              "config_fields": {
+                "unparsed": "ns"
+              },
+              "config_width_bits": 64,
+              "device": "i915",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 13
+              },
+              "qualified_name": "i915/rcs0-wait.unit/",
+              "raw_spec": "ns",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "i915_eventid": "config:0-20"
+              }
+            },
+            {
+              "alias": "requested-frequency",
+              "config": null,
+              "config_fields": {
+                "config": "0x100001"
+              },
+              "config_width_bits": 64,
+              "device": "i915",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 13
+              },
+              "qualified_name": "i915/requested-frequency/",
+              "raw_spec": "config=0x100001",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "i915_eventid": "config:0-20"
+              }
+            },
+            {
+              "alias": "requested-frequency.unit",
+              "config": null,
+              "config_fields": {
+                "unparsed": "M"
+              },
+              "config_width_bits": 64,
+              "device": "i915",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 13
+              },
+              "qualified_name": "i915/requested-frequency.unit/",
+              "raw_spec": "M",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "i915_eventid": "config:0-20"
+              }
+            },
+            {
+              "alias": "software-gt-awake-time",
+              "config": null,
+              "config_fields": {
+                "config": "0x100004"
+              },
+              "config_width_bits": 64,
+              "device": "i915",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 13
+              },
+              "qualified_name": "i915/software-gt-awake-time/",
+              "raw_spec": "config=0x100004",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "i915_eventid": "config:0-20"
+              }
+            },
+            {
+              "alias": "software-gt-awake-time.unit",
+              "config": null,
+              "config_fields": {
+                "unparsed": "ns"
+              },
+              "config_width_bits": 64,
+              "device": "i915",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 13
+              },
+              "qualified_name": "i915/software-gt-awake-time.unit/",
+              "raw_spec": "ns",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "i915_eventid": "config:0-20"
+              }
+            },
+            {
+              "alias": "vcs0-busy",
+              "config": null,
+              "config_fields": {
+                "config": "0x2000"
+              },
+              "config_width_bits": 64,
+              "device": "i915",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 13
+              },
+              "qualified_name": "i915/vcs0-busy/",
+              "raw_spec": "config=0x2000",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "i915_eventid": "config:0-20"
+              }
+            },
+            {
+              "alias": "vcs0-busy.unit",
+              "config": null,
+              "config_fields": {
+                "unparsed": "ns"
+              },
+              "config_width_bits": 64,
+              "device": "i915",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 13
+              },
+              "qualified_name": "i915/vcs0-busy.unit/",
+              "raw_spec": "ns",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "i915_eventid": "config:0-20"
+              }
+            },
+            {
+              "alias": "vcs0-sema",
+              "config": null,
+              "config_fields": {
+                "config": "0x2002"
+              },
+              "config_width_bits": 64,
+              "device": "i915",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 13
+              },
+              "qualified_name": "i915/vcs0-sema/",
+              "raw_spec": "config=0x2002",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "i915_eventid": "config:0-20"
+              }
+            },
+            {
+              "alias": "vcs0-sema.unit",
+              "config": null,
+              "config_fields": {
+                "unparsed": "ns"
+              },
+              "config_width_bits": 64,
+              "device": "i915",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 13
+              },
+              "qualified_name": "i915/vcs0-sema.unit/",
+              "raw_spec": "ns",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "i915_eventid": "config:0-20"
+              }
+            },
+            {
+              "alias": "vcs0-wait",
+              "config": null,
+              "config_fields": {
+                "config": "0x2001"
+              },
+              "config_width_bits": 64,
+              "device": "i915",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 13
+              },
+              "qualified_name": "i915/vcs0-wait/",
+              "raw_spec": "config=0x2001",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "i915_eventid": "config:0-20"
+              }
+            },
+            {
+              "alias": "vcs0-wait.unit",
+              "config": null,
+              "config_fields": {
+                "unparsed": "ns"
+              },
+              "config_width_bits": 64,
+              "device": "i915",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 13
+              },
+              "qualified_name": "i915/vcs0-wait.unit/",
+              "raw_spec": "ns",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "i915_eventid": "config:0-20"
+              }
+            },
+            {
+              "alias": "vecs0-busy",
+              "config": null,
+              "config_fields": {
+                "config": "0x3000"
+              },
+              "config_width_bits": 64,
+              "device": "i915",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 13
+              },
+              "qualified_name": "i915/vecs0-busy/",
+              "raw_spec": "config=0x3000",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "i915_eventid": "config:0-20"
+              }
+            },
+            {
+              "alias": "vecs0-busy.unit",
+              "config": null,
+              "config_fields": {
+                "unparsed": "ns"
+              },
+              "config_width_bits": 64,
+              "device": "i915",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 13
+              },
+              "qualified_name": "i915/vecs0-busy.unit/",
+              "raw_spec": "ns",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "i915_eventid": "config:0-20"
+              }
+            },
+            {
+              "alias": "vecs0-sema",
+              "config": null,
+              "config_fields": {
+                "config": "0x3002"
+              },
+              "config_width_bits": 64,
+              "device": "i915",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 13
+              },
+              "qualified_name": "i915/vecs0-sema/",
+              "raw_spec": "config=0x3002",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "i915_eventid": "config:0-20"
+              }
+            },
+            {
+              "alias": "vecs0-sema.unit",
+              "config": null,
+              "config_fields": {
+                "unparsed": "ns"
+              },
+              "config_width_bits": 64,
+              "device": "i915",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 13
+              },
+              "qualified_name": "i915/vecs0-sema.unit/",
+              "raw_spec": "ns",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "i915_eventid": "config:0-20"
+              }
+            },
+            {
+              "alias": "vecs0-wait",
+              "config": null,
+              "config_fields": {
+                "config": "0x3001"
+              },
+              "config_width_bits": 64,
+              "device": "i915",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 13
+              },
+              "qualified_name": "i915/vecs0-wait/",
+              "raw_spec": "config=0x3001",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "i915_eventid": "config:0-20"
+              }
+            },
+            {
+              "alias": "vecs0-wait.unit",
+              "config": null,
+              "config_fields": {
+                "unparsed": "ns"
+              },
+              "config_width_bits": 64,
+              "device": "i915",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 13
+              },
+              "qualified_name": "i915/vecs0-wait.unit/",
+              "raw_spec": "ns",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "i915_eventid": "config:0-20"
+              }
+            },
+            {
+              "alias": "aperf",
+              "config": 1,
+              "config_fields": {
+                "event": "0x01"
+              },
+              "config_width_bits": 64,
+              "device": "msr",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 12
+              },
+              "qualified_name": "msr/aperf/",
+              "raw_spec": "event=0x01",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "event": "config:0-63"
+              }
+            },
+            {
+              "alias": "cpu_thermal_margin",
+              "config": 7,
+              "config_fields": {
+                "event": "0x07"
+              },
+              "config_width_bits": 64,
+              "device": "msr",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 12
+              },
+              "qualified_name": "msr/cpu_thermal_margin/",
+              "raw_spec": "event=0x07",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "event": "config:0-63"
+              }
+            },
+            {
+              "alias": "cpu_thermal_margin.snapshot",
+              "config": null,
+              "config_fields": {
+                "unparsed": "1"
+              },
+              "config_width_bits": 64,
+              "device": "msr",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 12
+              },
+              "qualified_name": "msr/cpu_thermal_margin.snapshot/",
+              "raw_spec": "1",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "event": "config:0-63"
+              }
+            },
+            {
+              "alias": "cpu_thermal_margin.unit",
+              "config": null,
+              "config_fields": {
+                "unparsed": "C"
+              },
+              "config_width_bits": 64,
+              "device": "msr",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 12
+              },
+              "qualified_name": "msr/cpu_thermal_margin.unit/",
+              "raw_spec": "C",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "event": "config:0-63"
+              }
+            },
+            {
+              "alias": "mperf",
+              "config": 2,
+              "config_fields": {
+                "event": "0x02"
+              },
+              "config_width_bits": 64,
+              "device": "msr",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 12
+              },
+              "qualified_name": "msr/mperf/",
+              "raw_spec": "event=0x02",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "event": "config:0-63"
+              }
+            },
+            {
+              "alias": "pperf",
+              "config": 3,
+              "config_fields": {
+                "event": "0x03"
+              },
+              "config_width_bits": 64,
+              "device": "msr",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 12
+              },
+              "qualified_name": "msr/pperf/",
+              "raw_spec": "event=0x03",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "event": "config:0-63"
+              }
+            },
+            {
+              "alias": "smi",
+              "config": 4,
+              "config_fields": {
+                "event": "0x04"
+              },
+              "config_width_bits": 64,
+              "device": "msr",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 12
+              },
+              "qualified_name": "msr/smi/",
+              "raw_spec": "event=0x04",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "event": "config:0-63"
+              }
+            },
+            {
+              "alias": "tsc",
+              "config": 0,
+              "config_fields": {
+                "event": "0x00"
+              },
+              "config_width_bits": 64,
+              "device": "msr",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 12
+              },
+              "qualified_name": "msr/tsc/",
+              "raw_spec": "event=0x00",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "event": "config:0-63"
+              }
+            },
+            {
+              "alias": "energy-cores",
+              "config": 1,
+              "config_fields": {
+                "event": "0x01"
+              },
+              "config_width_bits": 64,
+              "device": "power",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 26
+              },
+              "qualified_name": "power/energy-cores/",
+              "raw_spec": "event=0x01",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "event": "config:0-7"
+              }
+            },
+            {
+              "alias": "energy-cores.scale",
+              "config": null,
+              "config_fields": {
+                "unparsed": "2.3283064365386962890625e-10"
+              },
+              "config_width_bits": 64,
+              "device": "power",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 26
+              },
+              "qualified_name": "power/energy-cores.scale/",
+              "raw_spec": "2.3283064365386962890625e-10",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "event": "config:0-7"
+              }
+            },
+            {
+              "alias": "energy-cores.unit",
+              "config": null,
+              "config_fields": {
+                "unparsed": "Joules"
+              },
+              "config_width_bits": 64,
+              "device": "power",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 26
+              },
+              "qualified_name": "power/energy-cores.unit/",
+              "raw_spec": "Joules",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "event": "config:0-7"
+              }
+            },
+            {
+              "alias": "energy-gpu",
+              "config": 4,
+              "config_fields": {
+                "event": "0x04"
+              },
+              "config_width_bits": 64,
+              "device": "power",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 26
+              },
+              "qualified_name": "power/energy-gpu/",
+              "raw_spec": "event=0x04",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "event": "config:0-7"
+              }
+            },
+            {
+              "alias": "energy-gpu.scale",
+              "config": null,
+              "config_fields": {
+                "unparsed": "2.3283064365386962890625e-10"
+              },
+              "config_width_bits": 64,
+              "device": "power",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 26
+              },
+              "qualified_name": "power/energy-gpu.scale/",
+              "raw_spec": "2.3283064365386962890625e-10",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "event": "config:0-7"
+              }
+            },
+            {
+              "alias": "energy-gpu.unit",
+              "config": null,
+              "config_fields": {
+                "unparsed": "Joules"
+              },
+              "config_width_bits": 64,
+              "device": "power",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 26
+              },
+              "qualified_name": "power/energy-gpu.unit/",
+              "raw_spec": "Joules",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "event": "config:0-7"
+              }
+            },
+            {
+              "alias": "energy-pkg",
+              "config": 2,
+              "config_fields": {
+                "event": "0x02"
+              },
+              "config_width_bits": 64,
+              "device": "power",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 26
+              },
+              "qualified_name": "power/energy-pkg/",
+              "raw_spec": "event=0x02",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "event": "config:0-7"
+              }
+            },
+            {
+              "alias": "energy-pkg.scale",
+              "config": null,
+              "config_fields": {
+                "unparsed": "2.3283064365386962890625e-10"
+              },
+              "config_width_bits": 64,
+              "device": "power",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 26
+              },
+              "qualified_name": "power/energy-pkg.scale/",
+              "raw_spec": "2.3283064365386962890625e-10",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "event": "config:0-7"
+              }
+            },
+            {
+              "alias": "energy-pkg.unit",
+              "config": null,
+              "config_fields": {
+                "unparsed": "Joules"
+              },
+              "config_width_bits": 64,
+              "device": "power",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 26
+              },
+              "qualified_name": "power/energy-pkg.unit/",
+              "raw_spec": "Joules",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "event": "config:0-7"
+              }
+            },
+            {
+              "alias": "energy-ram",
+              "config": 3,
+              "config_fields": {
+                "event": "0x03"
+              },
+              "config_width_bits": 64,
+              "device": "power",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 26
+              },
+              "qualified_name": "power/energy-ram/",
+              "raw_spec": "event=0x03",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "event": "config:0-7"
+              }
+            },
+            {
+              "alias": "energy-ram.scale",
+              "config": null,
+              "config_fields": {
+                "unparsed": "2.3283064365386962890625e-10"
+              },
+              "config_width_bits": 64,
+              "device": "power",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 26
+              },
+              "qualified_name": "power/energy-ram.scale/",
+              "raw_spec": "2.3283064365386962890625e-10",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "event": "config:0-7"
+              }
+            },
+            {
+              "alias": "energy-ram.unit",
+              "config": null,
+              "config_fields": {
+                "unparsed": "Joules"
+              },
+              "config_width_bits": 64,
+              "device": "power",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 26
+              },
+              "qualified_name": "power/energy-ram.unit/",
+              "raw_spec": "Joules",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "event": "config:0-7"
+              }
+            },
+            {
+              "alias": "clockticks",
+              "config": 255,
+              "config_fields": {
+                "event": "0xff",
+                "umask": "0x00"
+              },
+              "config_width_bits": 64,
+              "device": "uncore_cbox_0",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 15
+              },
+              "qualified_name": "uncore_cbox_0/clockticks/",
+              "raw_spec": "event=0xff,umask=0x00",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "cmask": "config:24-28",
+                "edge": "config:18",
+                "event": "config:0-7",
+                "inv": "config:23",
+                "umask": "config:8-15"
+              }
+            },
+            {
+              "alias": "clockticks",
+              "config": 255,
+              "config_fields": {
+                "event": "0xff",
+                "umask": "0x00"
+              },
+              "config_width_bits": 64,
+              "device": "uncore_cbox_1",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 16
+              },
+              "qualified_name": "uncore_cbox_1/clockticks/",
+              "raw_spec": "event=0xff,umask=0x00",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "cmask": "config:24-28",
+                "edge": "config:18",
+                "event": "config:0-7",
+                "inv": "config:23",
+                "umask": "config:8-15"
+              }
+            },
+            {
+              "alias": "clockticks",
+              "config": 255,
+              "config_fields": {
+                "event": "0xff",
+                "umask": "0x00"
+              },
+              "config_width_bits": 64,
+              "device": "uncore_cbox_2",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 17
+              },
+              "qualified_name": "uncore_cbox_2/clockticks/",
+              "raw_spec": "event=0xff,umask=0x00",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "cmask": "config:24-28",
+                "edge": "config:18",
+                "event": "config:0-7",
+                "inv": "config:23",
+                "umask": "config:8-15"
+              }
+            },
+            {
+              "alias": "clockticks",
+              "config": 255,
+              "config_fields": {
+                "event": "0xff",
+                "umask": "0x00"
+              },
+              "config_width_bits": 64,
+              "device": "uncore_cbox_3",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 18
+              },
+              "qualified_name": "uncore_cbox_3/clockticks/",
+              "raw_spec": "event=0xff,umask=0x00",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "cmask": "config:24-28",
+                "edge": "config:18",
+                "event": "config:0-7",
+                "inv": "config:23",
+                "umask": "config:8-15"
+              }
+            },
+            {
+              "alias": "clockticks",
+              "config": 255,
+              "config_fields": {
+                "event": "0xff",
+                "umask": "0x00"
+              },
+              "config_width_bits": 64,
+              "device": "uncore_cbox_4",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 19
+              },
+              "qualified_name": "uncore_cbox_4/clockticks/",
+              "raw_spec": "event=0xff,umask=0x00",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "cmask": "config:24-28",
+                "edge": "config:18",
+                "event": "config:0-7",
+                "inv": "config:23",
+                "umask": "config:8-15"
+              }
+            },
+            {
+              "alias": "clockticks",
+              "config": 255,
+              "config_fields": {
+                "event": "0xff",
+                "umask": "0x00"
+              },
+              "config_width_bits": 64,
+              "device": "uncore_cbox_5",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 20
+              },
+              "qualified_name": "uncore_cbox_5/clockticks/",
+              "raw_spec": "event=0xff,umask=0x00",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "cmask": "config:24-28",
+                "edge": "config:18",
+                "event": "config:0-7",
+                "inv": "config:23",
+                "umask": "config:8-15"
+              }
+            },
+            {
+              "alias": "clockticks",
+              "config": 255,
+              "config_fields": {
+                "event": "0xff",
+                "umask": "0x00"
+              },
+              "config_width_bits": 64,
+              "device": "uncore_cbox_6",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 21
+              },
+              "qualified_name": "uncore_cbox_6/clockticks/",
+              "raw_spec": "event=0xff,umask=0x00",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "cmask": "config:24-28",
+                "edge": "config:18",
+                "event": "config:0-7",
+                "inv": "config:23",
+                "umask": "config:8-15"
+              }
+            },
+            {
+              "alias": "clockticks",
+              "config": 255,
+              "config_fields": {
+                "event": "0xff",
+                "umask": "0x00"
+              },
+              "config_width_bits": 64,
+              "device": "uncore_cbox_7",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 22
+              },
+              "qualified_name": "uncore_cbox_7/clockticks/",
+              "raw_spec": "event=0xff,umask=0x00",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "cmask": "config:24-28",
+                "edge": "config:18",
+                "event": "config:0-7",
+                "inv": "config:23",
+                "umask": "config:8-15"
+              }
+            },
+            {
+              "alias": "data_reads",
+              "config": 1,
+              "config_fields": {
+                "event": "0x01"
+              },
+              "config_width_bits": 64,
+              "device": "uncore_imc",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 14
+              },
+              "qualified_name": "uncore_imc/data_reads/",
+              "raw_spec": "event=0x01",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "event": "config:0-7"
+              }
+            },
+            {
+              "alias": "data_reads.scale",
+              "config": null,
+              "config_fields": {
+                "unparsed": "6.103515625e-5"
+              },
+              "config_width_bits": 64,
+              "device": "uncore_imc",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 14
+              },
+              "qualified_name": "uncore_imc/data_reads.scale/",
+              "raw_spec": "6.103515625e-5",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "event": "config:0-7"
+              }
+            },
+            {
+              "alias": "data_reads.unit",
+              "config": null,
+              "config_fields": {
+                "unparsed": "MiB"
+              },
+              "config_width_bits": 64,
+              "device": "uncore_imc",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 14
+              },
+              "qualified_name": "uncore_imc/data_reads.unit/",
+              "raw_spec": "MiB",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "event": "config:0-7"
+              }
+            },
+            {
+              "alias": "data_writes",
+              "config": 2,
+              "config_fields": {
+                "event": "0x02"
+              },
+              "config_width_bits": 64,
+              "device": "uncore_imc",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 14
+              },
+              "qualified_name": "uncore_imc/data_writes/",
+              "raw_spec": "event=0x02",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "event": "config:0-7"
+              }
+            },
+            {
+              "alias": "data_writes.scale",
+              "config": null,
+              "config_fields": {
+                "unparsed": "6.103515625e-5"
+              },
+              "config_width_bits": 64,
+              "device": "uncore_imc",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 14
+              },
+              "qualified_name": "uncore_imc/data_writes.scale/",
+              "raw_spec": "6.103515625e-5",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "event": "config:0-7"
+              }
+            },
+            {
+              "alias": "data_writes.unit",
+              "config": null,
+              "config_fields": {
+                "unparsed": "MiB"
+              },
+              "config_width_bits": 64,
+              "device": "uncore_imc",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 14
+              },
+              "qualified_name": "uncore_imc/data_writes.unit/",
+              "raw_spec": "MiB",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "event": "config:0-7"
+              }
+            },
+            {
+              "alias": "gt_requests",
+              "config": 3,
+              "config_fields": {
+                "event": "0x03"
+              },
+              "config_width_bits": 64,
+              "device": "uncore_imc",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 14
+              },
+              "qualified_name": "uncore_imc/gt_requests/",
+              "raw_spec": "event=0x03",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "event": "config:0-7"
+              }
+            },
+            {
+              "alias": "gt_requests.scale",
+              "config": null,
+              "config_fields": {
+                "unparsed": "6.103515625e-5"
+              },
+              "config_width_bits": 64,
+              "device": "uncore_imc",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 14
+              },
+              "qualified_name": "uncore_imc/gt_requests.scale/",
+              "raw_spec": "6.103515625e-5",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "event": "config:0-7"
+              }
+            },
+            {
+              "alias": "gt_requests.unit",
+              "config": null,
+              "config_fields": {
+                "unparsed": "MiB"
+              },
+              "config_width_bits": 64,
+              "device": "uncore_imc",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 14
+              },
+              "qualified_name": "uncore_imc/gt_requests.unit/",
+              "raw_spec": "MiB",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "event": "config:0-7"
+              }
+            },
+            {
+              "alias": "ia_requests",
+              "config": 4,
+              "config_fields": {
+                "event": "0x04"
+              },
+              "config_width_bits": 64,
+              "device": "uncore_imc",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 14
+              },
+              "qualified_name": "uncore_imc/ia_requests/",
+              "raw_spec": "event=0x04",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "event": "config:0-7"
+              }
+            },
+            {
+              "alias": "ia_requests.scale",
+              "config": null,
+              "config_fields": {
+                "unparsed": "6.103515625e-5"
+              },
+              "config_width_bits": 64,
+              "device": "uncore_imc",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 14
+              },
+              "qualified_name": "uncore_imc/ia_requests.scale/",
+              "raw_spec": "6.103515625e-5",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "event": "config:0-7"
+              }
+            },
+            {
+              "alias": "ia_requests.unit",
+              "config": null,
+              "config_fields": {
+                "unparsed": "MiB"
+              },
+              "config_width_bits": 64,
+              "device": "uncore_imc",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 14
+              },
+              "qualified_name": "uncore_imc/ia_requests.unit/",
+              "raw_spec": "MiB",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "event": "config:0-7"
+              }
+            },
+            {
+              "alias": "io_requests",
+              "config": 5,
+              "config_fields": {
+                "event": "0x05"
+              },
+              "config_width_bits": 64,
+              "device": "uncore_imc",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 14
+              },
+              "qualified_name": "uncore_imc/io_requests/",
+              "raw_spec": "event=0x05",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "event": "config:0-7"
+              }
+            },
+            {
+              "alias": "io_requests.scale",
+              "config": null,
+              "config_fields": {
+                "unparsed": "6.103515625e-5"
+              },
+              "config_width_bits": 64,
+              "device": "uncore_imc",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 14
+              },
+              "qualified_name": "uncore_imc/io_requests.scale/",
+              "raw_spec": "6.103515625e-5",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "event": "config:0-7"
+              }
+            },
+            {
+              "alias": "io_requests.unit",
+              "config": null,
+              "config_fields": {
+                "unparsed": "MiB"
+              },
+              "config_width_bits": 64,
+              "device": "uncore_imc",
+              "event_source_type": {
+                "name": "sysfs_pmu_type",
+                "value": 14
+              },
+              "qualified_name": "uncore_imc/io_requests.unit/",
+              "raw_spec": "MiB",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "event": "config:0-7"
+              }
+            }
+          ]
+        },
+        "schema": "sensetrace.performance-counter-capabilities.v1"
+      },
+      "pmu_events_requested": [
+        "cache-references",
+        "cache-misses"
+      ],
+      "pmu_failure_policy": "permission/error/multiplex ambiguity remains invalid, never zero",
+      "pmu_scope": "origin_only",
+      "schema": "sensetrace.latent-system-state-witness-capability.v1",
+      "system_sources": [],
+      "tier": 1,
+      "witness_scope": "origin_only"
+    },
+    "protocol_version": "latent-system-state-v1",
+    "raw_artifact": {
+      "origin_channel_count": 4,
+      "path": "raw_trajectories.npz",
+      "raw_integer_channels": [
+        "target_ticks",
+        "reference_ticks",
+        "target_start_tsc",
+        "target_end_tsc",
+        "reference_start_tsc",
+        "reference_end_tsc",
+        "target_start_aux",
+        "target_end_aux",
+        "reference_start_aux",
+        "reference_end_aux",
+        "target_quality",
+        "reference_quality",
+        "acquisition_order",
+        "origin_channel_ticks",
+        "origin_channel_start_tsc",
+        "origin_channel_end_tsc",
+        "origin_channel_start_aux",
+        "origin_channel_end_aux",
+        "origin_channel_quality",
+        "origin_channel_order"
+      ],
+      "repetitions_per_trajectory": 49,
+      "schema": "sensetrace.latent-system-state-raw.v1",
+      "sha256": "159bdbfbd5e2ccde9aae32a681d1e33967142eebe698bb91972a13789317702f",
+      "trajectory_count": 16,
+      "witness_channel_count": 3
+    },
+    "requested_node": "worker-03",
+    "schema": "sensetrace.latent-system-state-acquisition.v1",
+    "session_count": 16,
+    "stage": "development",
+    "status": "complete",
+    "timing_conversion": {
+      "end_aux": 0,
+      "method": "paired monotonic_ns/RDTSCP read",
+      "nanoseconds_per_tsc_tick": 0.3339409761926426,
+      "start_aux": 0,
+      "tsc_ticks_per_nanosecond": 2.994541165331935
+    },
+    "trajectory_count": 16,
+    "trajectory_journal": {
+      "path": "trajectory_journal.jsonl",
+      "sha256": "77ab24b61487a88531ab3f49d72c10d71fa9de75ef5b5f62d40711ce44065925"
+    }
+  },
+  "analysis_status": "not_run",
+  "claim_boundary": "ordinary worker-03 timing plus contextual system-witness prediction; no hidden DRAM state/topology/unique mechanism claim",
+  "schema": "sensetrace.latent-system-state-experiment.v1",
+  "stage": "development"
+}

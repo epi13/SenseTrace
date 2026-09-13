@@ -1,0 +1,8 @@
+{
+  "completed_trajectory_count": 16,
+  "last_completed_trajectory_id": "development-latent-session-0015-a6abaa979d0448f99c369a0ff63f6a76-trajectory-000",
+  "planned_trajectory_count": 16,
+  "schema": "sensetrace.latent-system-state-progress.v1",
+  "stage": "development",
+  "updated_at": "2026-09-13T04:30:04.819972+00:00"
+}

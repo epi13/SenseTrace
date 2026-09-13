@@ -193,7 +193,9 @@ def build_parser() -> argparse.ArgumentParser:
         "--config", default="configs/latent-system-state-worker03.example.yaml"
     )
     timescale_analysis.add_argument("--sweep", required=True)
-    timescale_analysis.add_argument("--output", default="runs/latent-system-state-timescale-analysis")
+    timescale_analysis.add_argument(
+        "--output", default="runs/latent-system-state-timescale-analysis"
+    )
 
     protocol = sub.add_parser("protocol", help="print a frozen protocol and its fingerprint")
     protocol.add_argument("name", choices=["worker03-fragmented"])

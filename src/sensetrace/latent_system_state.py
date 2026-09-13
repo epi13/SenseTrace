@@ -2176,9 +2176,7 @@ def _fit_latent_model(
     y = batch.targets[index]
     impute = np.asarray(
         [
-            float(np.median(column[np.isfinite(column)]))
-            if np.isfinite(column).any()
-            else 0.0
+            float(np.median(column[np.isfinite(column)])) if np.isfinite(column).any() else 0.0
             for column in x.T
         ],
         dtype=np.float64,
@@ -2336,6 +2334,15 @@ def _evaluate_ladder(
     refit = np.concatenate([train, validation])
     test_predictions = _fit_predict_all(batch, refit, test, config)
     test_mse = {name: _mse(batch.targets[test], pair[1]) for name, pair in test_predictions.items()}
+    training_mean_mse = test_mse["training_mean"]
+    normalized_skill = {
+        name: (
+            1.0 - test_mse[name] / training_mean_mse
+            if math.isfinite(training_mean_mse) and training_mean_mse > 0
+            else float("nan")
+        )
+        for name in MODEL_NAMES
+    }
     primary_baseline = test_predictions["current_primary"][1]
     selected_prediction = test_predictions[selected][1]
     bootstrap = _session_bootstrap_loss_difference(
@@ -2353,6 +2360,7 @@ def _evaluate_ladder(
         "model_order": list(MODEL_NAMES),
         "validation_mse": validation_mse,
         "test_mse": test_mse,
+        "normalized_skill_vs_training_mean": normalized_skill,
         "selected_model": selected,
         "primary_comparison": {
             "baseline": "current_primary",
@@ -2378,6 +2386,19 @@ def _evaluate_ladder(
                 test_predictions["multichannel_history"][1],
                 batch.session_ids[test],
                 seed=201 + horizon,
+                repetitions=int(config.get("reporting", {}).get("bootstrap_repetitions", 500)),
+            ),
+        },
+        "history_vs_primary_comparison": {
+            "baseline": "current_primary",
+            "candidate": "multichannel_history",
+            "test_loss_improvement": test_mse["current_primary"] - test_mse["multichannel_history"],
+            "session_bootstrap": _session_bootstrap_loss_difference(
+                batch.targets[test],
+                test_predictions["current_primary"][1],
+                test_predictions["multichannel_history"][1],
+                batch.session_ids[test],
+                seed=251 + horizon,
                 repetitions=int(config.get("reporting", {}).get("bootstrap_repetitions", 500)),
             ),
         },
@@ -2580,6 +2601,15 @@ def analyze_latent_system_state(
                         else confirm_batch.features[name]
                     )
                     test_mse[name] = _mse(confirm_batch.targets, model.predict(matrix))
+                training_mean_mse = test_mse["training_mean"]
+                normalized_skill = {
+                    name: (
+                        1.0 - test_mse[name] / training_mean_mse
+                        if math.isfinite(training_mean_mse) and training_mean_mse > 0
+                        else float("nan")
+                    )
+                    for name in MODEL_NAMES
+                }
                 primary_pred = models["current_primary"].predict(
                     confirm_batch.features["current_primary"]
                 )
@@ -2589,6 +2619,7 @@ def analyze_latent_system_state(
                 cell["confirmation"][str(horizon)] = {
                     "row_count": len(confirm_batch.targets),
                     "test_mse": test_mse,
+                    "normalized_skill_vs_training_mean": normalized_skill,
                     "primary_comparison": {
                         "baseline": "current_primary",
                         "candidate": "current_multichannel",
@@ -2618,6 +2649,26 @@ def analyze_latent_system_state(
                             ),
                             confirm_batch.session_ids,
                             seed=401 + horizon,
+                            repetitions=int(
+                                config.get("reporting", {}).get("bootstrap_repetitions", 500)
+                            ),
+                        ),
+                    },
+                    "history_vs_primary_comparison": {
+                        "baseline": "current_primary",
+                        "candidate": "multichannel_history",
+                        "test_loss_improvement": test_mse["current_primary"]
+                        - test_mse["multichannel_history"],
+                        "session_bootstrap": _session_bootstrap_loss_difference(
+                            confirm_batch.targets,
+                            models["current_primary"].predict(
+                                confirm_batch.features["current_primary"]
+                            ),
+                            models["multichannel_history"].predict(
+                                confirm_batch.features["multichannel_history"]
+                            ),
+                            confirm_batch.session_ids,
+                            seed=451 + horizon,
                             repetitions=int(
                                 config.get("reporting", {}).get("bootstrap_repetitions", 500)
                             ),
@@ -2919,6 +2970,9 @@ def run_latent_observer_characterization(
         "schema": OVERHEAD_SCHEMA,
         "protocol_version": LATENT_SYSTEM_STATE_PROTOCOL_VERSION,
         "created_at": datetime.now(UTC).isoformat(),
+        "code_commit": _git_commit(),
+        "configuration_hash": config_fingerprint(dict(config)),
+        "execution_host": platform.node() or "unavailable",
         "tiers": rows,
         "comparisons_to_tier0": comparisons,
         "thresholds_frozen_before_confirmation": thresholds,

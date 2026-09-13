@@ -1,0 +1,1611 @@
+{
+  "config_hash": "0ed6802e9c276ef51502edf98b574e98cb808a4c6a820895c40ea048b35882b9",
+  "created_at": "2026-09-13T04:33:46.747436+00:00",
+  "fresh_sequence_policy": "fresh session IDs and confirmation seed offset; completed design is immutable",
+  "protocol_version": "latent-system-state-v1",
+  "schema": "sensetrace.latent-system-state-design.v1",
+  "sessions": [
+    {
+      "family": "read_pressure",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 0,
+      "seed": 30260913,
+      "session_id": "confirmation-latent-session-0000-e46aca343f5a493ea2ed0fc558e8b941",
+      "trajectory_ids": [
+        "confirmation-latent-session-0000-e46aca343f5a493ea2ed0fc558e8b941-trajectory-000"
+      ]
+    },
+    {
+      "family": "read_pressure",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 1,
+      "seed": 30368835,
+      "session_id": "confirmation-latent-session-0001-5230daa381c04eadb813fdccf0509d6c",
+      "trajectory_ids": [
+        "confirmation-latent-session-0001-5230daa381c04eadb813fdccf0509d6c-trajectory-000"
+      ]
+    },
+    {
+      "family": "read_pressure",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 2,
+      "seed": 30476757,
+      "session_id": "confirmation-latent-session-0002-cdf704f2aade455cb7a935dfd72757f1",
+      "trajectory_ids": [
+        "confirmation-latent-session-0002-cdf704f2aade455cb7a935dfd72757f1-trajectory-000"
+      ]
+    },
+    {
+      "family": "read_pressure",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 3,
+      "seed": 30584679,
+      "session_id": "confirmation-latent-session-0003-c3f42d3d2aac400c8e61a11bc8309956",
+      "trajectory_ids": [
+        "confirmation-latent-session-0003-c3f42d3d2aac400c8e61a11bc8309956-trajectory-000"
+      ]
+    },
+    {
+      "family": "read_pressure",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 4,
+      "seed": 30692601,
+      "session_id": "confirmation-latent-session-0004-4f16d7989be64c3f92c779f212f37053",
+      "trajectory_ids": [
+        "confirmation-latent-session-0004-4f16d7989be64c3f92c779f212f37053-trajectory-000"
+      ]
+    },
+    {
+      "family": "read_pressure",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 5,
+      "seed": 30800523,
+      "session_id": "confirmation-latent-session-0005-ec102e915cb44cd1b50e98e2255cc82d",
+      "trajectory_ids": [
+        "confirmation-latent-session-0005-ec102e915cb44cd1b50e98e2255cc82d-trajectory-000"
+      ]
+    },
+    {
+      "family": "read_pressure",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 6,
+      "seed": 30908445,
+      "session_id": "confirmation-latent-session-0006-8f744eec3c43494cad3b0e96b6653d70",
+      "trajectory_ids": [
+        "confirmation-latent-session-0006-8f744eec3c43494cad3b0e96b6653d70-trajectory-000"
+      ]
+    },
+    {
+      "family": "read_pressure",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 7,
+      "seed": 31016367,
+      "session_id": "confirmation-latent-session-0007-5868ce531e5f436fb0796d29238bbe8e",
+      "trajectory_ids": [
+        "confirmation-latent-session-0007-5868ce531e5f436fb0796d29238bbe8e-trajectory-000"
+      ]
+    },
+    {
+      "family": "read_pressure",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 8,
+      "seed": 31124289,
+      "session_id": "confirmation-latent-session-0008-441acdbecded4b898889bdb427168d9d",
+      "trajectory_ids": [
+        "confirmation-latent-session-0008-441acdbecded4b898889bdb427168d9d-trajectory-000"
+      ]
+    },
+    {
+      "family": "read_pressure",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 9,
+      "seed": 31232211,
+      "session_id": "confirmation-latent-session-0009-69dfecf01a124bcd8731c930387d0e6d",
+      "trajectory_ids": [
+        "confirmation-latent-session-0009-69dfecf01a124bcd8731c930387d0e6d-trajectory-000"
+      ]
+    },
+    {
+      "family": "read_pressure",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 10,
+      "seed": 31340133,
+      "session_id": "confirmation-latent-session-0010-982ac45a2cd848ff858a801b874efdf9",
+      "trajectory_ids": [
+        "confirmation-latent-session-0010-982ac45a2cd848ff858a801b874efdf9-trajectory-000"
+      ]
+    },
+    {
+      "family": "read_pressure",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 11,
+      "seed": 31448055,
+      "session_id": "confirmation-latent-session-0011-6acc9fbd4a2944d1830a94390a8a54f7",
+      "trajectory_ids": [
+        "confirmation-latent-session-0011-6acc9fbd4a2944d1830a94390a8a54f7-trajectory-000"
+      ]
+    },
+    {
+      "family": "read_pressure",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 12,
+      "seed": 31555977,
+      "session_id": "confirmation-latent-session-0012-73c632a9c9714c04903af3fc8b10d0f0",
+      "trajectory_ids": [
+        "confirmation-latent-session-0012-73c632a9c9714c04903af3fc8b10d0f0-trajectory-000"
+      ]
+    },
+    {
+      "family": "read_pressure",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 13,
+      "seed": 31663899,
+      "session_id": "confirmation-latent-session-0013-c9b31b3391c34f869e733a82422c76dd",
+      "trajectory_ids": [
+        "confirmation-latent-session-0013-c9b31b3391c34f869e733a82422c76dd-trajectory-000"
+      ]
+    },
+    {
+      "family": "read_pressure",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 14,
+      "seed": 31771821,
+      "session_id": "confirmation-latent-session-0014-ef4f4673a5134dd8be0427ae72a3596f",
+      "trajectory_ids": [
+        "confirmation-latent-session-0014-ef4f4673a5134dd8be0427ae72a3596f-trajectory-000"
+      ]
+    },
+    {
+      "family": "read_pressure",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 15,
+      "seed": 31879743,
+      "session_id": "confirmation-latent-session-0015-cf20c1e8732f4595ba0b08427e3df2c6",
+      "trajectory_ids": [
+        "confirmation-latent-session-0015-cf20c1e8732f4595ba0b08427e3df2c6-trajectory-000"
+      ]
+    },
+    {
+      "family": "read_pressure",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 16,
+      "seed": 31987665,
+      "session_id": "confirmation-latent-session-0016-9203d8d4d1d14e0c9ffad3f7567939af",
+      "trajectory_ids": [
+        "confirmation-latent-session-0016-9203d8d4d1d14e0c9ffad3f7567939af-trajectory-000"
+      ]
+    },
+    {
+      "family": "read_pressure",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 17,
+      "seed": 32095587,
+      "session_id": "confirmation-latent-session-0017-c5dbf89979ee48b6adc686db95b046e2",
+      "trajectory_ids": [
+        "confirmation-latent-session-0017-c5dbf89979ee48b6adc686db95b046e2-trajectory-000"
+      ]
+    },
+    {
+      "family": "read_pressure",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 18,
+      "seed": 32203509,
+      "session_id": "confirmation-latent-session-0018-8cd2ed1fd83c45808fbd2de6e5df1164",
+      "trajectory_ids": [
+        "confirmation-latent-session-0018-8cd2ed1fd83c45808fbd2de6e5df1164-trajectory-000"
+      ]
+    },
+    {
+      "family": "read_pressure",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 19,
+      "seed": 32311431,
+      "session_id": "confirmation-latent-session-0019-bde5b92a285f4f00a4f1743262a9fc43",
+      "trajectory_ids": [
+        "confirmation-latent-session-0019-bde5b92a285f4f00a4f1743262a9fc43-trajectory-000"
+      ]
+    },
+    {
+      "family": "read_pressure",
+      "measurement_condition": "timer_only",
+      "repeat": 0,
+      "seed": 32260973,
+      "session_id": "confirmation-latent-session-0020-0f68314c570a4abaa594ec5336d7366e",
+      "trajectory_ids": [
+        "confirmation-latent-session-0020-0f68314c570a4abaa594ec5336d7366e-trajectory-000"
+      ]
+    },
+    {
+      "family": "read_pressure",
+      "measurement_condition": "timer_only",
+      "repeat": 1,
+      "seed": 32368895,
+      "session_id": "confirmation-latent-session-0021-ad8c636af67b4892b2e8dcede10e3953",
+      "trajectory_ids": [
+        "confirmation-latent-session-0021-ad8c636af67b4892b2e8dcede10e3953-trajectory-000"
+      ]
+    },
+    {
+      "family": "read_pressure",
+      "measurement_condition": "timer_only",
+      "repeat": 2,
+      "seed": 32476817,
+      "session_id": "confirmation-latent-session-0022-2f164135bb2f40fa877fb9d332206d64",
+      "trajectory_ids": [
+        "confirmation-latent-session-0022-2f164135bb2f40fa877fb9d332206d64-trajectory-000"
+      ]
+    },
+    {
+      "family": "read_pressure",
+      "measurement_condition": "timer_only",
+      "repeat": 3,
+      "seed": 32584739,
+      "session_id": "confirmation-latent-session-0023-3dd4ca3c75394ea6a34425068805e567",
+      "trajectory_ids": [
+        "confirmation-latent-session-0023-3dd4ca3c75394ea6a34425068805e567-trajectory-000"
+      ]
+    },
+    {
+      "family": "read_pressure",
+      "measurement_condition": "timer_only",
+      "repeat": 4,
+      "seed": 32692661,
+      "session_id": "confirmation-latent-session-0024-f50a5ecd862443aca68f16df5fdc56e1",
+      "trajectory_ids": [
+        "confirmation-latent-session-0024-f50a5ecd862443aca68f16df5fdc56e1-trajectory-000"
+      ]
+    },
+    {
+      "family": "read_pressure",
+      "measurement_condition": "timer_only",
+      "repeat": 5,
+      "seed": 32800583,
+      "session_id": "confirmation-latent-session-0025-7c5925f7b0cf4928b9d4b3e74db605a6",
+      "trajectory_ids": [
+        "confirmation-latent-session-0025-7c5925f7b0cf4928b9d4b3e74db605a6-trajectory-000"
+      ]
+    },
+    {
+      "family": "read_pressure",
+      "measurement_condition": "timer_only",
+      "repeat": 6,
+      "seed": 32908505,
+      "session_id": "confirmation-latent-session-0026-4cee73e77ad34cf1a509ef82a2ef9c39",
+      "trajectory_ids": [
+        "confirmation-latent-session-0026-4cee73e77ad34cf1a509ef82a2ef9c39-trajectory-000"
+      ]
+    },
+    {
+      "family": "read_pressure",
+      "measurement_condition": "timer_only",
+      "repeat": 7,
+      "seed": 33016427,
+      "session_id": "confirmation-latent-session-0027-c7adaf5f3d9448efb15610518677237a",
+      "trajectory_ids": [
+        "confirmation-latent-session-0027-c7adaf5f3d9448efb15610518677237a-trajectory-000"
+      ]
+    },
+    {
+      "family": "read_pressure",
+      "measurement_condition": "timer_only",
+      "repeat": 8,
+      "seed": 33124349,
+      "session_id": "confirmation-latent-session-0028-4f8a1483332e4aeda8e3cc7e2631ff59",
+      "trajectory_ids": [
+        "confirmation-latent-session-0028-4f8a1483332e4aeda8e3cc7e2631ff59-trajectory-000"
+      ]
+    },
+    {
+      "family": "read_pressure",
+      "measurement_condition": "timer_only",
+      "repeat": 9,
+      "seed": 33232271,
+      "session_id": "confirmation-latent-session-0029-1348c23daff44e41b1f006976f9eb5df",
+      "trajectory_ids": [
+        "confirmation-latent-session-0029-1348c23daff44e41b1f006976f9eb5df-trajectory-000"
+      ]
+    },
+    {
+      "family": "read_pressure",
+      "measurement_condition": "timer_only",
+      "repeat": 10,
+      "seed": 33340193,
+      "session_id": "confirmation-latent-session-0030-9ec23351c96c45b8b927591e965a2bc1",
+      "trajectory_ids": [
+        "confirmation-latent-session-0030-9ec23351c96c45b8b927591e965a2bc1-trajectory-000"
+      ]
+    },
+    {
+      "family": "read_pressure",
+      "measurement_condition": "timer_only",
+      "repeat": 11,
+      "seed": 33448115,
+      "session_id": "confirmation-latent-session-0031-06ada186594243bc8e5c7877686ae4f1",
+      "trajectory_ids": [
+        "confirmation-latent-session-0031-06ada186594243bc8e5c7877686ae4f1-trajectory-000"
+      ]
+    },
+    {
+      "family": "read_pressure",
+      "measurement_condition": "timer_only",
+      "repeat": 12,
+      "seed": 33556037,
+      "session_id": "confirmation-latent-session-0032-1999c92b386143d69e24d7456d09b6c9",
+      "trajectory_ids": [
+        "confirmation-latent-session-0032-1999c92b386143d69e24d7456d09b6c9-trajectory-000"
+      ]
+    },
+    {
+      "family": "read_pressure",
+      "measurement_condition": "timer_only",
+      "repeat": 13,
+      "seed": 33663959,
+      "session_id": "confirmation-latent-session-0033-dc85773ae1b34a9997ee062136cf5243",
+      "trajectory_ids": [
+        "confirmation-latent-session-0033-dc85773ae1b34a9997ee062136cf5243-trajectory-000"
+      ]
+    },
+    {
+      "family": "read_pressure",
+      "measurement_condition": "timer_only",
+      "repeat": 14,
+      "seed": 33771881,
+      "session_id": "confirmation-latent-session-0034-8947d84675dc43eaad34b19ec7d07160",
+      "trajectory_ids": [
+        "confirmation-latent-session-0034-8947d84675dc43eaad34b19ec7d07160-trajectory-000"
+      ]
+    },
+    {
+      "family": "read_pressure",
+      "measurement_condition": "timer_only",
+      "repeat": 15,
+      "seed": 33879803,
+      "session_id": "confirmation-latent-session-0035-a10c1a694d2c48e6aaa06eafb21fa6b6",
+      "trajectory_ids": [
+        "confirmation-latent-session-0035-a10c1a694d2c48e6aaa06eafb21fa6b6-trajectory-000"
+      ]
+    },
+    {
+      "family": "read_pressure",
+      "measurement_condition": "timer_only",
+      "repeat": 16,
+      "seed": 33987725,
+      "session_id": "confirmation-latent-session-0036-19ea3bd8e5e34b0f9c462be869e8dba0",
+      "trajectory_ids": [
+        "confirmation-latent-session-0036-19ea3bd8e5e34b0f9c462be869e8dba0-trajectory-000"
+      ]
+    },
+    {
+      "family": "read_pressure",
+      "measurement_condition": "timer_only",
+      "repeat": 17,
+      "seed": 34095647,
+      "session_id": "confirmation-latent-session-0037-0b93bf61253f46709c31c8964cb5aa6d",
+      "trajectory_ids": [
+        "confirmation-latent-session-0037-0b93bf61253f46709c31c8964cb5aa6d-trajectory-000"
+      ]
+    },
+    {
+      "family": "read_pressure",
+      "measurement_condition": "timer_only",
+      "repeat": 18,
+      "seed": 34203569,
+      "session_id": "confirmation-latent-session-0038-6820880c51664fa59ca0437922675571",
+      "trajectory_ids": [
+        "confirmation-latent-session-0038-6820880c51664fa59ca0437922675571-trajectory-000"
+      ]
+    },
+    {
+      "family": "read_pressure",
+      "measurement_condition": "timer_only",
+      "repeat": 19,
+      "seed": 34311491,
+      "session_id": "confirmation-latent-session-0039-d65c595374d5424480ef56dff65524a6",
+      "trajectory_ids": [
+        "confirmation-latent-session-0039-d65c595374d5424480ef56dff65524a6-trajectory-000"
+      ]
+    },
+    {
+      "family": "active_quiet",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 0,
+      "seed": 34261033,
+      "session_id": "confirmation-latent-session-0040-ad4a019e2d214cb681340ded562f6fa6",
+      "trajectory_ids": [
+        "confirmation-latent-session-0040-ad4a019e2d214cb681340ded562f6fa6-trajectory-000"
+      ]
+    },
+    {
+      "family": "active_quiet",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 1,
+      "seed": 34368955,
+      "session_id": "confirmation-latent-session-0041-9ac04b3498174c999aae56f2aacbd2ba",
+      "trajectory_ids": [
+        "confirmation-latent-session-0041-9ac04b3498174c999aae56f2aacbd2ba-trajectory-000"
+      ]
+    },
+    {
+      "family": "active_quiet",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 2,
+      "seed": 34476877,
+      "session_id": "confirmation-latent-session-0042-990f3171696d404c972ff159eacafc36",
+      "trajectory_ids": [
+        "confirmation-latent-session-0042-990f3171696d404c972ff159eacafc36-trajectory-000"
+      ]
+    },
+    {
+      "family": "active_quiet",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 3,
+      "seed": 34584799,
+      "session_id": "confirmation-latent-session-0043-d5637f3f67854c53ad8428105427f149",
+      "trajectory_ids": [
+        "confirmation-latent-session-0043-d5637f3f67854c53ad8428105427f149-trajectory-000"
+      ]
+    },
+    {
+      "family": "active_quiet",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 4,
+      "seed": 34692721,
+      "session_id": "confirmation-latent-session-0044-64853c8bbb944f30997b356f2ec36459",
+      "trajectory_ids": [
+        "confirmation-latent-session-0044-64853c8bbb944f30997b356f2ec36459-trajectory-000"
+      ]
+    },
+    {
+      "family": "active_quiet",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 5,
+      "seed": 34800643,
+      "session_id": "confirmation-latent-session-0045-736dc027f2994f888b3542deeeae73bd",
+      "trajectory_ids": [
+        "confirmation-latent-session-0045-736dc027f2994f888b3542deeeae73bd-trajectory-000"
+      ]
+    },
+    {
+      "family": "active_quiet",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 6,
+      "seed": 34908565,
+      "session_id": "confirmation-latent-session-0046-0d5456cbe86c42f4b64e0795eb10d7fc",
+      "trajectory_ids": [
+        "confirmation-latent-session-0046-0d5456cbe86c42f4b64e0795eb10d7fc-trajectory-000"
+      ]
+    },
+    {
+      "family": "active_quiet",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 7,
+      "seed": 35016487,
+      "session_id": "confirmation-latent-session-0047-a1381f9fd61941d48493c19a51c5d22a",
+      "trajectory_ids": [
+        "confirmation-latent-session-0047-a1381f9fd61941d48493c19a51c5d22a-trajectory-000"
+      ]
+    },
+    {
+      "family": "active_quiet",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 8,
+      "seed": 35124409,
+      "session_id": "confirmation-latent-session-0048-3f69cfa59e854366b4ee49c8929c6585",
+      "trajectory_ids": [
+        "confirmation-latent-session-0048-3f69cfa59e854366b4ee49c8929c6585-trajectory-000"
+      ]
+    },
+    {
+      "family": "active_quiet",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 9,
+      "seed": 35232331,
+      "session_id": "confirmation-latent-session-0049-a543ffd209b84841a9ccbc988c67b055",
+      "trajectory_ids": [
+        "confirmation-latent-session-0049-a543ffd209b84841a9ccbc988c67b055-trajectory-000"
+      ]
+    },
+    {
+      "family": "active_quiet",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 10,
+      "seed": 35340253,
+      "session_id": "confirmation-latent-session-0050-1267bf0242ee4fefa6849913969d6f55",
+      "trajectory_ids": [
+        "confirmation-latent-session-0050-1267bf0242ee4fefa6849913969d6f55-trajectory-000"
+      ]
+    },
+    {
+      "family": "active_quiet",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 11,
+      "seed": 35448175,
+      "session_id": "confirmation-latent-session-0051-6f4e79e7f9a24d64aaa9c85452830c29",
+      "trajectory_ids": [
+        "confirmation-latent-session-0051-6f4e79e7f9a24d64aaa9c85452830c29-trajectory-000"
+      ]
+    },
+    {
+      "family": "active_quiet",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 12,
+      "seed": 35556097,
+      "session_id": "confirmation-latent-session-0052-7c420bb974b040ab9aa1f119f3496b09",
+      "trajectory_ids": [
+        "confirmation-latent-session-0052-7c420bb974b040ab9aa1f119f3496b09-trajectory-000"
+      ]
+    },
+    {
+      "family": "active_quiet",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 13,
+      "seed": 35664019,
+      "session_id": "confirmation-latent-session-0053-d56bbaf7598d4b54ac80170a3045d8bc",
+      "trajectory_ids": [
+        "confirmation-latent-session-0053-d56bbaf7598d4b54ac80170a3045d8bc-trajectory-000"
+      ]
+    },
+    {
+      "family": "active_quiet",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 14,
+      "seed": 35771941,
+      "session_id": "confirmation-latent-session-0054-daf78138670c42c3967c4bb1914e6a7c",
+      "trajectory_ids": [
+        "confirmation-latent-session-0054-daf78138670c42c3967c4bb1914e6a7c-trajectory-000"
+      ]
+    },
+    {
+      "family": "active_quiet",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 15,
+      "seed": 35879863,
+      "session_id": "confirmation-latent-session-0055-1d7614516f8a44b4aee1157c8ad330d0",
+      "trajectory_ids": [
+        "confirmation-latent-session-0055-1d7614516f8a44b4aee1157c8ad330d0-trajectory-000"
+      ]
+    },
+    {
+      "family": "active_quiet",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 16,
+      "seed": 35987785,
+      "session_id": "confirmation-latent-session-0056-acca6280394049e6b5a6992dc50f3846",
+      "trajectory_ids": [
+        "confirmation-latent-session-0056-acca6280394049e6b5a6992dc50f3846-trajectory-000"
+      ]
+    },
+    {
+      "family": "active_quiet",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 17,
+      "seed": 36095707,
+      "session_id": "confirmation-latent-session-0057-78b4dd4cd79f4e409cf1f9fface3340b",
+      "trajectory_ids": [
+        "confirmation-latent-session-0057-78b4dd4cd79f4e409cf1f9fface3340b-trajectory-000"
+      ]
+    },
+    {
+      "family": "active_quiet",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 18,
+      "seed": 36203629,
+      "session_id": "confirmation-latent-session-0058-10932cd4231a411485548ae56b326a25",
+      "trajectory_ids": [
+        "confirmation-latent-session-0058-10932cd4231a411485548ae56b326a25-trajectory-000"
+      ]
+    },
+    {
+      "family": "active_quiet",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 19,
+      "seed": 36311551,
+      "session_id": "confirmation-latent-session-0059-2aa9e73c81884e0c855f5ecdda9218e4",
+      "trajectory_ids": [
+        "confirmation-latent-session-0059-2aa9e73c81884e0c855f5ecdda9218e4-trajectory-000"
+      ]
+    },
+    {
+      "family": "active_quiet",
+      "measurement_condition": "timer_only",
+      "repeat": 0,
+      "seed": 36261093,
+      "session_id": "confirmation-latent-session-0060-0fbaf02f5d474c06b41396720738b6d7",
+      "trajectory_ids": [
+        "confirmation-latent-session-0060-0fbaf02f5d474c06b41396720738b6d7-trajectory-000"
+      ]
+    },
+    {
+      "family": "active_quiet",
+      "measurement_condition": "timer_only",
+      "repeat": 1,
+      "seed": 36369015,
+      "session_id": "confirmation-latent-session-0061-bf19a01273ff4154922bc6fdf3be0cd8",
+      "trajectory_ids": [
+        "confirmation-latent-session-0061-bf19a01273ff4154922bc6fdf3be0cd8-trajectory-000"
+      ]
+    },
+    {
+      "family": "active_quiet",
+      "measurement_condition": "timer_only",
+      "repeat": 2,
+      "seed": 36476937,
+      "session_id": "confirmation-latent-session-0062-728b961d756e4bd4ba6fd6924f72ee85",
+      "trajectory_ids": [
+        "confirmation-latent-session-0062-728b961d756e4bd4ba6fd6924f72ee85-trajectory-000"
+      ]
+    },
+    {
+      "family": "active_quiet",
+      "measurement_condition": "timer_only",
+      "repeat": 3,
+      "seed": 36584859,
+      "session_id": "confirmation-latent-session-0063-82838a0b5c0d4d8585f9b02bb882712c",
+      "trajectory_ids": [
+        "confirmation-latent-session-0063-82838a0b5c0d4d8585f9b02bb882712c-trajectory-000"
+      ]
+    },
+    {
+      "family": "active_quiet",
+      "measurement_condition": "timer_only",
+      "repeat": 4,
+      "seed": 36692781,
+      "session_id": "confirmation-latent-session-0064-f41596f739b74cdd8e0576f990e3dfed",
+      "trajectory_ids": [
+        "confirmation-latent-session-0064-f41596f739b74cdd8e0576f990e3dfed-trajectory-000"
+      ]
+    },
+    {
+      "family": "active_quiet",
+      "measurement_condition": "timer_only",
+      "repeat": 5,
+      "seed": 36800703,
+      "session_id": "confirmation-latent-session-0065-8c80152e85344eac9c9c79ae54184071",
+      "trajectory_ids": [
+        "confirmation-latent-session-0065-8c80152e85344eac9c9c79ae54184071-trajectory-000"
+      ]
+    },
+    {
+      "family": "active_quiet",
+      "measurement_condition": "timer_only",
+      "repeat": 6,
+      "seed": 36908625,
+      "session_id": "confirmation-latent-session-0066-8514271cbdbc44b881f2a2f9f2130053",
+      "trajectory_ids": [
+        "confirmation-latent-session-0066-8514271cbdbc44b881f2a2f9f2130053-trajectory-000"
+      ]
+    },
+    {
+      "family": "active_quiet",
+      "measurement_condition": "timer_only",
+      "repeat": 7,
+      "seed": 37016547,
+      "session_id": "confirmation-latent-session-0067-38d4ca5fc0914d39b70e4423fa23333d",
+      "trajectory_ids": [
+        "confirmation-latent-session-0067-38d4ca5fc0914d39b70e4423fa23333d-trajectory-000"
+      ]
+    },
+    {
+      "family": "active_quiet",
+      "measurement_condition": "timer_only",
+      "repeat": 8,
+      "seed": 37124469,
+      "session_id": "confirmation-latent-session-0068-05876fe3f9784b7dbf28cef0a8cc457e",
+      "trajectory_ids": [
+        "confirmation-latent-session-0068-05876fe3f9784b7dbf28cef0a8cc457e-trajectory-000"
+      ]
+    },
+    {
+      "family": "active_quiet",
+      "measurement_condition": "timer_only",
+      "repeat": 9,
+      "seed": 37232391,
+      "session_id": "confirmation-latent-session-0069-b8ec95fee6e049399689603c5cadfaad",
+      "trajectory_ids": [
+        "confirmation-latent-session-0069-b8ec95fee6e049399689603c5cadfaad-trajectory-000"
+      ]
+    },
+    {
+      "family": "active_quiet",
+      "measurement_condition": "timer_only",
+      "repeat": 10,
+      "seed": 37340313,
+      "session_id": "confirmation-latent-session-0070-03f7588f91c649309e484d822b0c1a67",
+      "trajectory_ids": [
+        "confirmation-latent-session-0070-03f7588f91c649309e484d822b0c1a67-trajectory-000"
+      ]
+    },
+    {
+      "family": "active_quiet",
+      "measurement_condition": "timer_only",
+      "repeat": 11,
+      "seed": 37448235,
+      "session_id": "confirmation-latent-session-0071-a322d35390984afbac3fdf4c3f9f5588",
+      "trajectory_ids": [
+        "confirmation-latent-session-0071-a322d35390984afbac3fdf4c3f9f5588-trajectory-000"
+      ]
+    },
+    {
+      "family": "active_quiet",
+      "measurement_condition": "timer_only",
+      "repeat": 12,
+      "seed": 37556157,
+      "session_id": "confirmation-latent-session-0072-2833bf0900094d75b5ea141a50c77bd7",
+      "trajectory_ids": [
+        "confirmation-latent-session-0072-2833bf0900094d75b5ea141a50c77bd7-trajectory-000"
+      ]
+    },
+    {
+      "family": "active_quiet",
+      "measurement_condition": "timer_only",
+      "repeat": 13,
+      "seed": 37664079,
+      "session_id": "confirmation-latent-session-0073-42d6bc3d039f42a5bad658ed7e37620c",
+      "trajectory_ids": [
+        "confirmation-latent-session-0073-42d6bc3d039f42a5bad658ed7e37620c-trajectory-000"
+      ]
+    },
+    {
+      "family": "active_quiet",
+      "measurement_condition": "timer_only",
+      "repeat": 14,
+      "seed": 37772001,
+      "session_id": "confirmation-latent-session-0074-8d8943978762404cac6134258ea72a97",
+      "trajectory_ids": [
+        "confirmation-latent-session-0074-8d8943978762404cac6134258ea72a97-trajectory-000"
+      ]
+    },
+    {
+      "family": "active_quiet",
+      "measurement_condition": "timer_only",
+      "repeat": 15,
+      "seed": 37879923,
+      "session_id": "confirmation-latent-session-0075-f7e985fc7a1445aa8f9466ddaa2ee37b",
+      "trajectory_ids": [
+        "confirmation-latent-session-0075-f7e985fc7a1445aa8f9466ddaa2ee37b-trajectory-000"
+      ]
+    },
+    {
+      "family": "active_quiet",
+      "measurement_condition": "timer_only",
+      "repeat": 16,
+      "seed": 37987845,
+      "session_id": "confirmation-latent-session-0076-37cc6e748d5b4ca7b19152fdfdeb0d70",
+      "trajectory_ids": [
+        "confirmation-latent-session-0076-37cc6e748d5b4ca7b19152fdfdeb0d70-trajectory-000"
+      ]
+    },
+    {
+      "family": "active_quiet",
+      "measurement_condition": "timer_only",
+      "repeat": 17,
+      "seed": 38095767,
+      "session_id": "confirmation-latent-session-0077-ca329d70cabe45d6901fe2ab2a5047dd",
+      "trajectory_ids": [
+        "confirmation-latent-session-0077-ca329d70cabe45d6901fe2ab2a5047dd-trajectory-000"
+      ]
+    },
+    {
+      "family": "active_quiet",
+      "measurement_condition": "timer_only",
+      "repeat": 18,
+      "seed": 38203689,
+      "session_id": "confirmation-latent-session-0078-8b434ae160d54d35a54039c1a5a138cf",
+      "trajectory_ids": [
+        "confirmation-latent-session-0078-8b434ae160d54d35a54039c1a5a138cf-trajectory-000"
+      ]
+    },
+    {
+      "family": "active_quiet",
+      "measurement_condition": "timer_only",
+      "repeat": 19,
+      "seed": 38311611,
+      "session_id": "confirmation-latent-session-0079-8f4da8facacf427baa567ea1b0a05eb4",
+      "trajectory_ids": [
+        "confirmation-latent-session-0079-8f4da8facacf427baa567ea1b0a05eb4-trajectory-000"
+      ]
+    },
+    {
+      "family": "sham",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 0,
+      "seed": 38261153,
+      "session_id": "confirmation-latent-session-0080-0d0671665e9d4d95a8122c828ad2781d",
+      "trajectory_ids": [
+        "confirmation-latent-session-0080-0d0671665e9d4d95a8122c828ad2781d-trajectory-000"
+      ]
+    },
+    {
+      "family": "sham",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 1,
+      "seed": 38369075,
+      "session_id": "confirmation-latent-session-0081-f650a081cd884820b41e859c24c7e38f",
+      "trajectory_ids": [
+        "confirmation-latent-session-0081-f650a081cd884820b41e859c24c7e38f-trajectory-000"
+      ]
+    },
+    {
+      "family": "sham",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 2,
+      "seed": 38476997,
+      "session_id": "confirmation-latent-session-0082-93615aa704324a34833a6401944369f1",
+      "trajectory_ids": [
+        "confirmation-latent-session-0082-93615aa704324a34833a6401944369f1-trajectory-000"
+      ]
+    },
+    {
+      "family": "sham",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 3,
+      "seed": 38584919,
+      "session_id": "confirmation-latent-session-0083-dff4785e2fe543ad8aa4f0d4cf33a3fe",
+      "trajectory_ids": [
+        "confirmation-latent-session-0083-dff4785e2fe543ad8aa4f0d4cf33a3fe-trajectory-000"
+      ]
+    },
+    {
+      "family": "sham",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 4,
+      "seed": 38692841,
+      "session_id": "confirmation-latent-session-0084-50936fbbfd99434ea7d594e2565cbc95",
+      "trajectory_ids": [
+        "confirmation-latent-session-0084-50936fbbfd99434ea7d594e2565cbc95-trajectory-000"
+      ]
+    },
+    {
+      "family": "sham",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 5,
+      "seed": 38800763,
+      "session_id": "confirmation-latent-session-0085-dfd91cfa80544f78be28aa7001d94538",
+      "trajectory_ids": [
+        "confirmation-latent-session-0085-dfd91cfa80544f78be28aa7001d94538-trajectory-000"
+      ]
+    },
+    {
+      "family": "sham",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 6,
+      "seed": 38908685,
+      "session_id": "confirmation-latent-session-0086-1c854597eb654544b852c9b3e845d01b",
+      "trajectory_ids": [
+        "confirmation-latent-session-0086-1c854597eb654544b852c9b3e845d01b-trajectory-000"
+      ]
+    },
+    {
+      "family": "sham",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 7,
+      "seed": 39016607,
+      "session_id": "confirmation-latent-session-0087-8ebd3b6424144c8c9bff3d4e6bf8eb2f",
+      "trajectory_ids": [
+        "confirmation-latent-session-0087-8ebd3b6424144c8c9bff3d4e6bf8eb2f-trajectory-000"
+      ]
+    },
+    {
+      "family": "sham",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 8,
+      "seed": 39124529,
+      "session_id": "confirmation-latent-session-0088-9b9976ac02364556993e00785cfc7123",
+      "trajectory_ids": [
+        "confirmation-latent-session-0088-9b9976ac02364556993e00785cfc7123-trajectory-000"
+      ]
+    },
+    {
+      "family": "sham",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 9,
+      "seed": 39232451,
+      "session_id": "confirmation-latent-session-0089-b20c408989f34253aa7bb1595f2b9699",
+      "trajectory_ids": [
+        "confirmation-latent-session-0089-b20c408989f34253aa7bb1595f2b9699-trajectory-000"
+      ]
+    },
+    {
+      "family": "sham",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 10,
+      "seed": 39340373,
+      "session_id": "confirmation-latent-session-0090-f549e9f1eedc4559a8faef511ee0de28",
+      "trajectory_ids": [
+        "confirmation-latent-session-0090-f549e9f1eedc4559a8faef511ee0de28-trajectory-000"
+      ]
+    },
+    {
+      "family": "sham",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 11,
+      "seed": 39448295,
+      "session_id": "confirmation-latent-session-0091-64a64da36e9e4615959b74e30cb52c1a",
+      "trajectory_ids": [
+        "confirmation-latent-session-0091-64a64da36e9e4615959b74e30cb52c1a-trajectory-000"
+      ]
+    },
+    {
+      "family": "sham",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 12,
+      "seed": 39556217,
+      "session_id": "confirmation-latent-session-0092-2391a3f6a9f5496f8fd19a3f335566e7",
+      "trajectory_ids": [
+        "confirmation-latent-session-0092-2391a3f6a9f5496f8fd19a3f335566e7-trajectory-000"
+      ]
+    },
+    {
+      "family": "sham",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 13,
+      "seed": 39664139,
+      "session_id": "confirmation-latent-session-0093-9072b88803e241699fa8112c89082ccb",
+      "trajectory_ids": [
+        "confirmation-latent-session-0093-9072b88803e241699fa8112c89082ccb-trajectory-000"
+      ]
+    },
+    {
+      "family": "sham",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 14,
+      "seed": 39772061,
+      "session_id": "confirmation-latent-session-0094-fe98a813e337417e80911c877f05c008",
+      "trajectory_ids": [
+        "confirmation-latent-session-0094-fe98a813e337417e80911c877f05c008-trajectory-000"
+      ]
+    },
+    {
+      "family": "sham",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 15,
+      "seed": 39879983,
+      "session_id": "confirmation-latent-session-0095-5b0cac71829146d29c4d74f38e04be4a",
+      "trajectory_ids": [
+        "confirmation-latent-session-0095-5b0cac71829146d29c4d74f38e04be4a-trajectory-000"
+      ]
+    },
+    {
+      "family": "sham",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 16,
+      "seed": 39987905,
+      "session_id": "confirmation-latent-session-0096-624dea86265946f983196be69977e828",
+      "trajectory_ids": [
+        "confirmation-latent-session-0096-624dea86265946f983196be69977e828-trajectory-000"
+      ]
+    },
+    {
+      "family": "sham",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 17,
+      "seed": 40095827,
+      "session_id": "confirmation-latent-session-0097-094cc0f1179546d082034debdfb78f6c",
+      "trajectory_ids": [
+        "confirmation-latent-session-0097-094cc0f1179546d082034debdfb78f6c-trajectory-000"
+      ]
+    },
+    {
+      "family": "sham",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 18,
+      "seed": 40203749,
+      "session_id": "confirmation-latent-session-0098-f3a209f0f2674768902c0b60b0da24c4",
+      "trajectory_ids": [
+        "confirmation-latent-session-0098-f3a209f0f2674768902c0b60b0da24c4-trajectory-000"
+      ]
+    },
+    {
+      "family": "sham",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 19,
+      "seed": 40311671,
+      "session_id": "confirmation-latent-session-0099-dc6d46800d0a44beb4d7afe097ab5c2c",
+      "trajectory_ids": [
+        "confirmation-latent-session-0099-dc6d46800d0a44beb4d7afe097ab5c2c-trajectory-000"
+      ]
+    },
+    {
+      "family": "sham",
+      "measurement_condition": "timer_only",
+      "repeat": 0,
+      "seed": 40261213,
+      "session_id": "confirmation-latent-session-0100-4c6ecb7d6f0349ac93557382e447456e",
+      "trajectory_ids": [
+        "confirmation-latent-session-0100-4c6ecb7d6f0349ac93557382e447456e-trajectory-000"
+      ]
+    },
+    {
+      "family": "sham",
+      "measurement_condition": "timer_only",
+      "repeat": 1,
+      "seed": 40369135,
+      "session_id": "confirmation-latent-session-0101-e0a097aae3ab4040bb57f196fc6149b5",
+      "trajectory_ids": [
+        "confirmation-latent-session-0101-e0a097aae3ab4040bb57f196fc6149b5-trajectory-000"
+      ]
+    },
+    {
+      "family": "sham",
+      "measurement_condition": "timer_only",
+      "repeat": 2,
+      "seed": 40477057,
+      "session_id": "confirmation-latent-session-0102-db68a56f65824fe68228c40a742b32f8",
+      "trajectory_ids": [
+        "confirmation-latent-session-0102-db68a56f65824fe68228c40a742b32f8-trajectory-000"
+      ]
+    },
+    {
+      "family": "sham",
+      "measurement_condition": "timer_only",
+      "repeat": 3,
+      "seed": 40584979,
+      "session_id": "confirmation-latent-session-0103-f38f5c3546ed410b98c16ec5696ed446",
+      "trajectory_ids": [
+        "confirmation-latent-session-0103-f38f5c3546ed410b98c16ec5696ed446-trajectory-000"
+      ]
+    },
+    {
+      "family": "sham",
+      "measurement_condition": "timer_only",
+      "repeat": 4,
+      "seed": 40692901,
+      "session_id": "confirmation-latent-session-0104-e3cac570343d461c9e8a503bc9c1a5d7",
+      "trajectory_ids": [
+        "confirmation-latent-session-0104-e3cac570343d461c9e8a503bc9c1a5d7-trajectory-000"
+      ]
+    },
+    {
+      "family": "sham",
+      "measurement_condition": "timer_only",
+      "repeat": 5,
+      "seed": 40800823,
+      "session_id": "confirmation-latent-session-0105-bf9ddef017d040eabddd123dff229f50",
+      "trajectory_ids": [
+        "confirmation-latent-session-0105-bf9ddef017d040eabddd123dff229f50-trajectory-000"
+      ]
+    },
+    {
+      "family": "sham",
+      "measurement_condition": "timer_only",
+      "repeat": 6,
+      "seed": 40908745,
+      "session_id": "confirmation-latent-session-0106-f3357084ce06487f849b9e6ee0e9dfea",
+      "trajectory_ids": [
+        "confirmation-latent-session-0106-f3357084ce06487f849b9e6ee0e9dfea-trajectory-000"
+      ]
+    },
+    {
+      "family": "sham",
+      "measurement_condition": "timer_only",
+      "repeat": 7,
+      "seed": 41016667,
+      "session_id": "confirmation-latent-session-0107-8822edf88a0c41ca98e05d1b70597a16",
+      "trajectory_ids": [
+        "confirmation-latent-session-0107-8822edf88a0c41ca98e05d1b70597a16-trajectory-000"
+      ]
+    },
+    {
+      "family": "sham",
+      "measurement_condition": "timer_only",
+      "repeat": 8,
+      "seed": 41124589,
+      "session_id": "confirmation-latent-session-0108-31b10582056a4c1cb4d94f8a0ca92828",
+      "trajectory_ids": [
+        "confirmation-latent-session-0108-31b10582056a4c1cb4d94f8a0ca92828-trajectory-000"
+      ]
+    },
+    {
+      "family": "sham",
+      "measurement_condition": "timer_only",
+      "repeat": 9,
+      "seed": 41232511,
+      "session_id": "confirmation-latent-session-0109-ba50255cef36423594cdd6087ff80a40",
+      "trajectory_ids": [
+        "confirmation-latent-session-0109-ba50255cef36423594cdd6087ff80a40-trajectory-000"
+      ]
+    },
+    {
+      "family": "sham",
+      "measurement_condition": "timer_only",
+      "repeat": 10,
+      "seed": 41340433,
+      "session_id": "confirmation-latent-session-0110-1905dc794e3e415e9501c7ceb47098e5",
+      "trajectory_ids": [
+        "confirmation-latent-session-0110-1905dc794e3e415e9501c7ceb47098e5-trajectory-000"
+      ]
+    },
+    {
+      "family": "sham",
+      "measurement_condition": "timer_only",
+      "repeat": 11,
+      "seed": 41448355,
+      "session_id": "confirmation-latent-session-0111-3d9f2c2b63c64a98928f03558c363bf3",
+      "trajectory_ids": [
+        "confirmation-latent-session-0111-3d9f2c2b63c64a98928f03558c363bf3-trajectory-000"
+      ]
+    },
+    {
+      "family": "sham",
+      "measurement_condition": "timer_only",
+      "repeat": 12,
+      "seed": 41556277,
+      "session_id": "confirmation-latent-session-0112-f2f9af690b1048c8a8fe355fe7590b61",
+      "trajectory_ids": [
+        "confirmation-latent-session-0112-f2f9af690b1048c8a8fe355fe7590b61-trajectory-000"
+      ]
+    },
+    {
+      "family": "sham",
+      "measurement_condition": "timer_only",
+      "repeat": 13,
+      "seed": 41664199,
+      "session_id": "confirmation-latent-session-0113-ad30965af8b443d392390f6089046a1b",
+      "trajectory_ids": [
+        "confirmation-latent-session-0113-ad30965af8b443d392390f6089046a1b-trajectory-000"
+      ]
+    },
+    {
+      "family": "sham",
+      "measurement_condition": "timer_only",
+      "repeat": 14,
+      "seed": 41772121,
+      "session_id": "confirmation-latent-session-0114-2658d0d016f240c691ff7a27c4d4d281",
+      "trajectory_ids": [
+        "confirmation-latent-session-0114-2658d0d016f240c691ff7a27c4d4d281-trajectory-000"
+      ]
+    },
+    {
+      "family": "sham",
+      "measurement_condition": "timer_only",
+      "repeat": 15,
+      "seed": 41880043,
+      "session_id": "confirmation-latent-session-0115-0eb21a1bc739466bbfb551a248e8575e",
+      "trajectory_ids": [
+        "confirmation-latent-session-0115-0eb21a1bc739466bbfb551a248e8575e-trajectory-000"
+      ]
+    },
+    {
+      "family": "sham",
+      "measurement_condition": "timer_only",
+      "repeat": 16,
+      "seed": 41987965,
+      "session_id": "confirmation-latent-session-0116-f87c799126fb49138af742ae884e3e8f",
+      "trajectory_ids": [
+        "confirmation-latent-session-0116-f87c799126fb49138af742ae884e3e8f-trajectory-000"
+      ]
+    },
+    {
+      "family": "sham",
+      "measurement_condition": "timer_only",
+      "repeat": 17,
+      "seed": 42095887,
+      "session_id": "confirmation-latent-session-0117-28b13ce750354983a83445196f8d1c69",
+      "trajectory_ids": [
+        "confirmation-latent-session-0117-28b13ce750354983a83445196f8d1c69-trajectory-000"
+      ]
+    },
+    {
+      "family": "sham",
+      "measurement_condition": "timer_only",
+      "repeat": 18,
+      "seed": 42203809,
+      "session_id": "confirmation-latent-session-0118-ec903772c174423cb97ca064b4885535",
+      "trajectory_ids": [
+        "confirmation-latent-session-0118-ec903772c174423cb97ca064b4885535-trajectory-000"
+      ]
+    },
+    {
+      "family": "sham",
+      "measurement_condition": "timer_only",
+      "repeat": 19,
+      "seed": 42311731,
+      "session_id": "confirmation-latent-session-0119-749f663a190c44c4b52fe9a36a31d9ea",
+      "trajectory_ids": [
+        "confirmation-latent-session-0119-749f663a190c44c4b52fe9a36a31d9ea-trajectory-000"
+      ]
+    },
+    {
+      "family": "passive",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 0,
+      "seed": 42261273,
+      "session_id": "confirmation-latent-session-0120-dedc852dd81242b3836e7bf9a666f879",
+      "trajectory_ids": [
+        "confirmation-latent-session-0120-dedc852dd81242b3836e7bf9a666f879-trajectory-000"
+      ]
+    },
+    {
+      "family": "passive",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 1,
+      "seed": 42369195,
+      "session_id": "confirmation-latent-session-0121-2af8463abfb048438007cb29b5b87171",
+      "trajectory_ids": [
+        "confirmation-latent-session-0121-2af8463abfb048438007cb29b5b87171-trajectory-000"
+      ]
+    },
+    {
+      "family": "passive",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 2,
+      "seed": 42477117,
+      "session_id": "confirmation-latent-session-0122-4ae07a59e55d4178b6b35a6ee00b2bb6",
+      "trajectory_ids": [
+        "confirmation-latent-session-0122-4ae07a59e55d4178b6b35a6ee00b2bb6-trajectory-000"
+      ]
+    },
+    {
+      "family": "passive",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 3,
+      "seed": 42585039,
+      "session_id": "confirmation-latent-session-0123-889106dd406a48f18f61022da452e976",
+      "trajectory_ids": [
+        "confirmation-latent-session-0123-889106dd406a48f18f61022da452e976-trajectory-000"
+      ]
+    },
+    {
+      "family": "passive",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 4,
+      "seed": 42692961,
+      "session_id": "confirmation-latent-session-0124-38f237cf505d43b6895312dd91ac79ee",
+      "trajectory_ids": [
+        "confirmation-latent-session-0124-38f237cf505d43b6895312dd91ac79ee-trajectory-000"
+      ]
+    },
+    {
+      "family": "passive",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 5,
+      "seed": 42800883,
+      "session_id": "confirmation-latent-session-0125-4b8a1ff4e7dd4a5eb2152592dbb8e0fd",
+      "trajectory_ids": [
+        "confirmation-latent-session-0125-4b8a1ff4e7dd4a5eb2152592dbb8e0fd-trajectory-000"
+      ]
+    },
+    {
+      "family": "passive",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 6,
+      "seed": 42908805,
+      "session_id": "confirmation-latent-session-0126-b178f701a97a49b8bb008826e2669d27",
+      "trajectory_ids": [
+        "confirmation-latent-session-0126-b178f701a97a49b8bb008826e2669d27-trajectory-000"
+      ]
+    },
+    {
+      "family": "passive",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 7,
+      "seed": 43016727,
+      "session_id": "confirmation-latent-session-0127-e5596babf86c4a988bfd30e3914380dc",
+      "trajectory_ids": [
+        "confirmation-latent-session-0127-e5596babf86c4a988bfd30e3914380dc-trajectory-000"
+      ]
+    },
+    {
+      "family": "passive",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 8,
+      "seed": 43124649,
+      "session_id": "confirmation-latent-session-0128-6a6ea09019124abf83990516721f0bdd",
+      "trajectory_ids": [
+        "confirmation-latent-session-0128-6a6ea09019124abf83990516721f0bdd-trajectory-000"
+      ]
+    },
+    {
+      "family": "passive",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 9,
+      "seed": 43232571,
+      "session_id": "confirmation-latent-session-0129-5bbc478744f841d08a7798d927ba6b6c",
+      "trajectory_ids": [
+        "confirmation-latent-session-0129-5bbc478744f841d08a7798d927ba6b6c-trajectory-000"
+      ]
+    },
+    {
+      "family": "passive",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 10,
+      "seed": 43340493,
+      "session_id": "confirmation-latent-session-0130-080e6485502b4ab197b7ad184eec842c",
+      "trajectory_ids": [
+        "confirmation-latent-session-0130-080e6485502b4ab197b7ad184eec842c-trajectory-000"
+      ]
+    },
+    {
+      "family": "passive",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 11,
+      "seed": 43448415,
+      "session_id": "confirmation-latent-session-0131-8b8521a1003a4bf398900a79e4247c0b",
+      "trajectory_ids": [
+        "confirmation-latent-session-0131-8b8521a1003a4bf398900a79e4247c0b-trajectory-000"
+      ]
+    },
+    {
+      "family": "passive",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 12,
+      "seed": 43556337,
+      "session_id": "confirmation-latent-session-0132-a232083c03304e1ca06a5418ee1a5fb0",
+      "trajectory_ids": [
+        "confirmation-latent-session-0132-a232083c03304e1ca06a5418ee1a5fb0-trajectory-000"
+      ]
+    },
+    {
+      "family": "passive",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 13,
+      "seed": 43664259,
+      "session_id": "confirmation-latent-session-0133-c0c76d2d044641cab75d2a57cf20660f",
+      "trajectory_ids": [
+        "confirmation-latent-session-0133-c0c76d2d044641cab75d2a57cf20660f-trajectory-000"
+      ]
+    },
+    {
+      "family": "passive",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 14,
+      "seed": 43772181,
+      "session_id": "confirmation-latent-session-0134-4b850eefd8ec4352b85d1866ff9c2f67",
+      "trajectory_ids": [
+        "confirmation-latent-session-0134-4b850eefd8ec4352b85d1866ff9c2f67-trajectory-000"
+      ]
+    },
+    {
+      "family": "passive",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 15,
+      "seed": 43880103,
+      "session_id": "confirmation-latent-session-0135-0fd106db4d77400d93a86935122cd529",
+      "trajectory_ids": [
+        "confirmation-latent-session-0135-0fd106db4d77400d93a86935122cd529-trajectory-000"
+      ]
+    },
+    {
+      "family": "passive",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 16,
+      "seed": 43988025,
+      "session_id": "confirmation-latent-session-0136-8536d5b2d8d248349f523022cc18310a",
+      "trajectory_ids": [
+        "confirmation-latent-session-0136-8536d5b2d8d248349f523022cc18310a-trajectory-000"
+      ]
+    },
+    {
+      "family": "passive",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 17,
+      "seed": 44095947,
+      "session_id": "confirmation-latent-session-0137-c4d773c95a7d4064b82f2176a2d0ecef",
+      "trajectory_ids": [
+        "confirmation-latent-session-0137-c4d773c95a7d4064b82f2176a2d0ecef-trajectory-000"
+      ]
+    },
+    {
+      "family": "passive",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 18,
+      "seed": 44203869,
+      "session_id": "confirmation-latent-session-0138-4ebb7b561115487fa5316f9d59b8f673",
+      "trajectory_ids": [
+        "confirmation-latent-session-0138-4ebb7b561115487fa5316f9d59b8f673-trajectory-000"
+      ]
+    },
+    {
+      "family": "passive",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 19,
+      "seed": 44311791,
+      "session_id": "confirmation-latent-session-0139-11ebdc383dce4ebfbc1c20a324b78c76",
+      "trajectory_ids": [
+        "confirmation-latent-session-0139-11ebdc383dce4ebfbc1c20a324b78c76-trajectory-000"
+      ]
+    },
+    {
+      "family": "passive",
+      "measurement_condition": "timer_only",
+      "repeat": 0,
+      "seed": 44261333,
+      "session_id": "confirmation-latent-session-0140-623bf0eab5da468b871db5a6fda48217",
+      "trajectory_ids": [
+        "confirmation-latent-session-0140-623bf0eab5da468b871db5a6fda48217-trajectory-000"
+      ]
+    },
+    {
+      "family": "passive",
+      "measurement_condition": "timer_only",
+      "repeat": 1,
+      "seed": 44369255,
+      "session_id": "confirmation-latent-session-0141-ae9f94bd410441c7b0ce66f2c3edb1b2",
+      "trajectory_ids": [
+        "confirmation-latent-session-0141-ae9f94bd410441c7b0ce66f2c3edb1b2-trajectory-000"
+      ]
+    },
+    {
+      "family": "passive",
+      "measurement_condition": "timer_only",
+      "repeat": 2,
+      "seed": 44477177,
+      "session_id": "confirmation-latent-session-0142-87dee64837d44f64aa680f9a2d4cddfe",
+      "trajectory_ids": [
+        "confirmation-latent-session-0142-87dee64837d44f64aa680f9a2d4cddfe-trajectory-000"
+      ]
+    },
+    {
+      "family": "passive",
+      "measurement_condition": "timer_only",
+      "repeat": 3,
+      "seed": 44585099,
+      "session_id": "confirmation-latent-session-0143-fea2e3e73ed9402b960f288656a00324",
+      "trajectory_ids": [
+        "confirmation-latent-session-0143-fea2e3e73ed9402b960f288656a00324-trajectory-000"
+      ]
+    },
+    {
+      "family": "passive",
+      "measurement_condition": "timer_only",
+      "repeat": 4,
+      "seed": 44693021,
+      "session_id": "confirmation-latent-session-0144-b5fc97d891ae46e594508effd8d0b514",
+      "trajectory_ids": [
+        "confirmation-latent-session-0144-b5fc97d891ae46e594508effd8d0b514-trajectory-000"
+      ]
+    },
+    {
+      "family": "passive",
+      "measurement_condition": "timer_only",
+      "repeat": 5,
+      "seed": 44800943,
+      "session_id": "confirmation-latent-session-0145-e704036b0c6c40c3b677a3384ec033a6",
+      "trajectory_ids": [
+        "confirmation-latent-session-0145-e704036b0c6c40c3b677a3384ec033a6-trajectory-000"
+      ]
+    },
+    {
+      "family": "passive",
+      "measurement_condition": "timer_only",
+      "repeat": 6,
+      "seed": 44908865,
+      "session_id": "confirmation-latent-session-0146-6b1ad2bb4a1740a99c4f2cf38fc2646a",
+      "trajectory_ids": [
+        "confirmation-latent-session-0146-6b1ad2bb4a1740a99c4f2cf38fc2646a-trajectory-000"
+      ]
+    },
+    {
+      "family": "passive",
+      "measurement_condition": "timer_only",
+      "repeat": 7,
+      "seed": 45016787,
+      "session_id": "confirmation-latent-session-0147-e04e3d37abae4f99bdb1c473a3981967",
+      "trajectory_ids": [
+        "confirmation-latent-session-0147-e04e3d37abae4f99bdb1c473a3981967-trajectory-000"
+      ]
+    },
+    {
+      "family": "passive",
+      "measurement_condition": "timer_only",
+      "repeat": 8,
+      "seed": 45124709,
+      "session_id": "confirmation-latent-session-0148-4ca59ff851f642a4b95b153aab6087cd",
+      "trajectory_ids": [
+        "confirmation-latent-session-0148-4ca59ff851f642a4b95b153aab6087cd-trajectory-000"
+      ]
+    },
+    {
+      "family": "passive",
+      "measurement_condition": "timer_only",
+      "repeat": 9,
+      "seed": 45232631,
+      "session_id": "confirmation-latent-session-0149-8b8d701504e94c909895115e77b042e9",
+      "trajectory_ids": [
+        "confirmation-latent-session-0149-8b8d701504e94c909895115e77b042e9-trajectory-000"
+      ]
+    },
+    {
+      "family": "passive",
+      "measurement_condition": "timer_only",
+      "repeat": 10,
+      "seed": 45340553,
+      "session_id": "confirmation-latent-session-0150-0cd2436c502c40a8a91bdd4a88901ec8",
+      "trajectory_ids": [
+        "confirmation-latent-session-0150-0cd2436c502c40a8a91bdd4a88901ec8-trajectory-000"
+      ]
+    },
+    {
+      "family": "passive",
+      "measurement_condition": "timer_only",
+      "repeat": 11,
+      "seed": 45448475,
+      "session_id": "confirmation-latent-session-0151-703c9a82e099462cac54e77d8801088a",
+      "trajectory_ids": [
+        "confirmation-latent-session-0151-703c9a82e099462cac54e77d8801088a-trajectory-000"
+      ]
+    },
+    {
+      "family": "passive",
+      "measurement_condition": "timer_only",
+      "repeat": 12,
+      "seed": 45556397,
+      "session_id": "confirmation-latent-session-0152-3c627a50f6604d4d9028212b579df5d5",
+      "trajectory_ids": [
+        "confirmation-latent-session-0152-3c627a50f6604d4d9028212b579df5d5-trajectory-000"
+      ]
+    },
+    {
+      "family": "passive",
+      "measurement_condition": "timer_only",
+      "repeat": 13,
+      "seed": 45664319,
+      "session_id": "confirmation-latent-session-0153-acacd387a4f74924a479a5fa499d748a",
+      "trajectory_ids": [
+        "confirmation-latent-session-0153-acacd387a4f74924a479a5fa499d748a-trajectory-000"
+      ]
+    },
+    {
+      "family": "passive",
+      "measurement_condition": "timer_only",
+      "repeat": 14,
+      "seed": 45772241,
+      "session_id": "confirmation-latent-session-0154-23b9c5ec1e2c46ae9dfbc10348a52ac9",
+      "trajectory_ids": [
+        "confirmation-latent-session-0154-23b9c5ec1e2c46ae9dfbc10348a52ac9-trajectory-000"
+      ]
+    },
+    {
+      "family": "passive",
+      "measurement_condition": "timer_only",
+      "repeat": 15,
+      "seed": 45880163,
+      "session_id": "confirmation-latent-session-0155-84bc24f6c52c490c8a5365459de89138",
+      "trajectory_ids": [
+        "confirmation-latent-session-0155-84bc24f6c52c490c8a5365459de89138-trajectory-000"
+      ]
+    },
+    {
+      "family": "passive",
+      "measurement_condition": "timer_only",
+      "repeat": 16,
+      "seed": 45988085,
+      "session_id": "confirmation-latent-session-0156-1408fab97da04399b6d2257ea89e4f82",
+      "trajectory_ids": [
+        "confirmation-latent-session-0156-1408fab97da04399b6d2257ea89e4f82-trajectory-000"
+      ]
+    },
+    {
+      "family": "passive",
+      "measurement_condition": "timer_only",
+      "repeat": 17,
+      "seed": 46096007,
+      "session_id": "confirmation-latent-session-0157-3e2f7dcb0448479d88755b10d94db2d3",
+      "trajectory_ids": [
+        "confirmation-latent-session-0157-3e2f7dcb0448479d88755b10d94db2d3-trajectory-000"
+      ]
+    },
+    {
+      "family": "passive",
+      "measurement_condition": "timer_only",
+      "repeat": 18,
+      "seed": 46203929,
+      "session_id": "confirmation-latent-session-0158-e457b2f37b6749a9aa501124e36c2a8b",
+      "trajectory_ids": [
+        "confirmation-latent-session-0158-e457b2f37b6749a9aa501124e36c2a8b-trajectory-000"
+      ]
+    },
+    {
+      "family": "passive",
+      "measurement_condition": "timer_only",
+      "repeat": 19,
+      "seed": 46311851,
+      "session_id": "confirmation-latent-session-0159-83099ba6f8be413eb2aa4e70ddbd650c",
+      "trajectory_ids": [
+        "confirmation-latent-session-0159-83099ba6f8be413eb2aa4e70ddbd650c-trajectory-000"
+      ]
+    }
+  ],
+  "sessions_per_cell": 20,
+  "stage": "confirmation"
+}

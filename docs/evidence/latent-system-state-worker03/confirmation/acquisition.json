@@ -1,0 +1,4362 @@
+{
+  "boot_ids": [
+    "92cdb521-ac36-4649-a35c-bfb55c6ac870"
+  ],
+  "claim_boundary": "ordinary worker-03 timing plus contextual system-witness prediction; no hidden DRAM state/topology/unique mechanism claim",
+  "code_commit": "46c8378e7b17e7d5b0dc6cdd5f8bb537d28d27a8",
+  "configuration_hash": "0ed6802e9c276ef51502edf98b574e98cb808a4c6a820895c40ea048b35882b9",
+  "created_at": "2026-09-13T04:34:07.049404+00:00",
+  "design": {
+    "config_hash": "0ed6802e9c276ef51502edf98b574e98cb808a4c6a820895c40ea048b35882b9",
+    "created_at": "2026-09-13T04:33:46.747436+00:00",
+    "fresh_sequence_policy": "fresh session IDs and confirmation seed offset; completed design is immutable",
+    "protocol_version": "latent-system-state-v1",
+    "schema": "sensetrace.latent-system-state-design.v1",
+    "sessions": [
+      {
+        "family": "read_pressure",
+        "measurement_condition": "cached_preloaded",
+        "repeat": 0,
+        "seed": 30260913,
+        "session_id": "confirmation-latent-session-0000-e46aca343f5a493ea2ed0fc558e8b941",
+        "trajectory_ids": [
+          "confirmation-latent-session-0000-e46aca343f5a493ea2ed0fc558e8b941-trajectory-000"
+        ]
+      },
+      {
+        "family": "read_pressure",
+        "measurement_condition": "cached_preloaded",
+        "repeat": 1,
+        "seed": 30368835,
+        "session_id": "confirmation-latent-session-0001-5230daa381c04eadb813fdccf0509d6c",
+        "trajectory_ids": [
+          "confirmation-latent-session-0001-5230daa381c04eadb813fdccf0509d6c-trajectory-000"
+        ]
+      },
+      {
+        "family": "read_pressure",
+        "measurement_condition": "cached_preloaded",
+        "repeat": 2,
+        "seed": 30476757,
+        "session_id": "confirmation-latent-session-0002-cdf704f2aade455cb7a935dfd72757f1",
+        "trajectory_ids": [
+          "confirmation-latent-session-0002-cdf704f2aade455cb7a935dfd72757f1-trajectory-000"
+        ]
+      },
+      {
+        "family": "read_pressure",
+        "measurement_condition": "cached_preloaded",
+        "repeat": 3,
+        "seed": 30584679,
+        "session_id": "confirmation-latent-session-0003-c3f42d3d2aac400c8e61a11bc8309956",
+        "trajectory_ids": [
+          "confirmation-latent-session-0003-c3f42d3d2aac400c8e61a11bc8309956-trajectory-000"
+        ]
+      },
+      {
+        "family": "read_pressure",
+        "measurement_condition": "cached_preloaded",
+        "repeat": 4,
+        "seed": 30692601,
+        "session_id": "confirmation-latent-session-0004-4f16d7989be64c3f92c779f212f37053",
+        "trajectory_ids": [
+          "confirmation-latent-session-0004-4f16d7989be64c3f92c779f212f37053-trajectory-000"
+        ]
+      },
+      {
+        "family": "read_pressure",
+        "measurement_condition": "cached_preloaded",
+        "repeat": 5,
+        "seed": 30800523,
+        "session_id": "confirmation-latent-session-0005-ec102e915cb44cd1b50e98e2255cc82d",
+        "trajectory_ids": [
+          "confirmation-latent-session-0005-ec102e915cb44cd1b50e98e2255cc82d-trajectory-000"
+        ]
+      },
+      {
+        "family": "read_pressure",
+        "measurement_condition": "cached_preloaded",
+        "repeat": 6,
+        "seed": 30908445,
+        "session_id": "confirmation-latent-session-0006-8f744eec3c43494cad3b0e96b6653d70",
+        "trajectory_ids": [
+          "confirmation-latent-session-0006-8f744eec3c43494cad3b0e96b6653d70-trajectory-000"
+        ]
+      },
+      {
+        "family": "read_pressure",
+        "measurement_condition": "cached_preloaded",
+        "repeat": 7,
+        "seed": 31016367,
+        "session_id": "confirmation-latent-session-0007-5868ce531e5f436fb0796d29238bbe8e",
+        "trajectory_ids": [
+          "confirmation-latent-session-0007-5868ce531e5f436fb0796d29238bbe8e-trajectory-000"
+        ]
+      },
+      {
+        "family": "read_pressure",
+        "measurement_condition": "cached_preloaded",
+        "repeat": 8,
+        "seed": 31124289,
+        "session_id": "confirmation-latent-session-0008-441acdbecded4b898889bdb427168d9d",
+        "trajectory_ids": [
+          "confirmation-latent-session-0008-441acdbecded4b898889bdb427168d9d-trajectory-000"
+        ]
+      },
+      {
+        "family": "read_pressure",
+        "measurement_condition": "cached_preloaded",
+        "repeat": 9,
+        "seed": 31232211,
+        "session_id": "confirmation-latent-session-0009-69dfecf01a124bcd8731c930387d0e6d",
+        "trajectory_ids": [
+          "confirmation-latent-session-0009-69dfecf01a124bcd8731c930387d0e6d-trajectory-000"
+        ]
+      },
+      {
+        "family": "read_pressure",
+        "measurement_condition": "cached_preloaded",
+        "repeat": 10,
+        "seed": 31340133,
+        "session_id": "confirmation-latent-session-0010-982ac45a2cd848ff858a801b874efdf9",
+        "trajectory_ids": [
+          "confirmation-latent-session-0010-982ac45a2cd848ff858a801b874efdf9-trajectory-000"
+        ]
+      },
+      {
+        "family": "read_pressure",
+        "measurement_condition": "cached_preloaded",
+        "repeat": 11,
+        "seed": 31448055,
+        "session_id": "confirmation-latent-session-0011-6acc9fbd4a2944d1830a94390a8a54f7",
+        "trajectory_ids": [
+          "confirmation-latent-session-0011-6acc9fbd4a2944d1830a94390a8a54f7-trajectory-000"
+        ]
+      },
+      {
+        "family": "read_pressure",
+        "measurement_condition": "cached_preloaded",
+        "repeat": 12,
+        "seed": 31555977,
+        "session_id": "confirmation-latent-session-0012-73c632a9c9714c04903af3fc8b10d0f0",
+        "trajectory_ids": [
+          "confirmation-latent-session-0012-73c632a9c9714c04903af3fc8b10d0f0-trajectory-000"
+        ]
+      },
+      {
+        "family": "read_pressure",
+        "measurement_condition": "cached_preloaded",
+        "repeat": 13,
+        "seed": 31663899,
+        "session_id": "confirmation-latent-session-0013-c9b31b3391c34f869e733a82422c76dd",
+        "trajectory_ids": [
+          "confirmation-latent-session-0013-c9b31b3391c34f869e733a82422c76dd-trajectory-000"
+        ]
+      },
+      {
+        "family": "read_pressure",
+        "measurement_condition": "cached_preloaded",
+        "repeat": 14,
+        "seed": 31771821,
+        "session_id": "confirmation-latent-session-0014-ef4f4673a5134dd8be0427ae72a3596f",
+        "trajectory_ids": [
+          "confirmation-latent-session-0014-ef4f4673a5134dd8be0427ae72a3596f-trajectory-000"
+        ]
+      },
+      {
+        "family": "read_pressure",
+        "measurement_condition": "cached_preloaded",
+        "repeat": 15,
+        "seed": 31879743,
+        "session_id": "confirmation-latent-session-0015-cf20c1e8732f4595ba0b08427e3df2c6",
+        "trajectory_ids": [
+          "confirmation-latent-session-0015-cf20c1e8732f4595ba0b08427e3df2c6-trajectory-000"
+        ]
+      },
+      {
+        "family": "read_pressure",
+        "measurement_condition": "cached_preloaded",
+        "repeat": 16,
+        "seed": 31987665,
+        "session_id": "confirmation-latent-session-0016-9203d8d4d1d14e0c9ffad3f7567939af",
+        "trajectory_ids": [
+          "confirmation-latent-session-0016-9203d8d4d1d14e0c9ffad3f7567939af-trajectory-000"
+        ]
+      },
+      {
+        "family": "read_pressure",
+        "measurement_condition": "cached_preloaded",
+        "repeat": 17,
+        "seed": 32095587,
+        "session_id": "confirmation-latent-session-0017-c5dbf89979ee48b6adc686db95b046e2",
+        "trajectory_ids": [
+          "confirmation-latent-session-0017-c5dbf89979ee48b6adc686db95b046e2-trajectory-000"
+        ]
+      },
+      {
+        "family": "read_pressure",
+        "measurement_condition": "cached_preloaded",
+        "repeat": 18,
+        "seed": 32203509,
+        "session_id": "confirmation-latent-session-0018-8cd2ed1fd83c45808fbd2de6e5df1164",
+        "trajectory_ids": [
+          "confirmation-latent-session-0018-8cd2ed1fd83c45808fbd2de6e5df1164-trajectory-000"
+        ]
+      },
+      {
+        "family": "read_pressure",
+        "measurement_condition": "cached_preloaded",
+        "repeat": 19,
+        "seed": 32311431,
+        "session_id": "confirmation-latent-session-0019-bde5b92a285f4f00a4f1743262a9fc43",
+        "trajectory_ids": [
+          "confirmation-latent-session-0019-bde5b92a285f4f00a4f1743262a9fc43-trajectory-000"
+        ]
+      },
+      {
+        "family": "read_pressure",
+        "measurement_condition": "timer_only",
+        "repeat": 0,
+        "seed": 32260973,
+        "session_id": "confirmation-latent-session-0020-0f68314c570a4abaa594ec5336d7366e",
+        "trajectory_ids": [
+          "confirmation-latent-session-0020-0f68314c570a4abaa594ec5336d7366e-trajectory-000"
+        ]
+      },
+      {
+        "family": "read_pressure",
+        "measurement_condition": "timer_only",
+        "repeat": 1,
+        "seed": 32368895,
+        "session_id": "confirmation-latent-session-0021-ad8c636af67b4892b2e8dcede10e3953",
+        "trajectory_ids": [
+          "confirmation-latent-session-0021-ad8c636af67b4892b2e8dcede10e3953-trajectory-000"
+        ]
+      },
+      {
+        "family": "read_pressure",
+        "measurement_condition": "timer_only",
+        "repeat": 2,
+        "seed": 32476817,
+        "session_id": "confirmation-latent-session-0022-2f164135bb2f40fa877fb9d332206d64",
+        "trajectory_ids": [
+          "confirmation-latent-session-0022-2f164135bb2f40fa877fb9d332206d64-trajectory-000"
+        ]
+      },
+      {
+        "family": "read_pressure",
+        "measurement_condition": "timer_only",
+        "repeat": 3,
+        "seed": 32584739,
+        "session_id": "confirmation-latent-session-0023-3dd4ca3c75394ea6a34425068805e567",
+        "trajectory_ids": [
+          "confirmation-latent-session-0023-3dd4ca3c75394ea6a34425068805e567-trajectory-000"
+        ]
+      },
+      {
+        "family": "read_pressure",
+        "measurement_condition": "timer_only",
+        "repeat": 4,
+        "seed": 32692661,
+        "session_id": "confirmation-latent-session-0024-f50a5ecd862443aca68f16df5fdc56e1",
+        "trajectory_ids": [
+          "confirmation-latent-session-0024-f50a5ecd862443aca68f16df5fdc56e1-trajectory-000"
+        ]
+      },
+      {
+        "family": "read_pressure",
+        "measurement_condition": "timer_only",
+        "repeat": 5,
+        "seed": 32800583,
+        "session_id": "confirmation-latent-session-0025-7c5925f7b0cf4928b9d4b3e74db605a6",
+        "trajectory_ids": [
+          "confirmation-latent-session-0025-7c5925f7b0cf4928b9d4b3e74db605a6-trajectory-000"
+        ]
+      },
+      {
+        "family": "read_pressure",
+        "measurement_condition": "timer_only",
+        "repeat": 6,
+        "seed": 32908505,
+        "session_id": "confirmation-latent-session-0026-4cee73e77ad34cf1a509ef82a2ef9c39",
+        "trajectory_ids": [
+          "confirmation-latent-session-0026-4cee73e77ad34cf1a509ef82a2ef9c39-trajectory-000"
+        ]
+      },
+      {
+        "family": "read_pressure",
+        "measurement_condition": "timer_only",
+        "repeat": 7,
+        "seed": 33016427,
+        "session_id": "confirmation-latent-session-0027-c7adaf5f3d9448efb15610518677237a",
+        "trajectory_ids": [
+          "confirmation-latent-session-0027-c7adaf5f3d9448efb15610518677237a-trajectory-000"
+        ]
+      },
+      {
+        "family": "read_pressure",
+        "measurement_condition": "timer_only",
+        "repeat": 8,
+        "seed": 33124349,
+        "session_id": "confirmation-latent-session-0028-4f8a1483332e4aeda8e3cc7e2631ff59",
+        "trajectory_ids": [
+          "confirmation-latent-session-0028-4f8a1483332e4aeda8e3cc7e2631ff59-trajectory-000"
+        ]
+      },
+      {
+        "family": "read_pressure",
+        "measurement_condition": "timer_only",
+        "repeat": 9,
+        "seed": 33232271,
+        "session_id": "confirmation-latent-session-0029-1348c23daff44e41b1f006976f9eb5df",
+        "trajectory_ids": [
+          "confirmation-latent-session-0029-1348c23daff44e41b1f006976f9eb5df-trajectory-000"
+        ]
+      },
+      {
+        "family": "read_pressure",
+        "measurement_condition": "timer_only",
+        "repeat": 10,
+        "seed": 33340193,
+        "session_id": "confirmation-latent-session-0030-9ec23351c96c45b8b927591e965a2bc1",
+        "trajectory_ids": [
+          "confirmation-latent-session-0030-9ec23351c96c45b8b927591e965a2bc1-trajectory-000"
+        ]
+      },
+      {
+        "family": "read_pressure",
+        "measurement_condition": "timer_only",
+        "repeat": 11,
+        "seed": 33448115,
+        "session_id": "confirmation-latent-session-0031-06ada186594243bc8e5c7877686ae4f1",
+        "trajectory_ids": [
+          "confirmation-latent-session-0031-06ada186594243bc8e5c7877686ae4f1-trajectory-000"
+        ]
+      },
+      {
+        "family": "read_pressure",
+        "measurement_condition": "timer_only",
+        "repeat": 12,
+        "seed": 33556037,
+        "session_id": "confirmation-latent-session-0032-1999c92b386143d69e24d7456d09b6c9",
+        "trajectory_ids": [
+          "confirmation-latent-session-0032-1999c92b386143d69e24d7456d09b6c9-trajectory-000"
+        ]
+      },
+      {
+        "family": "read_pressure",
+        "measurement_condition": "timer_only",
+        "repeat": 13,
+        "seed": 33663959,
+        "session_id": "confirmation-latent-session-0033-dc85773ae1b34a9997ee062136cf5243",
+        "trajectory_ids": [
+          "confirmation-latent-session-0033-dc85773ae1b34a9997ee062136cf5243-trajectory-000"
+        ]
+      },
+      {
+        "family": "read_pressure",
+        "measurement_condition": "timer_only",
+        "repeat": 14,
+        "seed": 33771881,
+        "session_id": "confirmation-latent-session-0034-8947d84675dc43eaad34b19ec7d07160",
+        "trajectory_ids": [
+          "confirmation-latent-session-0034-8947d84675dc43eaad34b19ec7d07160-trajectory-000"
+        ]
+      },
+      {
+        "family": "read_pressure",
+        "measurement_condition": "timer_only",
+        "repeat": 15,
+        "seed": 33879803,
+        "session_id": "confirmation-latent-session-0035-a10c1a694d2c48e6aaa06eafb21fa6b6",
+        "trajectory_ids": [
+          "confirmation-latent-session-0035-a10c1a694d2c48e6aaa06eafb21fa6b6-trajectory-000"
+        ]
+      },
+      {
+        "family": "read_pressure",
+        "measurement_condition": "timer_only",
+        "repeat": 16,
+        "seed": 33987725,
+        "session_id": "confirmation-latent-session-0036-19ea3bd8e5e34b0f9c462be869e8dba0",
+        "trajectory_ids": [
+          "confirmation-latent-session-0036-19ea3bd8e5e34b0f9c462be869e8dba0-trajectory-000"
+        ]
+      },
+      {
+        "family": "read_pressure",
+        "measurement_condition": "timer_only",
+        "repeat": 17,
+        "seed": 34095647,
+        "session_id": "confirmation-latent-session-0037-0b93bf61253f46709c31c8964cb5aa6d",
+        "trajectory_ids": [
+          "confirmation-latent-session-0037-0b93bf61253f46709c31c8964cb5aa6d-trajectory-000"
+        ]
+      },
+      {
+        "family": "read_pressure",
+        "measurement_condition": "timer_only",
+        "repeat": 18,
+        "seed": 34203569,
+        "session_id": "confirmation-latent-session-0038-6820880c51664fa59ca0437922675571",
+        "trajectory_ids": [
+          "confirmation-latent-session-0038-6820880c51664fa59ca0437922675571-trajectory-000"
+        ]
+      },
+      {
+        "family": "read_pressure",
+        "measurement_condition": "timer_only",
+        "repeat": 19,
+        "seed": 34311491,
+        "session_id": "confirmation-latent-session-0039-d65c595374d5424480ef56dff65524a6",
+        "trajectory_ids": [
+          "confirmation-latent-session-0039-d65c595374d5424480ef56dff65524a6-trajectory-000"
+        ]
+      },
+      {
+        "family": "active_quiet",
+        "measurement_condition": "cached_preloaded",
+        "repeat": 0,
+        "seed": 34261033,
+        "session_id": "confirmation-latent-session-0040-ad4a019e2d214cb681340ded562f6fa6",
+        "trajectory_ids": [
+          "confirmation-latent-session-0040-ad4a019e2d214cb681340ded562f6fa6-trajectory-000"
+        ]
+      },
+      {
+        "family": "active_quiet",
+        "measurement_condition": "cached_preloaded",
+        "repeat": 1,
+        "seed": 34368955,
+        "session_id": "confirmation-latent-session-0041-9ac04b3498174c999aae56f2aacbd2ba",
+        "trajectory_ids": [
+          "confirmation-latent-session-0041-9ac04b3498174c999aae56f2aacbd2ba-trajectory-000"
+        ]
+      },
+      {
+        "family": "active_quiet",
+        "measurement_condition": "cached_preloaded",
+        "repeat": 2,
+        "seed": 34476877,
+        "session_id": "confirmation-latent-session-0042-990f3171696d404c972ff159eacafc36",
+        "trajectory_ids": [
+          "confirmation-latent-session-0042-990f3171696d404c972ff159eacafc36-trajectory-000"
+        ]
+      },
+      {
+        "family": "active_quiet",
+        "measurement_condition": "cached_preloaded",
+        "repeat": 3,
+        "seed": 34584799,
+        "session_id": "confirmation-latent-session-0043-d5637f3f67854c53ad8428105427f149",
+        "trajectory_ids": [
+          "confirmation-latent-session-0043-d5637f3f67854c53ad8428105427f149-trajectory-000"
+        ]
+      },
+      {
+        "family": "active_quiet",
+        "measurement_condition": "cached_preloaded",
+        "repeat": 4,
+        "seed": 34692721,
+        "session_id": "confirmation-latent-session-0044-64853c8bbb944f30997b356f2ec36459",
+        "trajectory_ids": [
+          "confirmation-latent-session-0044-64853c8bbb944f30997b356f2ec36459-trajectory-000"
+        ]
+      },
+      {
+        "family": "active_quiet",
+        "measurement_condition": "cached_preloaded",
+        "repeat": 5,
+        "seed": 34800643,
+        "session_id": "confirmation-latent-session-0045-736dc027f2994f888b3542deeeae73bd",
+        "trajectory_ids": [
+          "confirmation-latent-session-0045-736dc027f2994f888b3542deeeae73bd-trajectory-000"
+        ]
+      },
+      {
+        "family": "active_quiet",
+        "measurement_condition": "cached_preloaded",
+        "repeat": 6,
+        "seed": 34908565,
+        "session_id": "confirmation-latent-session-0046-0d5456cbe86c42f4b64e0795eb10d7fc",
+        "trajectory_ids": [
+          "confirmation-latent-session-0046-0d5456cbe86c42f4b64e0795eb10d7fc-trajectory-000"
+        ]
+      },
+      {
+        "family": "active_quiet",
+        "measurement_condition": "cached_preloaded",
+        "repeat": 7,
+        "seed": 35016487,
+        "session_id": "confirmation-latent-session-0047-a1381f9fd61941d48493c19a51c5d22a",
+        "trajectory_ids": [
+          "confirmation-latent-session-0047-a1381f9fd61941d48493c19a51c5d22a-trajectory-000"
+        ]
+      },
+      {
+        "family": "active_quiet",
+        "measurement_condition": "cached_preloaded",
+        "repeat": 8,
+        "seed": 35124409,
+        "session_id": "confirmation-latent-session-0048-3f69cfa59e854366b4ee49c8929c6585",
+        "trajectory_ids": [
+          "confirmation-latent-session-0048-3f69cfa59e854366b4ee49c8929c6585-trajectory-000"
+        ]
+      },
+      {
+        "family": "active_quiet",
+        "measurement_condition": "cached_preloaded",
+        "repeat": 9,
+        "seed": 35232331,
+        "session_id": "confirmation-latent-session-0049-a543ffd209b84841a9ccbc988c67b055",
+        "trajectory_ids": [
+          "confirmation-latent-session-0049-a543ffd209b84841a9ccbc988c67b055-trajectory-000"
+        ]
+      },
+      {
+        "family": "active_quiet",
+        "measurement_condition": "cached_preloaded",
+        "repeat": 10,
+        "seed": 35340253,
+        "session_id": "confirmation-latent-session-0050-1267bf0242ee4fefa6849913969d6f55",
+        "trajectory_ids": [
+          "confirmation-latent-session-0050-1267bf0242ee4fefa6849913969d6f55-trajectory-000"
+        ]
+      },
+      {
+        "family": "active_quiet",
+        "measurement_condition": "cached_preloaded",
+        "repeat": 11,
+        "seed": 35448175,
+        "session_id": "confirmation-latent-session-0051-6f4e79e7f9a24d64aaa9c85452830c29",
+        "trajectory_ids": [
+          "confirmation-latent-session-0051-6f4e79e7f9a24d64aaa9c85452830c29-trajectory-000"
+        ]
+      },
+      {
+        "family": "active_quiet",
+        "measurement_condition": "cached_preloaded",
+        "repeat": 12,
+        "seed": 35556097,
+        "session_id": "confirmation-latent-session-0052-7c420bb974b040ab9aa1f119f3496b09",
+        "trajectory_ids": [
+          "confirmation-latent-session-0052-7c420bb974b040ab9aa1f119f3496b09-trajectory-000"
+        ]
+      },
+      {
+        "family": "active_quiet",
+        "measurement_condition": "cached_preloaded",
+        "repeat": 13,
+        "seed": 35664019,
+        "session_id": "confirmation-latent-session-0053-d56bbaf7598d4b54ac80170a3045d8bc",
+        "trajectory_ids": [
+          "confirmation-latent-session-0053-d56bbaf7598d4b54ac80170a3045d8bc-trajectory-000"
+        ]
+      },
+      {
+        "family": "active_quiet",
+        "measurement_condition": "cached_preloaded",
+        "repeat": 14,
+        "seed": 35771941,
+        "session_id": "confirmation-latent-session-0054-daf78138670c42c3967c4bb1914e6a7c",
+        "trajectory_ids": [
+          "confirmation-latent-session-0054-daf78138670c42c3967c4bb1914e6a7c-trajectory-000"
+        ]
+      },
+      {
+        "family": "active_quiet",
+        "measurement_condition": "cached_preloaded",
+        "repeat": 15,
+        "seed": 35879863,
+        "session_id": "confirmation-latent-session-0055-1d7614516f8a44b4aee1157c8ad330d0",
+        "trajectory_ids": [
+          "confirmation-latent-session-0055-1d7614516f8a44b4aee1157c8ad330d0-trajectory-000"
+        ]
+      },
+      {
+        "family": "active_quiet",
+        "measurement_condition": "cached_preloaded",
+        "repeat": 16,
+        "seed": 35987785,
+        "session_id": "confirmation-latent-session-0056-acca6280394049e6b5a6992dc50f3846",
+        "trajectory_ids": [
+          "confirmation-latent-session-0056-acca6280394049e6b5a6992dc50f3846-trajectory-000"
+        ]
+      },
+      {
+        "family": "active_quiet",
+        "measurement_condition": "cached_preloaded",
+        "repeat": 17,
+        "seed": 36095707,
+        "session_id": "confirmation-latent-session-0057-78b4dd4cd79f4e409cf1f9fface3340b",
+        "trajectory_ids": [
+          "confirmation-latent-session-0057-78b4dd4cd79f4e409cf1f9fface3340b-trajectory-000"
+        ]
+      },
+      {
+        "family": "active_quiet",
+        "measurement_condition": "cached_preloaded",
+        "repeat": 18,
+        "seed": 36203629,
+        "session_id": "confirmation-latent-session-0058-10932cd4231a411485548ae56b326a25",
+        "trajectory_ids": [
+          "confirmation-latent-session-0058-10932cd4231a411485548ae56b326a25-trajectory-000"
+        ]
+      },
+      {
+        "family": "active_quiet",
+        "measurement_condition": "cached_preloaded",
+        "repeat": 19,
+        "seed": 36311551,
+        "session_id": "confirmation-latent-session-0059-2aa9e73c81884e0c855f5ecdda9218e4",
+        "trajectory_ids": [
+          "confirmation-latent-session-0059-2aa9e73c81884e0c855f5ecdda9218e4-trajectory-000"
+        ]
+      },
+      {
+        "family": "active_quiet",
+        "measurement_condition": "timer_only",
+        "repeat": 0,
+        "seed": 36261093,
+        "session_id": "confirmation-latent-session-0060-0fbaf02f5d474c06b41396720738b6d7",
+        "trajectory_ids": [
+          "confirmation-latent-session-0060-0fbaf02f5d474c06b41396720738b6d7-trajectory-000"
+        ]
+      },
+      {
+        "family": "active_quiet",
+        "measurement_condition": "timer_only",
+        "repeat": 1,
+        "seed": 36369015,
+        "session_id": "confirmation-latent-session-0061-bf19a01273ff4154922bc6fdf3be0cd8",
+        "trajectory_ids": [
+          "confirmation-latent-session-0061-bf19a01273ff4154922bc6fdf3be0cd8-trajectory-000"
+        ]
+      },
+      {
+        "family": "active_quiet",
+        "measurement_condition": "timer_only",
+        "repeat": 2,
+        "seed": 36476937,
+        "session_id": "confirmation-latent-session-0062-728b961d756e4bd4ba6fd6924f72ee85",
+        "trajectory_ids": [
+          "confirmation-latent-session-0062-728b961d756e4bd4ba6fd6924f72ee85-trajectory-000"
+        ]
+      },
+      {
+        "family": "active_quiet",
+        "measurement_condition": "timer_only",
+        "repeat": 3,
+        "seed": 36584859,
+        "session_id": "confirmation-latent-session-0063-82838a0b5c0d4d8585f9b02bb882712c",
+        "trajectory_ids": [
+          "confirmation-latent-session-0063-82838a0b5c0d4d8585f9b02bb882712c-trajectory-000"
+        ]
+      },
+      {
+        "family": "active_quiet",
+        "measurement_condition": "timer_only",
+        "repeat": 4,
+        "seed": 36692781,
+        "session_id": "confirmation-latent-session-0064-f41596f739b74cdd8e0576f990e3dfed",
+        "trajectory_ids": [
+          "confirmation-latent-session-0064-f41596f739b74cdd8e0576f990e3dfed-trajectory-000"
+        ]
+      },
+      {
+        "family": "active_quiet",
+        "measurement_condition": "timer_only",
+        "repeat": 5,
+        "seed": 36800703,
+        "session_id": "confirmation-latent-session-0065-8c80152e85344eac9c9c79ae54184071",
+        "trajectory_ids": [
+          "confirmation-latent-session-0065-8c80152e85344eac9c9c79ae54184071-trajectory-000"
+        ]
+      },
+      {
+        "family": "active_quiet",
+        "measurement_condition": "timer_only",
+        "repeat": 6,
+        "seed": 36908625,
+        "session_id": "confirmation-latent-session-0066-8514271cbdbc44b881f2a2f9f2130053",
+        "trajectory_ids": [
+          "confirmation-latent-session-0066-8514271cbdbc44b881f2a2f9f2130053-trajectory-000"
+        ]
+      },
+      {
+        "family": "active_quiet",
+        "measurement_condition": "timer_only",
+        "repeat": 7,
+        "seed": 37016547,
+        "session_id": "confirmation-latent-session-0067-38d4ca5fc0914d39b70e4423fa23333d",
+        "trajectory_ids": [
+          "confirmation-latent-session-0067-38d4ca5fc0914d39b70e4423fa23333d-trajectory-000"
+        ]
+      },
+      {
+        "family": "active_quiet",
+        "measurement_condition": "timer_only",
+        "repeat": 8,
+        "seed": 37124469,
+        "session_id": "confirmation-latent-session-0068-05876fe3f9784b7dbf28cef0a8cc457e",
+        "trajectory_ids": [
+          "confirmation-latent-session-0068-05876fe3f9784b7dbf28cef0a8cc457e-trajectory-000"
+        ]
+      },
+      {
+        "family": "active_quiet",
+        "measurement_condition": "timer_only",
+        "repeat": 9,
+        "seed": 37232391,
+        "session_id": "confirmation-latent-session-0069-b8ec95fee6e049399689603c5cadfaad",
+        "trajectory_ids": [
+          "confirmation-latent-session-0069-b8ec95fee6e049399689603c5cadfaad-trajectory-000"
+        ]
+      },
+      {
+        "family": "active_quiet",
+        "measurement_condition": "timer_only",
+        "repeat": 10,
+        "seed": 37340313,
+        "session_id": "confirmation-latent-session-0070-03f7588f91c649309e484d822b0c1a67",
+        "trajectory_ids": [
+          "confirmation-latent-session-0070-03f7588f91c649309e484d822b0c1a67-trajectory-000"
+        ]
+      },
+      {
+        "family": "active_quiet",
+        "measurement_condition": "timer_only",
+        "repeat": 11,
+        "seed": 37448235,
+        "session_id": "confirmation-latent-session-0071-a322d35390984afbac3fdf4c3f9f5588",
+        "trajectory_ids": [
+          "confirmation-latent-session-0071-a322d35390984afbac3fdf4c3f9f5588-trajectory-000"
+        ]
+      },
+      {
+        "family": "active_quiet",
+        "measurement_condition": "timer_only",
+        "repeat": 12,
+        "seed": 37556157,
+        "session_id": "confirmation-latent-session-0072-2833bf0900094d75b5ea141a50c77bd7",
+        "trajectory_ids": [
+          "confirmation-latent-session-0072-2833bf0900094d75b5ea141a50c77bd7-trajectory-000"
+        ]
+      },
+      {
+        "family": "active_quiet",
+        "measurement_condition": "timer_only",
+        "repeat": 13,
+        "seed": 37664079,
+        "session_id": "confirmation-latent-session-0073-42d6bc3d039f42a5bad658ed7e37620c",
+        "trajectory_ids": [
+          "confirmation-latent-session-0073-42d6bc3d039f42a5bad658ed7e37620c-trajectory-000"
+        ]
+      },
+      {
+        "family": "active_quiet",
+        "measurement_condition": "timer_only",
+        "repeat": 14,
+        "seed": 37772001,
+        "session_id": "confirmation-latent-session-0074-8d8943978762404cac6134258ea72a97",
+        "trajectory_ids": [
+          "confirmation-latent-session-0074-8d8943978762404cac6134258ea72a97-trajectory-000"
+        ]
+      },
+      {
+        "family": "active_quiet",
+        "measurement_condition": "timer_only",
+        "repeat": 15,
+        "seed": 37879923,
+        "session_id": "confirmation-latent-session-0075-f7e985fc7a1445aa8f9466ddaa2ee37b",
+        "trajectory_ids": [
+          "confirmation-latent-session-0075-f7e985fc7a1445aa8f9466ddaa2ee37b-trajectory-000"
+        ]
+      },
+      {
+        "family": "active_quiet",
+        "measurement_condition": "timer_only",
+        "repeat": 16,
+        "seed": 37987845,
+        "session_id": "confirmation-latent-session-0076-37cc6e748d5b4ca7b19152fdfdeb0d70",
+        "trajectory_ids": [
+          "confirmation-latent-session-0076-37cc6e748d5b4ca7b19152fdfdeb0d70-trajectory-000"
+        ]
+      },
+      {
+        "family": "active_quiet",
+        "measurement_condition": "timer_only",
+        "repeat": 17,
+        "seed": 38095767,
+        "session_id": "confirmation-latent-session-0077-ca329d70cabe45d6901fe2ab2a5047dd",
+        "trajectory_ids": [
+          "confirmation-latent-session-0077-ca329d70cabe45d6901fe2ab2a5047dd-trajectory-000"
+        ]
+      },
+      {
+        "family": "active_quiet",
+        "measurement_condition": "timer_only",
+        "repeat": 18,
+        "seed": 38203689,
+        "session_id": "confirmation-latent-session-0078-8b434ae160d54d35a54039c1a5a138cf",
+        "trajectory_ids": [
+          "confirmation-latent-session-0078-8b434ae160d54d35a54039c1a5a138cf-trajectory-000"
+        ]
+      },
+      {
+        "family": "active_quiet",
+        "measurement_condition": "timer_only",
+        "repeat": 19,
+        "seed": 38311611,
+        "session_id": "confirmation-latent-session-0079-8f4da8facacf427baa567ea1b0a05eb4",
+        "trajectory_ids": [
+          "confirmation-latent-session-0079-8f4da8facacf427baa567ea1b0a05eb4-trajectory-000"
+        ]
+      },
+      {
+        "family": "sham",
+        "measurement_condition": "cached_preloaded",
+        "repeat": 0,
+        "seed": 38261153,
+        "session_id": "confirmation-latent-session-0080-0d0671665e9d4d95a8122c828ad2781d",
+        "trajectory_ids": [
+          "confirmation-latent-session-0080-0d0671665e9d4d95a8122c828ad2781d-trajectory-000"
+        ]
+      },
+      {
+        "family": "sham",
+        "measurement_condition": "cached_preloaded",
+        "repeat": 1,
+        "seed": 38369075,
+        "session_id": "confirmation-latent-session-0081-f650a081cd884820b41e859c24c7e38f",
+        "trajectory_ids": [
+          "confirmation-latent-session-0081-f650a081cd884820b41e859c24c7e38f-trajectory-000"
+        ]
+      },
+      {
+        "family": "sham",
+        "measurement_condition": "cached_preloaded",
+        "repeat": 2,
+        "seed": 38476997,
+        "session_id": "confirmation-latent-session-0082-93615aa704324a34833a6401944369f1",
+        "trajectory_ids": [
+          "confirmation-latent-session-0082-93615aa704324a34833a6401944369f1-trajectory-000"
+        ]
+      },
+      {
+        "family": "sham",
+        "measurement_condition": "cached_preloaded",
+        "repeat": 3,
+        "seed": 38584919,
+        "session_id": "confirmation-latent-session-0083-dff4785e2fe543ad8aa4f0d4cf33a3fe",
+        "trajectory_ids": [
+          "confirmation-latent-session-0083-dff4785e2fe543ad8aa4f0d4cf33a3fe-trajectory-000"
+        ]
+      },
+      {
+        "family": "sham",
+        "measurement_condition": "cached_preloaded",
+        "repeat": 4,
+        "seed": 38692841,
+        "session_id": "confirmation-latent-session-0084-50936fbbfd99434ea7d594e2565cbc95",
+        "trajectory_ids": [
+          "confirmation-latent-session-0084-50936fbbfd99434ea7d594e2565cbc95-trajectory-000"
+        ]
+      },
+      {
+        "family": "sham",
+        "measurement_condition": "cached_preloaded",
+        "repeat": 5,
+        "seed": 38800763,
+        "session_id": "confirmation-latent-session-0085-dfd91cfa80544f78be28aa7001d94538",
+        "trajectory_ids": [
+          "confirmation-latent-session-0085-dfd91cfa80544f78be28aa7001d94538-trajectory-000"
+        ]
+      },
+      {
+        "family": "sham",
+        "measurement_condition": "cached_preloaded",
+        "repeat": 6,
+        "seed": 38908685,
+        "session_id": "confirmation-latent-session-0086-1c854597eb654544b852c9b3e845d01b",
+        "trajectory_ids": [
+          "confirmation-latent-session-0086-1c854597eb654544b852c9b3e845d01b-trajectory-000"
+        ]
+      },
+      {
+        "family": "sham",
+        "measurement_condition": "cached_preloaded",
+        "repeat": 7,
+        "seed": 39016607,
+        "session_id": "confirmation-latent-session-0087-8ebd3b6424144c8c9bff3d4e6bf8eb2f",
+        "trajectory_ids": [
+          "confirmation-latent-session-0087-8ebd3b6424144c8c9bff3d4e6bf8eb2f-trajectory-000"
+        ]
+      },
+      {
+        "family": "sham",
+        "measurement_condition": "cached_preloaded",
+        "repeat": 8,
+        "seed": 39124529,
+        "session_id": "confirmation-latent-session-0088-9b9976ac02364556993e00785cfc7123",
+        "trajectory_ids": [
+          "confirmation-latent-session-0088-9b9976ac02364556993e00785cfc7123-trajectory-000"
+        ]
+      },
+      {
+        "family": "sham",
+        "measurement_condition": "cached_preloaded",
+        "repeat": 9,
+        "seed": 39232451,
+        "session_id": "confirmation-latent-session-0089-b20c408989f34253aa7bb1595f2b9699",
+        "trajectory_ids": [
+          "confirmation-latent-session-0089-b20c408989f34253aa7bb1595f2b9699-trajectory-000"
+        ]
+      },
+      {
+        "family": "sham",
+        "measurement_condition": "cached_preloaded",
+        "repeat": 10,
+        "seed": 39340373,
+        "session_id": "confirmation-latent-session-0090-f549e9f1eedc4559a8faef511ee0de28",
+        "trajectory_ids": [
+          "confirmation-latent-session-0090-f549e9f1eedc4559a8faef511ee0de28-trajectory-000"
+        ]
+      },
+      {
+        "family": "sham",
+        "measurement_condition": "cached_preloaded",
+        "repeat": 11,
+        "seed": 39448295,
+        "session_id": "confirmation-latent-session-0091-64a64da36e9e4615959b74e30cb52c1a",
+        "trajectory_ids": [
+          "confirmation-latent-session-0091-64a64da36e9e4615959b74e30cb52c1a-trajectory-000"
+        ]
+      },
+      {
+        "family": "sham",
+        "measurement_condition": "cached_preloaded",
+        "repeat": 12,
+        "seed": 39556217,
+        "session_id": "confirmation-latent-session-0092-2391a3f6a9f5496f8fd19a3f335566e7",
+        "trajectory_ids": [
+          "confirmation-latent-session-0092-2391a3f6a9f5496f8fd19a3f335566e7-trajectory-000"
+        ]
+      },
+      {
+        "family": "sham",
+        "measurement_condition": "cached_preloaded",
+        "repeat": 13,
+        "seed": 39664139,
+        "session_id": "confirmation-latent-session-0093-9072b88803e241699fa8112c89082ccb",
+        "trajectory_ids": [
+          "confirmation-latent-session-0093-9072b88803e241699fa8112c89082ccb-trajectory-000"
+        ]
+      },
+      {
+        "family": "sham",
+        "measurement_condition": "cached_preloaded",
+        "repeat": 14,
+        "seed": 39772061,
+        "session_id": "confirmation-latent-session-0094-fe98a813e337417e80911c877f05c008",
+        "trajectory_ids": [
+          "confirmation-latent-session-0094-fe98a813e337417e80911c877f05c008-trajectory-000"
+        ]
+      },
+      {
+        "family": "sham",
+        "measurement_condition": "cached_preloaded",
+        "repeat": 15,
+        "seed": 39879983,
+        "session_id": "confirmation-latent-session-0095-5b0cac71829146d29c4d74f38e04be4a",
+        "trajectory_ids": [
+          "confirmation-latent-session-0095-5b0cac71829146d29c4d74f38e04be4a-trajectory-000"
+        ]
+      },
+      {
+        "family": "sham",
+        "measurement_condition": "cached_preloaded",
+        "repeat": 16,
+        "seed": 39987905,
+        "session_id": "confirmation-latent-session-0096-624dea86265946f983196be69977e828",
+        "trajectory_ids": [
+          "confirmation-latent-session-0096-624dea86265946f983196be69977e828-trajectory-000"
+        ]
+      },
+      {
+        "family": "sham",
+        "measurement_condition": "cached_preloaded",
+        "repeat": 17,
+        "seed": 40095827,
+        "session_id": "confirmation-latent-session-0097-094cc0f1179546d082034debdfb78f6c",
+        "trajectory_ids": [
+          "confirmation-latent-session-0097-094cc0f1179546d082034debdfb78f6c-trajectory-000"
+        ]
+      },
+      {
+        "family": "sham",
+        "measurement_condition": "cached_preloaded",
+        "repeat": 18,
+        "seed": 40203749,
+        "session_id": "confirmation-latent-session-0098-f3a209f0f2674768902c0b60b0da24c4",
+        "trajectory_ids": [
+          "confirmation-latent-session-0098-f3a209f0f2674768902c0b60b0da24c4-trajectory-000"
+        ]
+      },
+      {
+        "family": "sham",
+        "measurement_condition": "cached_preloaded",
+        "repeat": 19,
+        "seed": 40311671,
+        "session_id": "confirmation-latent-session-0099-dc6d46800d0a44beb4d7afe097ab5c2c",
+        "trajectory_ids": [
+          "confirmation-latent-session-0099-dc6d46800d0a44beb4d7afe097ab5c2c-trajectory-000"
+        ]
+      },
+      {
+        "family": "sham",
+        "measurement_condition": "timer_only",
+        "repeat": 0,
+        "seed": 40261213,
+        "session_id": "confirmation-latent-session-0100-4c6ecb7d6f0349ac93557382e447456e",
+        "trajectory_ids": [
+          "confirmation-latent-session-0100-4c6ecb7d6f0349ac93557382e447456e-trajectory-000"
+        ]
+      },
+      {
+        "family": "sham",
+        "measurement_condition": "timer_only",
+        "repeat": 1,
+        "seed": 40369135,
+        "session_id": "confirmation-latent-session-0101-e0a097aae3ab4040bb57f196fc6149b5",
+        "trajectory_ids": [
+          "confirmation-latent-session-0101-e0a097aae3ab4040bb57f196fc6149b5-trajectory-000"
+        ]
+      },
+      {
+        "family": "sham",
+        "measurement_condition": "timer_only",
+        "repeat": 2,
+        "seed": 40477057,
+        "session_id": "confirmation-latent-session-0102-db68a56f65824fe68228c40a742b32f8",
+        "trajectory_ids": [
+          "confirmation-latent-session-0102-db68a56f65824fe68228c40a742b32f8-trajectory-000"
+        ]
+      },
+      {
+        "family": "sham",
+        "measurement_condition": "timer_only",
+        "repeat": 3,
+        "seed": 40584979,
+        "session_id": "confirmation-latent-session-0103-f38f5c3546ed410b98c16ec5696ed446",
+        "trajectory_ids": [
+          "confirmation-latent-session-0103-f38f5c3546ed410b98c16ec5696ed446-trajectory-000"
+        ]
+      },
+      {
+        "family": "sham",
+        "measurement_condition": "timer_only",
+        "repeat": 4,
+        "seed": 40692901,
+        "session_id": "confirmation-latent-session-0104-e3cac570343d461c9e8a503bc9c1a5d7",
+        "trajectory_ids": [
+          "confirmation-latent-session-0104-e3cac570343d461c9e8a503bc9c1a5d7-trajectory-000"
+        ]
+      },
+      {
+        "family": "sham",
+        "measurement_condition": "timer_only",
+        "repeat": 5,
+        "seed": 40800823,
+        "session_id": "confirmation-latent-session-0105-bf9ddef017d040eabddd123dff229f50",
+        "trajectory_ids": [
+          "confirmation-latent-session-0105-bf9ddef017d040eabddd123dff229f50-trajectory-000"
+        ]
+      },
+      {
+        "family": "sham",
+        "measurement_condition": "timer_only",
+        "repeat": 6,
+        "seed": 40908745,
+        "session_id": "confirmation-latent-session-0106-f3357084ce06487f849b9e6ee0e9dfea",
+        "trajectory_ids": [
+          "confirmation-latent-session-0106-f3357084ce06487f849b9e6ee0e9dfea-trajectory-000"
+        ]
+      },
+      {
+        "family": "sham",
+        "measurement_condition": "timer_only",
+        "repeat": 7,
+        "seed": 41016667,
+        "session_id": "confirmation-latent-session-0107-8822edf88a0c41ca98e05d1b70597a16",
+        "trajectory_ids": [
+          "confirmation-latent-session-0107-8822edf88a0c41ca98e05d1b70597a16-trajectory-000"
+        ]
+      },
+      {
+        "family": "sham",
+        "measurement_condition": "timer_only",
+        "repeat": 8,
+        "seed": 41124589,
+        "session_id": "confirmation-latent-session-0108-31b10582056a4c1cb4d94f8a0ca92828",
+        "trajectory_ids": [
+          "confirmation-latent-session-0108-31b10582056a4c1cb4d94f8a0ca92828-trajectory-000"
+        ]
+      },
+      {
+        "family": "sham",
+        "measurement_condition": "timer_only",
+        "repeat": 9,
+        "seed": 41232511,
+        "session_id": "confirmation-latent-session-0109-ba50255cef36423594cdd6087ff80a40",
+        "trajectory_ids": [
+          "confirmation-latent-session-0109-ba50255cef36423594cdd6087ff80a40-trajectory-000"
+        ]
+      },
+      {
+        "family": "sham",
+        "measurement_condition": "timer_only",
+        "repeat": 10,
+        "seed": 41340433,
+        "session_id": "confirmation-latent-session-0110-1905dc794e3e415e9501c7ceb47098e5",
+        "trajectory_ids": [
+          "confirmation-latent-session-0110-1905dc794e3e415e9501c7ceb47098e5-trajectory-000"
+        ]
+      },
+      {
+        "family": "sham",
+        "measurement_condition": "timer_only",
+        "repeat": 11,
+        "seed": 41448355,
+        "session_id": "confirmation-latent-session-0111-3d9f2c2b63c64a98928f03558c363bf3",
+        "trajectory_ids": [
+          "confirmation-latent-session-0111-3d9f2c2b63c64a98928f03558c363bf3-trajectory-000"
+        ]
+      },
+      {
+        "family": "sham",
+        "measurement_condition": "timer_only",
+        "repeat": 12,
+        "seed": 41556277,
+        "session_id": "confirmation-latent-session-0112-f2f9af690b1048c8a8fe355fe7590b61",
+        "trajectory_ids": [
+          "confirmation-latent-session-0112-f2f9af690b1048c8a8fe355fe7590b61-trajectory-000"
+        ]
+      },
+      {
+        "family": "sham",
+        "measurement_condition": "timer_only",
+        "repeat": 13,
+        "seed": 41664199,
+        "session_id": "confirmation-latent-session-0113-ad30965af8b443d392390f6089046a1b",
+        "trajectory_ids": [
+          "confirmation-latent-session-0113-ad30965af8b443d392390f6089046a1b-trajectory-000"
+        ]
+      },
+      {
+        "family": "sham",
+        "measurement_condition": "timer_only",
+        "repeat": 14,
+        "seed": 41772121,
+        "session_id": "confirmation-latent-session-0114-2658d0d016f240c691ff7a27c4d4d281",
+        "trajectory_ids": [
+          "confirmation-latent-session-0114-2658d0d016f240c691ff7a27c4d4d281-trajectory-000"
+        ]
+      },
+      {
+        "family": "sham",
+        "measurement_condition": "timer_only",
+        "repeat": 15,
+        "seed": 41880043,
+        "session_id": "confirmation-latent-session-0115-0eb21a1bc739466bbfb551a248e8575e",
+        "trajectory_ids": [
+          "confirmation-latent-session-0115-0eb21a1bc739466bbfb551a248e8575e-trajectory-000"
+        ]
+      },
+      {
+        "family": "sham",
+        "measurement_condition": "timer_only",
+        "repeat": 16,
+        "seed": 41987965,
+        "session_id": "confirmation-latent-session-0116-f87c799126fb49138af742ae884e3e8f",
+        "trajectory_ids": [
+          "confirmation-latent-session-0116-f87c799126fb49138af742ae884e3e8f-trajectory-000"
+        ]
+      },
+      {
+        "family": "sham",
+        "measurement_condition": "timer_only",
+        "repeat": 17,
+        "seed": 42095887,
+        "session_id": "confirmation-latent-session-0117-28b13ce750354983a83445196f8d1c69",
+        "trajectory_ids": [
+          "confirmation-latent-session-0117-28b13ce750354983a83445196f8d1c69-trajectory-000"
+        ]
+      },
+      {
+        "family": "sham",
+        "measurement_condition": "timer_only",
+        "repeat": 18,
+        "seed": 42203809,
+        "session_id": "confirmation-latent-session-0118-ec903772c174423cb97ca064b4885535",
+        "trajectory_ids": [
+          "confirmation-latent-session-0118-ec903772c174423cb97ca064b4885535-trajectory-000"
+        ]
+      },
+      {
+        "family": "sham",
+        "measurement_condition": "timer_only",
+        "repeat": 19,
+        "seed": 42311731,
+        "session_id": "confirmation-latent-session-0119-749f663a190c44c4b52fe9a36a31d9ea",
+        "trajectory_ids": [
+          "confirmation-latent-session-0119-749f663a190c44c4b52fe9a36a31d9ea-trajectory-000"
+        ]
+      },
+      {
+        "family": "passive",
+        "measurement_condition": "cached_preloaded",
+        "repeat": 0,
+        "seed": 42261273,
+        "session_id": "confirmation-latent-session-0120-dedc852dd81242b3836e7bf9a666f879",
+        "trajectory_ids": [
+          "confirmation-latent-session-0120-dedc852dd81242b3836e7bf9a666f879-trajectory-000"
+        ]
+      },
+      {
+        "family": "passive",
+        "measurement_condition": "cached_preloaded",
+        "repeat": 1,
+        "seed": 42369195,
+        "session_id": "confirmation-latent-session-0121-2af8463abfb048438007cb29b5b87171",
+        "trajectory_ids": [
+          "confirmation-latent-session-0121-2af8463abfb048438007cb29b5b87171-trajectory-000"
+        ]
+      },
+      {
+        "family": "passive",
+        "measurement_condition": "cached_preloaded",
+        "repeat": 2,
+        "seed": 42477117,
+        "session_id": "confirmation-latent-session-0122-4ae07a59e55d4178b6b35a6ee00b2bb6",
+        "trajectory_ids": [
+          "confirmation-latent-session-0122-4ae07a59e55d4178b6b35a6ee00b2bb6-trajectory-000"
+        ]
+      },
+      {
+        "family": "passive",
+        "measurement_condition": "cached_preloaded",
+        "repeat": 3,
+        "seed": 42585039,
+        "session_id": "confirmation-latent-session-0123-889106dd406a48f18f61022da452e976",
+        "trajectory_ids": [
+          "confirmation-latent-session-0123-889106dd406a48f18f61022da452e976-trajectory-000"
+        ]
+      },
+      {
+        "family": "passive",
+        "measurement_condition": "cached_preloaded",
+        "repeat": 4,
+        "seed": 42692961,
+        "session_id": "confirmation-latent-session-0124-38f237cf505d43b6895312dd91ac79ee",
+        "trajectory_ids": [
+          "confirmation-latent-session-0124-38f237cf505d43b6895312dd91ac79ee-trajectory-000"
+        ]
+      },
+      {
+        "family": "passive",
+        "measurement_condition": "cached_preloaded",
+        "repeat": 5,
+        "seed": 42800883,
+        "session_id": "confirmation-latent-session-0125-4b8a1ff4e7dd4a5eb2152592dbb8e0fd",
+        "trajectory_ids": [
+          "confirmation-latent-session-0125-4b8a1ff4e7dd4a5eb2152592dbb8e0fd-trajectory-000"
+        ]
+      },
+      {
+        "family": "passive",
+        "measurement_condition": "cached_preloaded",
+        "repeat": 6,
+        "seed": 42908805,
+        "session_id": "confirmation-latent-session-0126-b178f701a97a49b8bb008826e2669d27",
+        "trajectory_ids": [
+          "confirmation-latent-session-0126-b178f701a97a49b8bb008826e2669d27-trajectory-000"
+        ]
+      },
+      {
+        "family": "passive",
+        "measurement_condition": "cached_preloaded",
+        "repeat": 7,
+        "seed": 43016727,
+        "session_id": "confirmation-latent-session-0127-e5596babf86c4a988bfd30e3914380dc",
+        "trajectory_ids": [
+          "confirmation-latent-session-0127-e5596babf86c4a988bfd30e3914380dc-trajectory-000"
+        ]
+      },
+      {
+        "family": "passive",
+        "measurement_condition": "cached_preloaded",
+        "repeat": 8,
+        "seed": 43124649,
+        "session_id": "confirmation-latent-session-0128-6a6ea09019124abf83990516721f0bdd",
+        "trajectory_ids": [
+          "confirmation-latent-session-0128-6a6ea09019124abf83990516721f0bdd-trajectory-000"
+        ]
+      },
+      {
+        "family": "passive",
+        "measurement_condition": "cached_preloaded",
+        "repeat": 9,
+        "seed": 43232571,
+        "session_id": "confirmation-latent-session-0129-5bbc478744f841d08a7798d927ba6b6c",
+        "trajectory_ids": [
+          "confirmation-latent-session-0129-5bbc478744f841d08a7798d927ba6b6c-trajectory-000"
+        ]
+      },
+      {
+        "family": "passive",
+        "measurement_condition": "cached_preloaded",
+        "repeat": 10,
+        "seed": 43340493,
+        "session_id": "confirmation-latent-session-0130-080e6485502b4ab197b7ad184eec842c",
+        "trajectory_ids": [
+          "confirmation-latent-session-0130-080e6485502b4ab197b7ad184eec842c-trajectory-000"
+        ]
+      },
+      {
+        "family": "passive",
+        "measurement_condition": "cached_preloaded",
+        "repeat": 11,
+        "seed": 43448415,
+        "session_id": "confirmation-latent-session-0131-8b8521a1003a4bf398900a79e4247c0b",
+        "trajectory_ids": [
+          "confirmation-latent-session-0131-8b8521a1003a4bf398900a79e4247c0b-trajectory-000"
+        ]
+      },
+      {
+        "family": "passive",
+        "measurement_condition": "cached_preloaded",
+        "repeat": 12,
+        "seed": 43556337,
+        "session_id": "confirmation-latent-session-0132-a232083c03304e1ca06a5418ee1a5fb0",
+        "trajectory_ids": [
+          "confirmation-latent-session-0132-a232083c03304e1ca06a5418ee1a5fb0-trajectory-000"
+        ]
+      },
+      {
+        "family": "passive",
+        "measurement_condition": "cached_preloaded",
+        "repeat": 13,
+        "seed": 43664259,
+        "session_id": "confirmation-latent-session-0133-c0c76d2d044641cab75d2a57cf20660f",
+        "trajectory_ids": [
+          "confirmation-latent-session-0133-c0c76d2d044641cab75d2a57cf20660f-trajectory-000"
+        ]
+      },
+      {
+        "family": "passive",
+        "measurement_condition": "cached_preloaded",
+        "repeat": 14,
+        "seed": 43772181,
+        "session_id": "confirmation-latent-session-0134-4b850eefd8ec4352b85d1866ff9c2f67",
+        "trajectory_ids": [
+          "confirmation-latent-session-0134-4b850eefd8ec4352b85d1866ff9c2f67-trajectory-000"
+        ]
+      },
+      {
+        "family": "passive",
+        "measurement_condition": "cached_preloaded",
+        "repeat": 15,
+        "seed": 43880103,
+        "session_id": "confirmation-latent-session-0135-0fd106db4d77400d93a86935122cd529",
+        "trajectory_ids": [
+          "confirmation-latent-session-0135-0fd106db4d77400d93a86935122cd529-trajectory-000"
+        ]
+      },
+      {
+        "family": "passive",
+        "measurement_condition": "cached_preloaded",
+        "repeat": 16,
+        "seed": 43988025,
+        "session_id": "confirmation-latent-session-0136-8536d5b2d8d248349f523022cc18310a",
+        "trajectory_ids": [
+          "confirmation-latent-session-0136-8536d5b2d8d248349f523022cc18310a-trajectory-000"
+        ]
+      },
+      {
+        "family": "passive",
+        "measurement_condition": "cached_preloaded",
+        "repeat": 17,
+        "seed": 44095947,
+        "session_id": "confirmation-latent-session-0137-c4d773c95a7d4064b82f2176a2d0ecef",
+        "trajectory_ids": [
+          "confirmation-latent-session-0137-c4d773c95a7d4064b82f2176a2d0ecef-trajectory-000"
+        ]
+      },
+      {
+        "family": "passive",
+        "measurement_condition": "cached_preloaded",
+        "repeat": 18,
+        "seed": 44203869,
+        "session_id": "confirmation-latent-session-0138-4ebb7b561115487fa5316f9d59b8f673",
+        "trajectory_ids": [
+          "confirmation-latent-session-0138-4ebb7b561115487fa5316f9d59b8f673-trajectory-000"
+        ]
+      },
+      {
+        "family": "passive",
+        "measurement_condition": "cached_preloaded",
+        "repeat": 19,
+        "seed": 44311791,
+        "session_id": "confirmation-latent-session-0139-11ebdc383dce4ebfbc1c20a324b78c76",
+        "trajectory_ids": [
+          "confirmation-latent-session-0139-11ebdc383dce4ebfbc1c20a324b78c76-trajectory-000"
+        ]
+      },
+      {
+        "family": "passive",
+        "measurement_condition": "timer_only",
+        "repeat": 0,
+        "seed": 44261333,
+        "session_id": "confirmation-latent-session-0140-623bf0eab5da468b871db5a6fda48217",
+        "trajectory_ids": [
+          "confirmation-latent-session-0140-623bf0eab5da468b871db5a6fda48217-trajectory-000"
+        ]
+      },
+      {
+        "family": "passive",
+        "measurement_condition": "timer_only",
+        "repeat": 1,
+        "seed": 44369255,
+        "session_id": "confirmation-latent-session-0141-ae9f94bd410441c7b0ce66f2c3edb1b2",
+        "trajectory_ids": [
+          "confirmation-latent-session-0141-ae9f94bd410441c7b0ce66f2c3edb1b2-trajectory-000"
+        ]
+      },
+      {
+        "family": "passive",
+        "measurement_condition": "timer_only",
+        "repeat": 2,
+        "seed": 44477177,
+        "session_id": "confirmation-latent-session-0142-87dee64837d44f64aa680f9a2d4cddfe",
+        "trajectory_ids": [
+          "confirmation-latent-session-0142-87dee64837d44f64aa680f9a2d4cddfe-trajectory-000"
+        ]
+      },
+      {
+        "family": "passive",
+        "measurement_condition": "timer_only",
+        "repeat": 3,
+        "seed": 44585099,
+        "session_id": "confirmation-latent-session-0143-fea2e3e73ed9402b960f288656a00324",
+        "trajectory_ids": [
+          "confirmation-latent-session-0143-fea2e3e73ed9402b960f288656a00324-trajectory-000"
+        ]
+      },
+      {
+        "family": "passive",
+        "measurement_condition": "timer_only",
+        "repeat": 4,
+        "seed": 44693021,
+        "session_id": "confirmation-latent-session-0144-b5fc97d891ae46e594508effd8d0b514",
+        "trajectory_ids": [
+          "confirmation-latent-session-0144-b5fc97d891ae46e594508effd8d0b514-trajectory-000"
+        ]
+      },
+      {
+        "family": "passive",
+        "measurement_condition": "timer_only",
+        "repeat": 5,
+        "seed": 44800943,
+        "session_id": "confirmation-latent-session-0145-e704036b0c6c40c3b677a3384ec033a6",
+        "trajectory_ids": [
+          "confirmation-latent-session-0145-e704036b0c6c40c3b677a3384ec033a6-trajectory-000"
+        ]
+      },
+      {
+        "family": "passive",
+        "measurement_condition": "timer_only",
+        "repeat": 6,
+        "seed": 44908865,
+        "session_id": "confirmation-latent-session-0146-6b1ad2bb4a1740a99c4f2cf38fc2646a",
+        "trajectory_ids": [
+          "confirmation-latent-session-0146-6b1ad2bb4a1740a99c4f2cf38fc2646a-trajectory-000"
+        ]
+      },
+      {
+        "family": "passive",
+        "measurement_condition": "timer_only",
+        "repeat": 7,
+        "seed": 45016787,
+        "session_id": "confirmation-latent-session-0147-e04e3d37abae4f99bdb1c473a3981967",
+        "trajectory_ids": [
+          "confirmation-latent-session-0147-e04e3d37abae4f99bdb1c473a3981967-trajectory-000"
+        ]
+      },
+      {
+        "family": "passive",
+        "measurement_condition": "timer_only",
+        "repeat": 8,
+        "seed": 45124709,
+        "session_id": "confirmation-latent-session-0148-4ca59ff851f642a4b95b153aab6087cd",
+        "trajectory_ids": [
+          "confirmation-latent-session-0148-4ca59ff851f642a4b95b153aab6087cd-trajectory-000"
+        ]
+      },
+      {
+        "family": "passive",
+        "measurement_condition": "timer_only",
+        "repeat": 9,
+        "seed": 45232631,
+        "session_id": "confirmation-latent-session-0149-8b8d701504e94c909895115e77b042e9",
+        "trajectory_ids": [
+          "confirmation-latent-session-0149-8b8d701504e94c909895115e77b042e9-trajectory-000"
+        ]
+      },
+      {
+        "family": "passive",
+        "measurement_condition": "timer_only",
+        "repeat": 10,
+        "seed": 45340553,
+        "session_id": "confirmation-latent-session-0150-0cd2436c502c40a8a91bdd4a88901ec8",
+        "trajectory_ids": [
+          "confirmation-latent-session-0150-0cd2436c502c40a8a91bdd4a88901ec8-trajectory-000"
+        ]
+      },
+      {
+        "family": "passive",
+        "measurement_condition": "timer_only",
+        "repeat": 11,
+        "seed": 45448475,
+        "session_id": "confirmation-latent-session-0151-703c9a82e099462cac54e77d8801088a",
+        "trajectory_ids": [
+          "confirmation-latent-session-0151-703c9a82e099462cac54e77d8801088a-trajectory-000"
+        ]
+      },
+      {
+        "family": "passive",
+        "measurement_condition": "timer_only",
+        "repeat": 12,
+        "seed": 45556397,
+        "session_id": "confirmation-latent-session-0152-3c627a50f6604d4d9028212b579df5d5",
+        "trajectory_ids": [
+          "confirmation-latent-session-0152-3c627a50f6604d4d9028212b579df5d5-trajectory-000"
+        ]
+      },
+      {
+        "family": "passive",
+        "measurement_condition": "timer_only",
+        "repeat": 13,
+        "seed": 45664319,
+        "session_id": "confirmation-latent-session-0153-acacd387a4f74924a479a5fa499d748a",
+        "trajectory_ids": [
+          "confirmation-latent-session-0153-acacd387a4f74924a479a5fa499d748a-trajectory-000"
+        ]
+      },
+      {
+        "family": "passive",
+        "measurement_condition": "timer_only",
+        "repeat": 14,
+        "seed": 45772241,
+        "session_id": "confirmation-latent-session-0154-23b9c5ec1e2c46ae9dfbc10348a52ac9",
+        "trajectory_ids": [
+          "confirmation-latent-session-0154-23b9c5ec1e2c46ae9dfbc10348a52ac9-trajectory-000"
+        ]
+      },
+      {
+        "family": "passive",
+        "measurement_condition": "timer_only",
+        "repeat": 15,
+        "seed": 45880163,
+        "session_id": "confirmation-latent-session-0155-84bc24f6c52c490c8a5365459de89138",
+        "trajectory_ids": [
+          "confirmation-latent-session-0155-84bc24f6c52c490c8a5365459de89138-trajectory-000"
+        ]
+      },
+      {
+        "family": "passive",
+        "measurement_condition": "timer_only",
+        "repeat": 16,
+        "seed": 45988085,
+        "session_id": "confirmation-latent-session-0156-1408fab97da04399b6d2257ea89e4f82",
+        "trajectory_ids": [
+          "confirmation-latent-session-0156-1408fab97da04399b6d2257ea89e4f82-trajectory-000"
+        ]
+      },
+      {
+        "family": "passive",
+        "measurement_condition": "timer_only",
+        "repeat": 17,
+        "seed": 46096007,
+        "session_id": "confirmation-latent-session-0157-3e2f7dcb0448479d88755b10d94db2d3",
+        "trajectory_ids": [
+          "confirmation-latent-session-0157-3e2f7dcb0448479d88755b10d94db2d3-trajectory-000"
+        ]
+      },
+      {
+        "family": "passive",
+        "measurement_condition": "timer_only",
+        "repeat": 18,
+        "seed": 46203929,
+        "session_id": "confirmation-latent-session-0158-e457b2f37b6749a9aa501124e36c2a8b",
+        "trajectory_ids": [
+          "confirmation-latent-session-0158-e457b2f37b6749a9aa501124e36c2a8b-trajectory-000"
+        ]
+      },
+      {
+        "family": "passive",
+        "measurement_condition": "timer_only",
+        "repeat": 19,
+        "seed": 46311851,
+        "session_id": "confirmation-latent-session-0159-83099ba6f8be413eb2aa4e70ddbd650c",
+        "trajectory_ids": [
+          "confirmation-latent-session-0159-83099ba6f8be413eb2aa4e70ddbd650c-trajectory-000"
+        ]
+      }
+    ],
+    "sessions_per_cell": 20,
+    "stage": "confirmation"
+  },
+  "execution_host": "worker-03",
+  "feature_firewall": {
+    "allowed": [
+      "origin bundle timing channels",
+      "causal witness values available by origin_end_ns",
+      "target condition workload fraction through origin"
+    ],
+    "eligibility_is_explicit": true,
+    "forbidden": [
+      "post-origin witness values",
+      "future target/reference values",
+      "IDs/seeds/schedules/boot/allocation",
+      "whole-trajectory normalization",
+      "confirmation values for preprocessing"
+    ]
+  },
+  "instrumentation": {
+    "bpftrace_capabilities": {
+      "requested_hooks": [],
+      "status": "not_requested"
+    },
+    "channel_specs": [
+      {
+        "acquisition": "one RDTSCP read in the userspace snapshot",
+        "availability": "snapshot available at capture_end_ns",
+        "causal_eligible": true,
+        "measurement_overhead": "one native RDTSCP call",
+        "missing_value_policy": "NaN plus valid=false",
+        "name": "tsc_aux",
+        "normalization": "categorical; never whole-trajectory normalized",
+        "observer_tier": 1,
+        "raw_source": "RDTSCP auxiliary CPU identity at capture",
+        "units": "integer CPU/AUX value"
+      },
+      {
+        "acquisition": "single small PMU window around one native measurement block",
+        "availability": "counter read available at block end",
+        "causal_eligible": true,
+        "measurement_overhead": "one opened/enabled/read scoped PMU event; measured in observer characterization",
+        "missing_value_policy": "NaN plus valid=false on permission/error/multiplex ambiguity",
+        "name": "pmu_cache_references_count",
+        "normalization": "development-train median and scale only; retain raw/scaled/multiplex state",
+        "observer_tier": 1,
+        "raw_source": "perf_event_open('cache-references') calling-thread event",
+        "units": "events per block"
+      },
+      {
+        "acquisition": "single small PMU window around one native measurement block",
+        "availability": "counter read available at block end",
+        "causal_eligible": true,
+        "measurement_overhead": "one opened/enabled/read scoped PMU event; measured in observer characterization",
+        "missing_value_policy": "NaN plus valid=false on permission/error/multiplex ambiguity",
+        "name": "pmu_cache_misses_count",
+        "normalization": "development-train median and scale only; retain raw/scaled/multiplex state",
+        "observer_tier": 1,
+        "raw_source": "perf_event_open('cache-misses') calling-thread event",
+        "units": "events per block"
+      }
+    ],
+    "claim_boundary": "contextual host/system witnesses only; no direct DRAM command/topology/cell evidence",
+    "local_channels_requested": [
+      "tsc_aux"
+    ],
+    "pmu_capabilities": {
+      "architecture": "x86_64",
+      "collection_policy": "No system-wide or unrelated-process collection. A future reader must use a SenseTrace-owned process/thread scope and record permission failures explicitly.",
+      "cpu_model": "Intel(R) Core(TM) i7-9700 CPU @ 3.00GHz",
+      "event_multiplexing": {
+        "reason": "capability discovery does not collect or multiplex counters",
+        "status": "not_tested"
+      },
+      "events": [
+        {
+          "available_events": [
+            "cache-references"
+          ],
+          "candidate_events": [
+            "cache-references"
+          ],
+          "encodings": [
+            {
+              "alias": "cache-references",
+              "config": 20270,
+              "config_fields": {
+                "event": "0x2e",
+                "umask": "0x4f"
+              },
+              "config_width_bits": 64,
+              "device": "cpu",
+              "event_source_type": {
+                "name": "PERF_TYPE_RAW",
+                "value": 4
+              },
+              "qualified_name": "cpu/cache-references/",
+              "raw_spec": "event=0x2e,umask=0x4f",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "any": "config:21",
+                "cmask": "config:24-31",
+                "edge": "config:18",
+                "event": "config:0-7",
+                "frontend": "config1:0-23",
+                "inv": "config:23",
+                "ldlat": "config1:0-15",
+                "offcore_rsp": "config1:0-63",
+                "pc": "config:19",
+                "umask": "config:8-15"
+              }
+            }
+          ],
+          "logical_name": "cache_references",
+          "probe": {
+            "collection": "not_started; open-and-close capability probe only",
+            "errno": 0,
+            "errno_name": "none",
+            "event": "cache-references",
+            "perf_event_attr": {
+              "config": 2,
+              "config_width_bits": 64,
+              "device": "kernel-generic",
+              "encoding": "PERF_TYPE_HARDWARE:2",
+              "event_source_type": {
+                "device": "kernel-generic",
+                "name": "PERF_TYPE_HARDWARE",
+                "value": 0
+              },
+              "flags": 97,
+              "flags_by_name": {
+                "disabled": true,
+                "exclude_hypervisor": true,
+                "exclude_idle": false,
+                "exclude_kernel": true,
+                "exclude_user": false,
+                "inherit": false,
+                "pinned": false
+              },
+              "read_format": 3,
+              "read_format_fields": {
+                "total_time_enabled": true,
+                "total_time_running": true
+              },
+              "size": 128,
+              "type": 0
+            },
+            "scope": {
+              "cpu_argument": -1,
+              "inherit": false,
+              "kind": "calling_thread",
+              "pid_argument": 100172,
+              "system_wide": false
+            },
+            "status": "opened_scoped_probe"
+          },
+          "probe_status": "opened_scoped_probe",
+          "provenance": "Linux PMU sysfs and perf list",
+          "scope": "SenseTrace-owned calling thread only; cpu=-1 follows that thread; no system-wide collection",
+          "selection_status": "qualified_encoding_available",
+          "status": "available"
+        },
+        {
+          "available_events": [
+            "cache-misses"
+          ],
+          "candidate_events": [
+            "cache-misses"
+          ],
+          "encodings": [
+            {
+              "alias": "cache-misses",
+              "config": 16686,
+              "config_fields": {
+                "event": "0x2e",
+                "umask": "0x41"
+              },
+              "config_width_bits": 64,
+              "device": "cpu",
+              "event_source_type": {
+                "name": "PERF_TYPE_RAW",
+                "value": 4
+              },
+              "qualified_name": "cpu/cache-misses/",
+              "raw_spec": "event=0x2e,umask=0x41",
+              "selection": "qualified device plus alias; bare aliases are never used for selection",
+              "sysfs_format_fields": {
+                "any": "config:21",
+                "cmask": "config:24-31",
+                "edge": "config:18",
+                "event": "config:0-7",
+                "frontend": "config1:0-23",
+                "inv": "config:23",
+                "ldlat": "config1:0-15",
+                "offcore_rsp": "config1:0-63",
+                "pc": "config:19",
+                "umask": "config:8-15"
+              }
+            }
+          ],
+          "logical_name": "cache_misses",
+          "probe": {
+            "collection": "not_started; open-and-close capability probe only",
+            "errno": 0,
+            "errno_name": "none",
+            "event": "cache-misses",
+            "perf_event_attr": {
+              "config": 3,
+              "config_width_bits": 64,
+              "device": "kernel-generic",
+              "encoding": "PERF_TYPE_HARDWARE:3",
+              "event_source_type": {
+                "device": "kernel-generic",
+                "name": "PERF_TYPE_HARDWARE",
+                "value": 0
+              },
+              "flags": 97,
+              "flags_by_name": {
+                "disabled": true,
+                "exclude_hypervisor": true,
+                "exclude_idle": false,
+                "exclude_kernel": true,
+                "exclude_user": false,
+                "inherit": false,
+                "pinned": false
+              },
+              "read_format": 3,
+              "read_format_fields": {
+                "total_time_enabled": true,
+                "total_time_running": true
+              },
+              "size": 128,
+              "type": 0
+            },
+            "scope": {
+              "cpu_argument": -1,
+              "inherit": false,
+              "kind": "calling_thread",
+              "pid_argument": 100172,
+              "system_wide": false
+            },
+            "status": "opened_scoped_probe"
+          },
+          "probe_status": "opened_scoped_probe",
+          "provenance": "Linux PMU sysfs and perf list",
+          "scope": "SenseTrace-owned calling thread only; cpu=-1 follows that thread; no system-wide collection",
+          "selection_status": "qualified_encoding_available",
+          "status": "available"
+        },
+        {
+          "available_events": [],
+          "candidate_events": [
+            "mem_load_retired.llc_miss",
+            "longest_lat_cache.miss",
+            "LLC-load-misses"
+          ],
+          "encodings": [],
+          "logical_name": "llc_load_misses",
+          "probe": {},
+          "probe_status": "not_requested",
+          "provenance": "Linux PMU sysfs and perf list",
+          "scope": "SenseTrace-owned calling thread only; cpu=-1 follows that thread; no system-wide collection",
+          "selection_status": "generic_or_vocabulary_only",
+          "status": "unavailable"
+        },
+        {
+          "available_events": [],
+          "candidate_events": [
+            "mem_inst_retired.all_loads"
+          ],
+          "encodings": [],
+          "logical_name": "retired_memory_loads",
+          "probe": {},
+          "probe_status": "not_requested",
+          "provenance": "Linux PMU sysfs and perf list",
+          "scope": "SenseTrace-owned calling thread only; cpu=-1 follows that thread; no system-wide collection",
+          "selection_status": "generic_or_vocabulary_only",
+          "status": "unavailable"
+        },
+        {
+          "available_events": [],
+          "candidate_events": [
+            "cycle_activity.stalls_mem_any"
+          ],
+          "encodings": [],
+          "logical_name": "memory_stall_cycles",
+          "probe": {},
+          "probe_status": "not_requested",
+          "provenance": "Linux PMU sysfs and perf list",
+          "scope": "SenseTrace-owned calling thread only; cpu=-1 follows that thread; no system-wide collection",
+          "selection_status": "generic_or_vocabulary_only",
+          "status": "unavailable"
+        },
+        {
+          "available_events": [],
+          "candidate_events": [
+            "dtlb_load_misses.miss_causes_a_walk"
+          ],
+          "encodings": [],
+          "logical_name": "data_tlb_load_misses",
+          "probe": {},
+          "probe_status": "not_requested",
+          "provenance": "Linux PMU sysfs and perf list",
+          "scope": "SenseTrace-owned calling thread only; cpu=-1 follows that thread; no system-wide collection",
+          "selection_status": "generic_or_vocabulary_only",
+          "status": "unavailable"
+        },
+        {
+          "available_events": [],
+          "candidate_events": [
+            "uncore_imc_0/cas_count_read/"
+          ],
+          "encodings": [],
+          "logical_name": "uncore_memory_reads",
+          "probe": {},
+          "probe_status": "not_requested",
+          "provenance": "Linux PMU sysfs and perf list",
+          "scope": "SenseTrace-owned calling thread only; cpu=-1 follows that thread; no system-wide collection",
+          "selection_status": "generic_or_vocabulary_only",
+          "status": "unavailable"
+        }
+      ],
+      "operation_scoped_read": {
+        "reason": "capability discovery does not run an operation-scoped measurement",
+        "scope": "calling thread only; cpu=-1; inherit=0; no system-wide or unrelated-process collection",
+        "status": "implemented_not_run_by_discovery"
+      },
+      "perf_list_status": "unavailable",
+      "perf_path": "unavailable",
+      "permission_boundary": {
+        "cap_perfmon": false,
+        "cap_sys_admin_equivalent": false,
+        "capability_source": "/proc/self/status",
+        "effective_capabilities_hex": "0000000000000000",
+        "perf_event_paranoid": 2,
+        "perf_event_paranoid_source": "/proc/sys/kernel/perf_event_paranoid",
+        "permission_interpretation": "no CAP_PERFMON or CAP_SYS_ADMIN bit observed"
+      },
+      "pmu_descriptors": [
+        {
+          "cpumask": "unavailable",
+          "cpus": "unavailable",
+          "name": "breakpoint",
+          "type": "5"
+        },
+        {
+          "cpumask": "unavailable",
+          "cpus": "unavailable",
+          "name": "cpu",
+          "type": "4"
+        },
+        {
+          "cpumask": "0-7",
+          "cpus": "unavailable",
+          "name": "cstate_core",
+          "type": "24"
+        },
+        {
+          "cpumask": "0",
+          "cpus": "unavailable",
+          "name": "cstate_pkg",
+          "type": "25"
+        },
+        {
+          "cpumask": "0",
+          "cpus": "unavailable",
+          "name": "i915",
+          "type": "13"
+        },
+        {
+          "cpumask": "unavailable",
+          "cpus": "unavailable",
+          "name": "intel_bts",
+          "type": "10"
+        },
+        {
+          "cpumask": "unavailable",
+          "cpus": "unavailable",
+          "name": "intel_pt",
+          "type": "11"
+        },
+        {
+          "cpumask": "unavailable",
+          "cpus": "unavailable",
+          "name": "kprobe",
+          "type": "8"
+        },
+        {
+          "cpumask": "unavailable",
+          "cpus": "unavailable",
+          "name": "msr",
+          "type": "12"
+        },
+        {
+          "cpumask": "0",
+          "cpus": "unavailable",
+          "name": "power",
+          "type": "26"
+        },
+        {
+          "cpumask": "unavailable",
+          "cpus": "unavailable",
+          "name": "software",
+          "type": "1"
+        },
+        {
+          "cpumask": "unavailable",
+          "cpus": "unavailable",
+          "name": "tracepoint",
+          "type": "2"
+        },
+        {
+          "cpumask": "0",
+          "cpus": "unavailable",
+          "name": "uncore_arb",
+          "type": "23"
+        },
+        {
+          "cpumask": "0",
+          "cpus": "unavailable",
+          "name": "uncore_cbox_0",
+          "type": "15"
+        },
+        {
+          "cpumask": "0",
+          "cpus": "unavailable",
+          "name": "uncore_cbox_1",
+          "type": "16"
+        },
+        {
+          "cpumask": "0",
+          "cpus": "unavailable",
+          "name": "uncore_cbox_2",
+          "type": "17"
+        },
+        {
+          "cpumask": "0",
+          "cpus": "unavailable",
+          "name": "uncore_cbox_3",
+          "type": "18"
+        },
+        {
+          "cpumask": "0",
+          "cpus": "unavailable",
+          "name": "uncore_cbox_4",
+          "type": "19"
+        },
+        {
+          "cpumask": "0",
+          "cpus": "unavailable",
+          "name": "uncore_cbox_5",
+          "type": "20"
+        },
+        {
+          "cpumask": "0",
+          "cpus": "unavailable",
+          "name": "uncore_cbox_6",
+          "type": "21"
+        },
+        {
+          "cpumask": "0",
+          "cpus": "unavailable",
+          "name": "uncore_cbox_7",
+          "type": "22"
+        },
+        {
+          "cpumask": "0",
+          "cpus": "unavailable",
+          "name": "uncore_imc",
+          "type": "14"
+        },
+        {
+          "cpumask": "unavailable",
+          "cpus": "unavailable",
+          "name": "uprobe",
+          "type": "9"
+        }
+      ],
+      "pmu_devices": [
+        "breakpoint",
+        "cpu",
+        "cstate_core",
+        "cstate_pkg",
+        "i915",
+        "intel_bts",
+        "intel_pt",
+        "kprobe",
+        "msr",
+        "power",
+        "software",
+        "tracepoint",
+        "uncore_arb",
+        "uncore_cbox_0",
+        "uncore_cbox_1",
+        "uncore_cbox_2",
+        "uncore_cbox_3",
+        "uncore_cbox_4",
+        "uncore_cbox_5",
+        "uncore_cbox_6",
+        "uncore_cbox_7",
+        "uncore_imc",
+        "uprobe"
+      ],
+      "privilege_policy": "Do not broaden kernel perf permissions or disable security controls for discovery.",
+      "probe_policy": "An opened_scoped_probe only opens and closes a generic event for the current SenseTrace-owned calling thread with disabled creation flags; it does not collect a sample or observe another process.",
+      "process_thread_scope": {
+        "cpu_argument": -1,
+        "inherit": false,
+        "kind": "calling_thread",
+        "pid_argument": 100172,
+        "system_wide": false,
+        "unrelated_processes": "not attached"
+      },
+      "raw_core_event_support": {
+        "raw_encoding_probe": "not_requested_for_non-generic_events",
+        "selection_policy": "qualified PMU device/type/config/format records are preserved; ambiguous bare aliases are never selected",
+        "status": "vocabulary_discovered",
+        "sysfs_event_encodings": [
+          {
+            "alias": "branch-instructions",
+            "config": 196,
+            "config_fields": {
+              "event": "0xc4"
+            },
+            "config_width_bits": 64,
+            "device": "cpu",
+            "event_source_type": {
+              "name": "PERF_TYPE_RAW",
+              "value": 4
+            },
+            "qualified_name": "cpu/branch-instructions/",
+            "raw_spec": "event=0xc4",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "any": "config:21",
+              "cmask": "config:24-31",
+              "edge": "config:18",
+              "event": "config:0-7",
+              "frontend": "config1:0-23",
+              "inv": "config:23",
+              "ldlat": "config1:0-15",
+              "offcore_rsp": "config1:0-63",
+              "pc": "config:19",
+              "umask": "config:8-15"
+            }
+          },
+          {
+            "alias": "branch-misses",
+            "config": 197,
+            "config_fields": {
+              "event": "0xc5"
+            },
+            "config_width_bits": 64,
+            "device": "cpu",
+            "event_source_type": {
+              "name": "PERF_TYPE_RAW",
+              "value": 4
+            },
+            "qualified_name": "cpu/branch-misses/",
+            "raw_spec": "event=0xc5",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "any": "config:21",
+              "cmask": "config:24-31",
+              "edge": "config:18",
+              "event": "config:0-7",
+              "frontend": "config1:0-23",
+              "inv": "config:23",
+              "ldlat": "config1:0-15",
+              "offcore_rsp": "config1:0-63",
+              "pc": "config:19",
+              "umask": "config:8-15"
+            }
+          },
+          {
+            "alias": "bus-cycles",
+            "config": 316,
+            "config_fields": {
+              "event": "0x3c",
+              "umask": "0x01"
+            },
+            "config_width_bits": 64,
+            "device": "cpu",
+            "event_source_type": {
+              "name": "PERF_TYPE_RAW",
+              "value": 4
+            },
+            "qualified_name": "cpu/bus-cycles/",
+            "raw_spec": "event=0x3c,umask=0x01",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "any": "config:21",
+              "cmask": "config:24-31",
+              "edge": "config:18",
+              "event": "config:0-7",
+              "frontend": "config1:0-23",
+              "inv": "config:23",
+              "ldlat": "config1:0-15",
+              "offcore_rsp": "config1:0-63",
+              "pc": "config:19",
+              "umask": "config:8-15"
+            }
+          },
+          {
+            "alias": "cache-misses",
+            "config": 16686,
+            "config_fields": {
+              "event": "0x2e",
+              "umask": "0x41"
+            },
+            "config_width_bits": 64,
+            "device": "cpu",
+            "event_source_type": {
+              "name": "PERF_TYPE_RAW",
+              "value": 4
+            },
+            "qualified_name": "cpu/cache-misses/",
+            "raw_spec": "event=0x2e,umask=0x41",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "any": "config:21",
+              "cmask": "config:24-31",
+              "edge": "config:18",
+              "event": "config:0-7",
+              "frontend": "config1:0-23",
+              "inv": "config:23",
+              "ldlat": "config1:0-15",
+              "offcore_rsp": "config1:0-63",
+              "pc": "config:19",
+              "umask": "config:8-15"
+            }
+          },
+          {
+            "alias": "cache-references",
+            "config": 20270,
+            "config_fields": {
+              "event": "0x2e",
+              "umask": "0x4f"
+            },
+            "config_width_bits": 64,
+            "device": "cpu",
+            "event_source_type": {
+              "name": "PERF_TYPE_RAW",
+              "value": 4
+            },
+            "qualified_name": "cpu/cache-references/",
+            "raw_spec": "event=0x2e,umask=0x4f",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "any": "config:21",
+              "cmask": "config:24-31",
+              "edge": "config:18",
+              "event": "config:0-7",
+              "frontend": "config1:0-23",
+              "inv": "config:23",
+              "ldlat": "config1:0-15",
+              "offcore_rsp": "config1:0-63",
+              "pc": "config:19",
+              "umask": "config:8-15"
+            }
+          },
+          {
+            "alias": "cpu-cycles",
+            "config": 60,
+            "config_fields": {
+              "event": "0x3c"
+            },
+            "config_width_bits": 64,
+            "device": "cpu",
+            "event_source_type": {
+              "name": "PERF_TYPE_RAW",
+              "value": 4
+            },
+            "qualified_name": "cpu/cpu-cycles/",
+            "raw_spec": "event=0x3c",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "any": "config:21",
+              "cmask": "config:24-31",
+              "edge": "config:18",
+              "event": "config:0-7",
+              "frontend": "config1:0-23",
+              "inv": "config:23",
+              "ldlat": "config1:0-15",
+              "offcore_rsp": "config1:0-63",
+              "pc": "config:19",
+              "umask": "config:8-15"
+            }
+          },
+          {
+            "alias": "instructions",
+            "config": 192,
+            "config_fields": {
+              "event": "0xc0"
+            },
+            "config_width_bits": 64,
+            "device": "cpu",
+            "event_source_type": {
+              "name": "PERF_TYPE_RAW",
+              "value": 4
+            },
+            "qualified_name": "cpu/instructions/",
+            "raw_spec": "event=0xc0",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "any": "config:21",
+              "cmask": "config:24-31",
+              "edge": "config:18",
+              "event": "config:0-7",
+              "frontend": "config1:0-23",
+              "inv": "config:23",
+              "ldlat": "config1:0-15",
+              "offcore_rsp": "config1:0-63",
+              "pc": "config:19",
+              "umask": "config:8-15"
+            }
+          },
+          {
+            "alias": "mem-loads",
+            "config": null,
+            "config_fields": {
+              "event": "0xcd",
+              "ldlat": "3",
+              "umask": "0x1"
+            },
+            "config_width_bits": 64,
+            "device": "cpu",
+            "event_source_type": {
+              "name": "PERF_TYPE_RAW",
+              "value": 4
+            },
+            "qualified_name": "cpu/mem-loads/",
+            "raw_spec": "event=0xcd,umask=0x1,ldlat=3",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "any": "config:21",
+              "cmask": "config:24-31",
+              "edge": "config:18",
+              "event": "config:0-7",
+              "frontend": "config1:0-23",
+              "inv": "config:23",
+              "ldlat": "config1:0-15",
+              "offcore_rsp": "config1:0-63",
+              "pc": "config:19",
+              "umask": "config:8-15"
+            }
+          },
+          {
+            "alias": "mem-stores",
+            "config": 33488,
+            "config_fields": {
+              "event": "0xd0",
+              "umask": "0x82"
+            },
+            "config_width_bits": 64,
+            "device": "cpu",
+            "event_source_type": {
+              "name": "PERF_TYPE_RAW",
+              "value": 4
+            },
+            "qualified_name": "cpu/mem-stores/",
+            "raw_spec": "event=0xd0,umask=0x82",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "any": "config:21",
+              "cmask": "config:24-31",
+              "edge": "config:18",
+              "event": "config:0-7",
+              "frontend": "config1:0-23",
+              "inv": "config:23",
+              "ldlat": "config1:0-15",
+              "offcore_rsp": "config1:0-63",
+              "pc": "config:19",
+              "umask": "config:8-15"
+            }
+          },
+          {
+            "alias": "ref-cycles",
+            "config": 768,
+            "config_fields": {
+              "event": "0x00",
+              "umask": "0x03"
+            },
+            "config_width_bits": 64,
+            "device": "cpu",
+            "event_source_type": {
+              "name": "PERF_TYPE_RAW",
+              "value": 4
+            },
+            "qualified_name": "cpu/ref-cycles/",
+            "raw_spec": "event=0x00,umask=0x03",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "any": "config:21",
+              "cmask": "config:24-31",
+              "edge": "config:18",
+              "event": "config:0-7",
+              "frontend": "config1:0-23",
+              "inv": "config:23",
+              "ldlat": "config1:0-15",
+              "offcore_rsp": "config1:0-63",
+              "pc": "config:19",
+              "umask": "config:8-15"
+            }
+          },
+          {
+            "alias": "topdown-fetch-bubbles",
+            "config": 412,
+            "config_fields": {
+              "event": "0x9c",
+              "umask": "0x1"
+            },
+            "config_width_bits": 64,
+            "device": "cpu",
+            "event_source_type": {
+              "name": "PERF_TYPE_RAW",
+              "value": 4
+            },
+            "qualified_name": "cpu/topdown-fetch-bubbles/",
+            "raw_spec": "event=0x9c,umask=0x1",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "any": "config:21",
+              "cmask": "config:24-31",
+              "edge": "config:18",
+              "event": "config:0-7",
+              "frontend": "config1:0-23",
+              "inv": "config:23",
+              "ldlat": "config1:0-15",
+              "offcore_rsp": "config1:0-63",
+              "pc": "config:19",
+              "umask": "config:8-15"
+            }
+          },
+          {
+            "alias": "topdown-recovery-bubbles",
+            "config": 16777485,
+            "config_fields": {
+              "cmask": "1",
+              "event": "0xd",
+              "umask": "0x1"
+            },
+            "config_width_bits": 64,
+            "device": "cpu",
+            "event_source_type": {
+              "name": "PERF_TYPE_RAW",
+              "value": 4
+            },
+            "qualified_name": "cpu/topdown-recovery-bubbles/",
+            "raw_spec": "event=0xd,umask=0x1,cmask=1",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "any": "config:21",
+              "cmask": "config:24-31",
+              "edge": "config:18",
+              "event": "config:0-7",
+              "frontend": "config1:0-23",
+              "inv": "config:23",
+              "ldlat": "config1:0-15",
+              "offcore_rsp": "config1:0-63",
+              "pc": "config:19",
+              "umask": "config:8-15"
+            }
+          },
+          {
+            "alias": "topdown-recovery-bubbles.scale",
+            "config": null,
+            "config_fields": {
+              "unparsed": "4"
+            },
+            "config_width_bits": 64,
+            "device": "cpu",
+            "event_source_type": {
+              "name": "PERF_TYPE_RAW",
+              "value": 4
+            },
+            "qualified_name": "cpu/topdown-recovery-bubbles.scale/",
+            "raw_spec": "4",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "any": "config:21",
+              "cmask": "config:24-31",
+              "edge": "config:18",
+              "event": "config:0-7",
+              "frontend": "config1:0-23",
+              "inv": "config:23",
+              "ldlat": "config1:0-15",
+              "offcore_rsp": "config1:0-63",
+              "pc": "config:19",
+              "umask": "config:8-15"
+            }
+          },
+          {
+            "alias": "topdown-slots-issued",
+            "config": 270,
+            "config_fields": {
+              "event": "0xe",
+              "umask": "0x1"
+            },
+            "config_width_bits": 64,
+            "device": "cpu",
+            "event_source_type": {
+              "name": "PERF_TYPE_RAW",
+              "value": 4
+            },
+            "qualified_name": "cpu/topdown-slots-issued/",
+            "raw_spec": "event=0xe,umask=0x1",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "any": "config:21",
+              "cmask": "config:24-31",
+              "edge": "config:18",
+              "event": "config:0-7",
+              "frontend": "config1:0-23",
+              "inv": "config:23",
+              "ldlat": "config1:0-15",
+              "offcore_rsp": "config1:0-63",
+              "pc": "config:19",
+              "umask": "config:8-15"
+            }
+          },
+          {
+            "alias": "topdown-slots-retired",
+            "config": 706,
+            "config_fields": {
+              "event": "0xc2",
+              "umask": "0x2"
+            },
+            "config_width_bits": 64,
+            "device": "cpu",
+            "event_source_type": {
+              "name": "PERF_TYPE_RAW",
+              "value": 4
+            },
+            "qualified_name": "cpu/topdown-slots-retired/",
+            "raw_spec": "event=0xc2,umask=0x2",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "any": "config:21",
+              "cmask": "config:24-31",
+              "edge": "config:18",
+              "event": "config:0-7",
+              "frontend": "config1:0-23",
+              "inv": "config:23",
+              "ldlat": "config1:0-15",
+              "offcore_rsp": "config1:0-63",
+              "pc": "config:19",
+              "umask": "config:8-15"
+            }
+          },
+          {
+            "alias": "topdown-total-slots",
+            "config": 60,
+            "config_fields": {
+              "event": "0x3c",
+              "umask": "0x0"
+            },
+            "config_width_bits": 64,
+            "device": "cpu",
+            "event_source_type": {
+              "name": "PERF_TYPE_RAW",
+              "value": 4
+            },
+            "qualified_name": "cpu/topdown-total-slots/",
+            "raw_spec": "event=0x3c,umask=0x0",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "any": "config:21",
+              "cmask": "config:24-31",
+              "edge": "config:18",
+              "event": "config:0-7",
+              "frontend": "config1:0-23",
+              "inv": "config:23",
+              "ldlat": "config1:0-15",
+              "offcore_rsp": "config1:0-63",
+              "pc": "config:19",
+              "umask": "config:8-15"
+            }
+          },
+          {
+            "alias": "topdown-total-slots.scale",
+            "config": null,
+            "config_fields": {
+              "unparsed": "4"
+            },
+            "config_width_bits": 64,
+            "device": "cpu",
+            "event_source_type": {
+              "name": "PERF_TYPE_RAW",
+              "value": 4
+            },
+            "qualified_name": "cpu/topdown-total-slots.scale/",
+            "raw_spec": "4",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "any": "config:21",
+              "cmask": "config:24-31",
+              "edge": "config:18",
+              "event": "config:0-7",
+              "frontend": "config1:0-23",
+              "inv": "config:23",
+              "ldlat": "config1:0-15",
+              "offcore_rsp": "config1:0-63",
+              "pc": "config:19",
+              "umask": "config:8-15"
+            }
+          },
+          {
+            "alias": "c3-residency",
+            "config": 1,
+            "config_fields": {
+              "event": "0x01"
+            },
+            "config_width_bits": 64,
+            "device": "cstate_core",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 24
+            },
+            "qualified_name": "cstate_core/c3-residency/",
+            "raw_spec": "event=0x01",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "event": "config:0-63"
+            }
+          },
+          {
+            "alias": "c6-residency",
+            "config": 2,
+            "config_fields": {
+              "event": "0x02"
+            },
+            "config_width_bits": 64,
+            "device": "cstate_core",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 24
+            },
+            "qualified_name": "cstate_core/c6-residency/",
+            "raw_spec": "event=0x02",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "event": "config:0-63"
+            }
+          },
+          {
+            "alias": "c7-residency",
+            "config": 3,
+            "config_fields": {
+              "event": "0x03"
+            },
+            "config_width_bits": 64,
+            "device": "cstate_core",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 24
+            },
+            "qualified_name": "cstate_core/c7-residency/",
+            "raw_spec": "event=0x03",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "event": "config:0-63"
+            }
+          },
+          {
+            "alias": "c10-residency",
+            "config": 6,
+            "config_fields": {
+              "event": "0x06"
+            },
+            "config_width_bits": 64,
+            "device": "cstate_pkg",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 25
+            },
+            "qualified_name": "cstate_pkg/c10-residency/",
+            "raw_spec": "event=0x06",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "event": "config:0-63"
+            }
+          },
+          {
+            "alias": "c2-residency",
+            "config": 0,
+            "config_fields": {
+              "event": "0x00"
+            },
+            "config_width_bits": 64,
+            "device": "cstate_pkg",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 25
+            },
+            "qualified_name": "cstate_pkg/c2-residency/",
+            "raw_spec": "event=0x00",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "event": "config:0-63"
+            }
+          },
+          {
+            "alias": "c3-residency",
+            "config": 1,
+            "config_fields": {
+              "event": "0x01"
+            },
+            "config_width_bits": 64,
+            "device": "cstate_pkg",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 25
+            },
+            "qualified_name": "cstate_pkg/c3-residency/",
+            "raw_spec": "event=0x01",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "event": "config:0-63"
+            }
+          },
+          {
+            "alias": "c6-residency",
+            "config": 2,
+            "config_fields": {
+              "event": "0x02"
+            },
+            "config_width_bits": 64,
+            "device": "cstate_pkg",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 25
+            },
+            "qualified_name": "cstate_pkg/c6-residency/",
+            "raw_spec": "event=0x02",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "event": "config:0-63"
+            }
+          },
+          {
+            "alias": "c7-residency",
+            "config": 3,
+            "config_fields": {
+              "event": "0x03"
+            },
+            "config_width_bits": 64,
+            "device": "cstate_pkg",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 25
+            },
+            "qualified_name": "cstate_pkg/c7-residency/",
+            "raw_spec": "event=0x03",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "event": "config:0-63"
+            }
+          },
+          {
+            "alias": "c8-residency",
+            "config": 4,
+            "config_fields": {
+              "event": "0x04"
+            },
+            "config_width_bits": 64,
+            "device": "cstate_pkg",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 25
+            },
+            "qualified_name": "cstate_pkg/c8-residency/",
+            "raw_spec": "event=0x04",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "event": "config:0-63"
+            }
+          },
+          {
+            "alias": "c9-residency",
+            "config": 5,
+            "config_fields": {
+              "event": "0x05"
+            },
+            "config_width_bits": 64,
+            "device": "cstate_pkg",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 25
+            },
+            "qualified_name": "cstate_pkg/c9-residency/",
+            "raw_spec": "event=0x05",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "event": "config:0-63"
+            }
+          },
+          {
+            "alias": "actual-frequency",
+            "config": null,
+            "config_fields": {
+              "config": "0x100000"
+            },
+            "config_width_bits": 64,
+            "device": "i915",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 13
+            },
+            "qualified_name": "i915/actual-frequency/",
+            "raw_spec": "config=0x100000",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "i915_eventid": "config:0-20"
+            }
+          },
+          {
+            "alias": "actual-frequency.unit",
+            "config": null,
+            "config_fields": {
+              "unparsed": "M"
+            },
+            "config_width_bits": 64,
+            "device": "i915",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 13
+            },
+            "qualified_name": "i915/actual-frequency.unit/",
+            "raw_spec": "M",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "i915_eventid": "config:0-20"
+            }
+          },
+          {
+            "alias": "bcs0-busy",
+            "config": null,
+            "config_fields": {
+              "config": "0x1000"
+            },
+            "config_width_bits": 64,
+            "device": "i915",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 13
+            },
+            "qualified_name": "i915/bcs0-busy/",
+            "raw_spec": "config=0x1000",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "i915_eventid": "config:0-20"
+            }
+          },
+          {
+            "alias": "bcs0-busy.unit",
+            "config": null,
+            "config_fields": {
+              "unparsed": "ns"
+            },
+            "config_width_bits": 64,
+            "device": "i915",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 13
+            },
+            "qualified_name": "i915/bcs0-busy.unit/",
+            "raw_spec": "ns",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "i915_eventid": "config:0-20"
+            }
+          },
+          {
+            "alias": "bcs0-sema",
+            "config": null,
+            "config_fields": {
+              "config": "0x1002"
+            },
+            "config_width_bits": 64,
+            "device": "i915",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 13
+            },
+            "qualified_name": "i915/bcs0-sema/",
+            "raw_spec": "config=0x1002",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "i915_eventid": "config:0-20"
+            }
+          },
+          {
+            "alias": "bcs0-sema.unit",
+            "config": null,
+            "config_fields": {
+              "unparsed": "ns"
+            },
+            "config_width_bits": 64,
+            "device": "i915",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 13
+            },
+            "qualified_name": "i915/bcs0-sema.unit/",
+            "raw_spec": "ns",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "i915_eventid": "config:0-20"
+            }
+          },
+          {
+            "alias": "bcs0-wait",
+            "config": null,
+            "config_fields": {
+              "config": "0x1001"
+            },
+            "config_width_bits": 64,
+            "device": "i915",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 13
+            },
+            "qualified_name": "i915/bcs0-wait/",
+            "raw_spec": "config=0x1001",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "i915_eventid": "config:0-20"
+            }
+          },
+          {
+            "alias": "bcs0-wait.unit",
+            "config": null,
+            "config_fields": {
+              "unparsed": "ns"
+            },
+            "config_width_bits": 64,
+            "device": "i915",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 13
+            },
+            "qualified_name": "i915/bcs0-wait.unit/",
+            "raw_spec": "ns",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "i915_eventid": "config:0-20"
+            }
+          },
+          {
+            "alias": "interrupts",
+            "config": null,
+            "config_fields": {
+              "config": "0x100002"
+            },
+            "config_width_bits": 64,
+            "device": "i915",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 13
+            },
+            "qualified_name": "i915/interrupts/",
+            "raw_spec": "config=0x100002",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "i915_eventid": "config:0-20"
+            }
+          },
+          {
+            "alias": "rc6-residency",
+            "config": null,
+            "config_fields": {
+              "config": "0x100003"
+            },
+            "config_width_bits": 64,
+            "device": "i915",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 13
+            },
+            "qualified_name": "i915/rc6-residency/",
+            "raw_spec": "config=0x100003",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "i915_eventid": "config:0-20"
+            }
+          },
+          {
+            "alias": "rc6-residency.unit",
+            "config": null,
+            "config_fields": {
+              "unparsed": "ns"
+            },
+            "config_width_bits": 64,
+            "device": "i915",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 13
+            },
+            "qualified_name": "i915/rc6-residency.unit/",
+            "raw_spec": "ns",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "i915_eventid": "config:0-20"
+            }
+          },
+          {
+            "alias": "rcs0-busy",
+            "config": null,
+            "config_fields": {
+              "config": "0x0"
+            },
+            "config_width_bits": 64,
+            "device": "i915",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 13
+            },
+            "qualified_name": "i915/rcs0-busy/",
+            "raw_spec": "config=0x0",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "i915_eventid": "config:0-20"
+            }
+          },
+          {
+            "alias": "rcs0-busy.unit",
+            "config": null,
+            "config_fields": {
+              "unparsed": "ns"
+            },
+            "config_width_bits": 64,
+            "device": "i915",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 13
+            },
+            "qualified_name": "i915/rcs0-busy.unit/",
+            "raw_spec": "ns",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "i915_eventid": "config:0-20"
+            }
+          },
+          {
+            "alias": "rcs0-sema",
+            "config": null,
+            "config_fields": {
+              "config": "0x2"
+            },
+            "config_width_bits": 64,
+            "device": "i915",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 13
+            },
+            "qualified_name": "i915/rcs0-sema/",
+            "raw_spec": "config=0x2",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "i915_eventid": "config:0-20"
+            }
+          },
+          {
+            "alias": "rcs0-sema.unit",
+            "config": null,
+            "config_fields": {
+              "unparsed": "ns"
+            },
+            "config_width_bits": 64,
+            "device": "i915",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 13
+            },
+            "qualified_name": "i915/rcs0-sema.unit/",
+            "raw_spec": "ns",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "i915_eventid": "config:0-20"
+            }
+          },
+          {
+            "alias": "rcs0-wait",
+            "config": null,
+            "config_fields": {
+              "config": "0x1"
+            },
+            "config_width_bits": 64,
+            "device": "i915",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 13
+            },
+            "qualified_name": "i915/rcs0-wait/",
+            "raw_spec": "config=0x1",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "i915_eventid": "config:0-20"
+            }
+          },
+          {
+            "alias": "rcs0-wait.unit",
+            "config": null,
+            "config_fields": {
+              "unparsed": "ns"
+            },
+            "config_width_bits": 64,
+            "device": "i915",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 13
+            },
+            "qualified_name": "i915/rcs0-wait.unit/",
+            "raw_spec": "ns",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "i915_eventid": "config:0-20"
+            }
+          },
+          {
+            "alias": "requested-frequency",
+            "config": null,
+            "config_fields": {
+              "config": "0x100001"
+            },
+            "config_width_bits": 64,
+            "device": "i915",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 13
+            },
+            "qualified_name": "i915/requested-frequency/",
+            "raw_spec": "config=0x100001",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "i915_eventid": "config:0-20"
+            }
+          },
+          {
+            "alias": "requested-frequency.unit",
+            "config": null,
+            "config_fields": {
+              "unparsed": "M"
+            },
+            "config_width_bits": 64,
+            "device": "i915",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 13
+            },
+            "qualified_name": "i915/requested-frequency.unit/",
+            "raw_spec": "M",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "i915_eventid": "config:0-20"
+            }
+          },
+          {
+            "alias": "software-gt-awake-time",
+            "config": null,
+            "config_fields": {
+              "config": "0x100004"
+            },
+            "config_width_bits": 64,
+            "device": "i915",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 13
+            },
+            "qualified_name": "i915/software-gt-awake-time/",
+            "raw_spec": "config=0x100004",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "i915_eventid": "config:0-20"
+            }
+          },
+          {
+            "alias": "software-gt-awake-time.unit",
+            "config": null,
+            "config_fields": {
+              "unparsed": "ns"
+            },
+            "config_width_bits": 64,
+            "device": "i915",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 13
+            },
+            "qualified_name": "i915/software-gt-awake-time.unit/",
+            "raw_spec": "ns",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "i915_eventid": "config:0-20"
+            }
+          },
+          {
+            "alias": "vcs0-busy",
+            "config": null,
+            "config_fields": {
+              "config": "0x2000"
+            },
+            "config_width_bits": 64,
+            "device": "i915",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 13
+            },
+            "qualified_name": "i915/vcs0-busy/",
+            "raw_spec": "config=0x2000",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "i915_eventid": "config:0-20"
+            }
+          },
+          {
+            "alias": "vcs0-busy.unit",
+            "config": null,
+            "config_fields": {
+              "unparsed": "ns"
+            },
+            "config_width_bits": 64,
+            "device": "i915",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 13
+            },
+            "qualified_name": "i915/vcs0-busy.unit/",
+            "raw_spec": "ns",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "i915_eventid": "config:0-20"
+            }
+          },
+          {
+            "alias": "vcs0-sema",
+            "config": null,
+            "config_fields": {
+              "config": "0x2002"
+            },
+            "config_width_bits": 64,
+            "device": "i915",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 13
+            },
+            "qualified_name": "i915/vcs0-sema/",
+            "raw_spec": "config=0x2002",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "i915_eventid": "config:0-20"
+            }
+          },
+          {
+            "alias": "vcs0-sema.unit",
+            "config": null,
+            "config_fields": {
+              "unparsed": "ns"
+            },
+            "config_width_bits": 64,
+            "device": "i915",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 13
+            },
+            "qualified_name": "i915/vcs0-sema.unit/",
+            "raw_spec": "ns",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "i915_eventid": "config:0-20"
+            }
+          },
+          {
+            "alias": "vcs0-wait",
+            "config": null,
+            "config_fields": {
+              "config": "0x2001"
+            },
+            "config_width_bits": 64,
+            "device": "i915",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 13
+            },
+            "qualified_name": "i915/vcs0-wait/",
+            "raw_spec": "config=0x2001",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "i915_eventid": "config:0-20"
+            }
+          },
+          {
+            "alias": "vcs0-wait.unit",
+            "config": null,
+            "config_fields": {
+              "unparsed": "ns"
+            },
+            "config_width_bits": 64,
+            "device": "i915",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 13
+            },
+            "qualified_name": "i915/vcs0-wait.unit/",
+            "raw_spec": "ns",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "i915_eventid": "config:0-20"
+            }
+          },
+          {
+            "alias": "vecs0-busy",
+            "config": null,
+            "config_fields": {
+              "config": "0x3000"
+            },
+            "config_width_bits": 64,
+            "device": "i915",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 13
+            },
+            "qualified_name": "i915/vecs0-busy/",
+            "raw_spec": "config=0x3000",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "i915_eventid": "config:0-20"
+            }
+          },
+          {
+            "alias": "vecs0-busy.unit",
+            "config": null,
+            "config_fields": {
+              "unparsed": "ns"
+            },
+            "config_width_bits": 64,
+            "device": "i915",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 13
+            },
+            "qualified_name": "i915/vecs0-busy.unit/",
+            "raw_spec": "ns",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "i915_eventid": "config:0-20"
+            }
+          },
+          {
+            "alias": "vecs0-sema",
+            "config": null,
+            "config_fields": {
+              "config": "0x3002"
+            },
+            "config_width_bits": 64,
+            "device": "i915",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 13
+            },
+            "qualified_name": "i915/vecs0-sema/",
+            "raw_spec": "config=0x3002",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "i915_eventid": "config:0-20"
+            }
+          },
+          {
+            "alias": "vecs0-sema.unit",
+            "config": null,
+            "config_fields": {
+              "unparsed": "ns"
+            },
+            "config_width_bits": 64,
+            "device": "i915",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 13
+            },
+            "qualified_name": "i915/vecs0-sema.unit/",
+            "raw_spec": "ns",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "i915_eventid": "config:0-20"
+            }
+          },
+          {
+            "alias": "vecs0-wait",
+            "config": null,
+            "config_fields": {
+              "config": "0x3001"
+            },
+            "config_width_bits": 64,
+            "device": "i915",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 13
+            },
+            "qualified_name": "i915/vecs0-wait/",
+            "raw_spec": "config=0x3001",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "i915_eventid": "config:0-20"
+            }
+          },
+          {
+            "alias": "vecs0-wait.unit",
+            "config": null,
+            "config_fields": {
+              "unparsed": "ns"
+            },
+            "config_width_bits": 64,
+            "device": "i915",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 13
+            },
+            "qualified_name": "i915/vecs0-wait.unit/",
+            "raw_spec": "ns",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "i915_eventid": "config:0-20"
+            }
+          },
+          {
+            "alias": "aperf",
+            "config": 1,
+            "config_fields": {
+              "event": "0x01"
+            },
+            "config_width_bits": 64,
+            "device": "msr",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 12
+            },
+            "qualified_name": "msr/aperf/",
+            "raw_spec": "event=0x01",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "event": "config:0-63"
+            }
+          },
+          {
+            "alias": "cpu_thermal_margin",
+            "config": 7,
+            "config_fields": {
+              "event": "0x07"
+            },
+            "config_width_bits": 64,
+            "device": "msr",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 12
+            },
+            "qualified_name": "msr/cpu_thermal_margin/",
+            "raw_spec": "event=0x07",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "event": "config:0-63"
+            }
+          },
+          {
+            "alias": "cpu_thermal_margin.snapshot",
+            "config": null,
+            "config_fields": {
+              "unparsed": "1"
+            },
+            "config_width_bits": 64,
+            "device": "msr",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 12
+            },
+            "qualified_name": "msr/cpu_thermal_margin.snapshot/",
+            "raw_spec": "1",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "event": "config:0-63"
+            }
+          },
+          {
+            "alias": "cpu_thermal_margin.unit",
+            "config": null,
+            "config_fields": {
+              "unparsed": "C"
+            },
+            "config_width_bits": 64,
+            "device": "msr",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 12
+            },
+            "qualified_name": "msr/cpu_thermal_margin.unit/",
+            "raw_spec": "C",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "event": "config:0-63"
+            }
+          },
+          {
+            "alias": "mperf",
+            "config": 2,
+            "config_fields": {
+              "event": "0x02"
+            },
+            "config_width_bits": 64,
+            "device": "msr",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 12
+            },
+            "qualified_name": "msr/mperf/",
+            "raw_spec": "event=0x02",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "event": "config:0-63"
+            }
+          },
+          {
+            "alias": "pperf",
+            "config": 3,
+            "config_fields": {
+              "event": "0x03"
+            },
+            "config_width_bits": 64,
+            "device": "msr",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 12
+            },
+            "qualified_name": "msr/pperf/",
+            "raw_spec": "event=0x03",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "event": "config:0-63"
+            }
+          },
+          {
+            "alias": "smi",
+            "config": 4,
+            "config_fields": {
+              "event": "0x04"
+            },
+            "config_width_bits": 64,
+            "device": "msr",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 12
+            },
+            "qualified_name": "msr/smi/",
+            "raw_spec": "event=0x04",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "event": "config:0-63"
+            }
+          },
+          {
+            "alias": "tsc",
+            "config": 0,
+            "config_fields": {
+              "event": "0x00"
+            },
+            "config_width_bits": 64,
+            "device": "msr",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 12
+            },
+            "qualified_name": "msr/tsc/",
+            "raw_spec": "event=0x00",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "event": "config:0-63"
+            }
+          },
+          {
+            "alias": "energy-cores",
+            "config": 1,
+            "config_fields": {
+              "event": "0x01"
+            },
+            "config_width_bits": 64,
+            "device": "power",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 26
+            },
+            "qualified_name": "power/energy-cores/",
+            "raw_spec": "event=0x01",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "event": "config:0-7"
+            }
+          },
+          {
+            "alias": "energy-cores.scale",
+            "config": null,
+            "config_fields": {
+              "unparsed": "2.3283064365386962890625e-10"
+            },
+            "config_width_bits": 64,
+            "device": "power",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 26
+            },
+            "qualified_name": "power/energy-cores.scale/",
+            "raw_spec": "2.3283064365386962890625e-10",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "event": "config:0-7"
+            }
+          },
+          {
+            "alias": "energy-cores.unit",
+            "config": null,
+            "config_fields": {
+              "unparsed": "Joules"
+            },
+            "config_width_bits": 64,
+            "device": "power",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 26
+            },
+            "qualified_name": "power/energy-cores.unit/",
+            "raw_spec": "Joules",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "event": "config:0-7"
+            }
+          },
+          {
+            "alias": "energy-gpu",
+            "config": 4,
+            "config_fields": {
+              "event": "0x04"
+            },
+            "config_width_bits": 64,
+            "device": "power",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 26
+            },
+            "qualified_name": "power/energy-gpu/",
+            "raw_spec": "event=0x04",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "event": "config:0-7"
+            }
+          },
+          {
+            "alias": "energy-gpu.scale",
+            "config": null,
+            "config_fields": {
+              "unparsed": "2.3283064365386962890625e-10"
+            },
+            "config_width_bits": 64,
+            "device": "power",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 26
+            },
+            "qualified_name": "power/energy-gpu.scale/",
+            "raw_spec": "2.3283064365386962890625e-10",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "event": "config:0-7"
+            }
+          },
+          {
+            "alias": "energy-gpu.unit",
+            "config": null,
+            "config_fields": {
+              "unparsed": "Joules"
+            },
+            "config_width_bits": 64,
+            "device": "power",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 26
+            },
+            "qualified_name": "power/energy-gpu.unit/",
+            "raw_spec": "Joules",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "event": "config:0-7"
+            }
+          },
+          {
+            "alias": "energy-pkg",
+            "config": 2,
+            "config_fields": {
+              "event": "0x02"
+            },
+            "config_width_bits": 64,
+            "device": "power",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 26
+            },
+            "qualified_name": "power/energy-pkg/",
+            "raw_spec": "event=0x02",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "event": "config:0-7"
+            }
+          },
+          {
+            "alias": "energy-pkg.scale",
+            "config": null,
+            "config_fields": {
+              "unparsed": "2.3283064365386962890625e-10"
+            },
+            "config_width_bits": 64,
+            "device": "power",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 26
+            },
+            "qualified_name": "power/energy-pkg.scale/",
+            "raw_spec": "2.3283064365386962890625e-10",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "event": "config:0-7"
+            }
+          },
+          {
+            "alias": "energy-pkg.unit",
+            "config": null,
+            "config_fields": {
+              "unparsed": "Joules"
+            },
+            "config_width_bits": 64,
+            "device": "power",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 26
+            },
+            "qualified_name": "power/energy-pkg.unit/",
+            "raw_spec": "Joules",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "event": "config:0-7"
+            }
+          },
+          {
+            "alias": "energy-ram",
+            "config": 3,
+            "config_fields": {
+              "event": "0x03"
+            },
+            "config_width_bits": 64,
+            "device": "power",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 26
+            },
+            "qualified_name": "power/energy-ram/",
+            "raw_spec": "event=0x03",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "event": "config:0-7"
+            }
+          },
+          {
+            "alias": "energy-ram.scale",
+            "config": null,
+            "config_fields": {
+              "unparsed": "2.3283064365386962890625e-10"
+            },
+            "config_width_bits": 64,
+            "device": "power",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 26
+            },
+            "qualified_name": "power/energy-ram.scale/",
+            "raw_spec": "2.3283064365386962890625e-10",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "event": "config:0-7"
+            }
+          },
+          {
+            "alias": "energy-ram.unit",
+            "config": null,
+            "config_fields": {
+              "unparsed": "Joules"
+            },
+            "config_width_bits": 64,
+            "device": "power",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 26
+            },
+            "qualified_name": "power/energy-ram.unit/",
+            "raw_spec": "Joules",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "event": "config:0-7"
+            }
+          },
+          {
+            "alias": "clockticks",
+            "config": 255,
+            "config_fields": {
+              "event": "0xff",
+              "umask": "0x00"
+            },
+            "config_width_bits": 64,
+            "device": "uncore_cbox_0",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 15
+            },
+            "qualified_name": "uncore_cbox_0/clockticks/",
+            "raw_spec": "event=0xff,umask=0x00",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "cmask": "config:24-28",
+              "edge": "config:18",
+              "event": "config:0-7",
+              "inv": "config:23",
+              "umask": "config:8-15"
+            }
+          },
+          {
+            "alias": "clockticks",
+            "config": 255,
+            "config_fields": {
+              "event": "0xff",
+              "umask": "0x00"
+            },
+            "config_width_bits": 64,
+            "device": "uncore_cbox_1",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 16
+            },
+            "qualified_name": "uncore_cbox_1/clockticks/",
+            "raw_spec": "event=0xff,umask=0x00",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "cmask": "config:24-28",
+              "edge": "config:18",
+              "event": "config:0-7",
+              "inv": "config:23",
+              "umask": "config:8-15"
+            }
+          },
+          {
+            "alias": "clockticks",
+            "config": 255,
+            "config_fields": {
+              "event": "0xff",
+              "umask": "0x00"
+            },
+            "config_width_bits": 64,
+            "device": "uncore_cbox_2",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 17
+            },
+            "qualified_name": "uncore_cbox_2/clockticks/",
+            "raw_spec": "event=0xff,umask=0x00",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "cmask": "config:24-28",
+              "edge": "config:18",
+              "event": "config:0-7",
+              "inv": "config:23",
+              "umask": "config:8-15"
+            }
+          },
+          {
+            "alias": "clockticks",
+            "config": 255,
+            "config_fields": {
+              "event": "0xff",
+              "umask": "0x00"
+            },
+            "config_width_bits": 64,
+            "device": "uncore_cbox_3",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 18
+            },
+            "qualified_name": "uncore_cbox_3/clockticks/",
+            "raw_spec": "event=0xff,umask=0x00",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "cmask": "config:24-28",
+              "edge": "config:18",
+              "event": "config:0-7",
+              "inv": "config:23",
+              "umask": "config:8-15"
+            }
+          },
+          {
+            "alias": "clockticks",
+            "config": 255,
+            "config_fields": {
+              "event": "0xff",
+              "umask": "0x00"
+            },
+            "config_width_bits": 64,
+            "device": "uncore_cbox_4",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 19
+            },
+            "qualified_name": "uncore_cbox_4/clockticks/",
+            "raw_spec": "event=0xff,umask=0x00",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "cmask": "config:24-28",
+              "edge": "config:18",
+              "event": "config:0-7",
+              "inv": "config:23",
+              "umask": "config:8-15"
+            }
+          },
+          {
+            "alias": "clockticks",
+            "config": 255,
+            "config_fields": {
+              "event": "0xff",
+              "umask": "0x00"
+            },
+            "config_width_bits": 64,
+            "device": "uncore_cbox_5",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 20
+            },
+            "qualified_name": "uncore_cbox_5/clockticks/",
+            "raw_spec": "event=0xff,umask=0x00",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "cmask": "config:24-28",
+              "edge": "config:18",
+              "event": "config:0-7",
+              "inv": "config:23",
+              "umask": "config:8-15"
+            }
+          },
+          {
+            "alias": "clockticks",
+            "config": 255,
+            "config_fields": {
+              "event": "0xff",
+              "umask": "0x00"
+            },
+            "config_width_bits": 64,
+            "device": "uncore_cbox_6",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 21
+            },
+            "qualified_name": "uncore_cbox_6/clockticks/",
+            "raw_spec": "event=0xff,umask=0x00",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "cmask": "config:24-28",
+              "edge": "config:18",
+              "event": "config:0-7",
+              "inv": "config:23",
+              "umask": "config:8-15"
+            }
+          },
+          {
+            "alias": "clockticks",
+            "config": 255,
+            "config_fields": {
+              "event": "0xff",
+              "umask": "0x00"
+            },
+            "config_width_bits": 64,
+            "device": "uncore_cbox_7",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 22
+            },
+            "qualified_name": "uncore_cbox_7/clockticks/",
+            "raw_spec": "event=0xff,umask=0x00",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "cmask": "config:24-28",
+              "edge": "config:18",
+              "event": "config:0-7",
+              "inv": "config:23",
+              "umask": "config:8-15"
+            }
+          },
+          {
+            "alias": "data_reads",
+            "config": 1,
+            "config_fields": {
+              "event": "0x01"
+            },
+            "config_width_bits": 64,
+            "device": "uncore_imc",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 14
+            },
+            "qualified_name": "uncore_imc/data_reads/",
+            "raw_spec": "event=0x01",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "event": "config:0-7"
+            }
+          },
+          {
+            "alias": "data_reads.scale",
+            "config": null,
+            "config_fields": {
+              "unparsed": "6.103515625e-5"
+            },
+            "config_width_bits": 64,
+            "device": "uncore_imc",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 14
+            },
+            "qualified_name": "uncore_imc/data_reads.scale/",
+            "raw_spec": "6.103515625e-5",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "event": "config:0-7"
+            }
+          },
+          {
+            "alias": "data_reads.unit",
+            "config": null,
+            "config_fields": {
+              "unparsed": "MiB"
+            },
+            "config_width_bits": 64,
+            "device": "uncore_imc",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 14
+            },
+            "qualified_name": "uncore_imc/data_reads.unit/",
+            "raw_spec": "MiB",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "event": "config:0-7"
+            }
+          },
+          {
+            "alias": "data_writes",
+            "config": 2,
+            "config_fields": {
+              "event": "0x02"
+            },
+            "config_width_bits": 64,
+            "device": "uncore_imc",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 14
+            },
+            "qualified_name": "uncore_imc/data_writes/",
+            "raw_spec": "event=0x02",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "event": "config:0-7"
+            }
+          },
+          {
+            "alias": "data_writes.scale",
+            "config": null,
+            "config_fields": {
+              "unparsed": "6.103515625e-5"
+            },
+            "config_width_bits": 64,
+            "device": "uncore_imc",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 14
+            },
+            "qualified_name": "uncore_imc/data_writes.scale/",
+            "raw_spec": "6.103515625e-5",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "event": "config:0-7"
+            }
+          },
+          {
+            "alias": "data_writes.unit",
+            "config": null,
+            "config_fields": {
+              "unparsed": "MiB"
+            },
+            "config_width_bits": 64,
+            "device": "uncore_imc",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 14
+            },
+            "qualified_name": "uncore_imc/data_writes.unit/",
+            "raw_spec": "MiB",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "event": "config:0-7"
+            }
+          },
+          {
+            "alias": "gt_requests",
+            "config": 3,
+            "config_fields": {
+              "event": "0x03"
+            },
+            "config_width_bits": 64,
+            "device": "uncore_imc",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 14
+            },
+            "qualified_name": "uncore_imc/gt_requests/",
+            "raw_spec": "event=0x03",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "event": "config:0-7"
+            }
+          },
+          {
+            "alias": "gt_requests.scale",
+            "config": null,
+            "config_fields": {
+              "unparsed": "6.103515625e-5"
+            },
+            "config_width_bits": 64,
+            "device": "uncore_imc",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 14
+            },
+            "qualified_name": "uncore_imc/gt_requests.scale/",
+            "raw_spec": "6.103515625e-5",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "event": "config:0-7"
+            }
+          },
+          {
+            "alias": "gt_requests.unit",
+            "config": null,
+            "config_fields": {
+              "unparsed": "MiB"
+            },
+            "config_width_bits": 64,
+            "device": "uncore_imc",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 14
+            },
+            "qualified_name": "uncore_imc/gt_requests.unit/",
+            "raw_spec": "MiB",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "event": "config:0-7"
+            }
+          },
+          {
+            "alias": "ia_requests",
+            "config": 4,
+            "config_fields": {
+              "event": "0x04"
+            },
+            "config_width_bits": 64,
+            "device": "uncore_imc",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 14
+            },
+            "qualified_name": "uncore_imc/ia_requests/",
+            "raw_spec": "event=0x04",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "event": "config:0-7"
+            }
+          },
+          {
+            "alias": "ia_requests.scale",
+            "config": null,
+            "config_fields": {
+              "unparsed": "6.103515625e-5"
+            },
+            "config_width_bits": 64,
+            "device": "uncore_imc",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 14
+            },
+            "qualified_name": "uncore_imc/ia_requests.scale/",
+            "raw_spec": "6.103515625e-5",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "event": "config:0-7"
+            }
+          },
+          {
+            "alias": "ia_requests.unit",
+            "config": null,
+            "config_fields": {
+              "unparsed": "MiB"
+            },
+            "config_width_bits": 64,
+            "device": "uncore_imc",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 14
+            },
+            "qualified_name": "uncore_imc/ia_requests.unit/",
+            "raw_spec": "MiB",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "event": "config:0-7"
+            }
+          },
+          {
+            "alias": "io_requests",
+            "config": 5,
+            "config_fields": {
+              "event": "0x05"
+            },
+            "config_width_bits": 64,
+            "device": "uncore_imc",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 14
+            },
+            "qualified_name": "uncore_imc/io_requests/",
+            "raw_spec": "event=0x05",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "event": "config:0-7"
+            }
+          },
+          {
+            "alias": "io_requests.scale",
+            "config": null,
+            "config_fields": {
+              "unparsed": "6.103515625e-5"
+            },
+            "config_width_bits": 64,
+            "device": "uncore_imc",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 14
+            },
+            "qualified_name": "uncore_imc/io_requests.scale/",
+            "raw_spec": "6.103515625e-5",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "event": "config:0-7"
+            }
+          },
+          {
+            "alias": "io_requests.unit",
+            "config": null,
+            "config_fields": {
+              "unparsed": "MiB"
+            },
+            "config_width_bits": 64,
+            "device": "uncore_imc",
+            "event_source_type": {
+              "name": "sysfs_pmu_type",
+              "value": 14
+            },
+            "qualified_name": "uncore_imc/io_requests.unit/",
+            "raw_spec": "MiB",
+            "selection": "qualified device plus alias; bare aliases are never used for selection",
+            "sysfs_format_fields": {
+              "event": "config:0-7"
+            }
+          }
+        ]
+      },
+      "schema": "sensetrace.performance-counter-capabilities.v1"
+    },
+    "pmu_events_requested": [
+      "cache-references",
+      "cache-misses"
+    ],
+    "pmu_failure_policy": "permission/error/multiplex ambiguity remains invalid, never zero",
+    "pmu_scope": "origin_only",
+    "schema": "sensetrace.latent-system-state-witness-capability.v1",
+    "system_sources": [],
+    "tier": 1,
+    "witness_scope": "origin_only"
+  },
+  "protocol_version": "latent-system-state-v1",
+  "raw_artifact": {
+    "origin_channel_count": 4,
+    "path": "raw_trajectories.npz",
+    "raw_integer_channels": [
+      "target_ticks",
+      "reference_ticks",
+      "target_start_tsc",
+      "target_end_tsc",
+      "reference_start_tsc",
+      "reference_end_tsc",
+      "target_start_aux",
+      "target_end_aux",
+      "reference_start_aux",
+      "reference_end_aux",
+      "target_quality",
+      "reference_quality",
+      "acquisition_order",
+      "origin_channel_ticks",
+      "origin_channel_start_tsc",
+      "origin_channel_end_tsc",
+      "origin_channel_start_aux",
+      "origin_channel_end_aux",
+      "origin_channel_quality",
+      "origin_channel_order"
+    ],
+    "repetitions_per_trajectory": 49,
+    "schema": "sensetrace.latent-system-state-raw.v1",
+    "sha256": "c45fb74d11ef03372a46830d709c8ff5724ef6ad6daf6bbd6432e12e65ad13b7",
+    "trajectory_count": 160,
+    "witness_channel_count": 3
+  },
+  "requested_node": "worker-03",
+  "schema": "sensetrace.latent-system-state-acquisition.v1",
+  "session_count": 160,
+  "stage": "confirmation",
+  "status": "complete",
+  "timing_conversion": {
+    "end_aux": 0,
+    "method": "paired monotonic_ns/RDTSCP read",
+    "nanoseconds_per_tsc_tick": 0.33401147583618296,
+    "start_aux": 0,
+    "tsc_ticks_per_nanosecond": 2.9939091089506555
+  },
+  "trajectory_count": 160,
+  "trajectory_journal": {
+    "path": "trajectory_journal.jsonl",
+    "sha256": "d7272930c5b74c14ca0662ebee1aabf8a0d2f64508bbff659346b2a5e70ac2e8"
+  }
+}

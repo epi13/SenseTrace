@@ -1,0 +1,491 @@
+{
+  "config_hash": "0ed6802e9c276ef51502edf98b574e98cb808a4c6a820895c40ea048b35882b9",
+  "created_at": "2026-09-13T04:33:00.094478+00:00",
+  "fresh_sequence_policy": "fresh session IDs and confirmation seed offset; completed design is immutable",
+  "protocol_version": "latent-system-state-v1",
+  "schema": "sensetrace.latent-system-state-design.v1",
+  "sessions": [
+    {
+      "family": "read_pressure",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 0,
+      "seed": 20260913,
+      "session_id": "development-latent-session-0000-78b15cd1ada94927ab9ddd2914eeffa8",
+      "trajectory_ids": [
+        "development-latent-session-0000-78b15cd1ada94927ab9ddd2914eeffa8-trajectory-000"
+      ]
+    },
+    {
+      "family": "read_pressure",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 1,
+      "seed": 20368835,
+      "session_id": "development-latent-session-0001-b1381e7246b44cad86fe783b853ae736",
+      "trajectory_ids": [
+        "development-latent-session-0001-b1381e7246b44cad86fe783b853ae736-trajectory-000"
+      ]
+    },
+    {
+      "family": "read_pressure",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 2,
+      "seed": 20476757,
+      "session_id": "development-latent-session-0002-c64ef3901ea54fa7be8c5e6a9b4638d3",
+      "trajectory_ids": [
+        "development-latent-session-0002-c64ef3901ea54fa7be8c5e6a9b4638d3-trajectory-000"
+      ]
+    },
+    {
+      "family": "read_pressure",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 3,
+      "seed": 20584679,
+      "session_id": "development-latent-session-0003-ad5f8cd9ecae4732b883dc0aa9ae4c66",
+      "trajectory_ids": [
+        "development-latent-session-0003-ad5f8cd9ecae4732b883dc0aa9ae4c66-trajectory-000"
+      ]
+    },
+    {
+      "family": "read_pressure",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 4,
+      "seed": 20692601,
+      "session_id": "development-latent-session-0004-f9167cedab05425bb2a94bc332bef400",
+      "trajectory_ids": [
+        "development-latent-session-0004-f9167cedab05425bb2a94bc332bef400-trajectory-000"
+      ]
+    },
+    {
+      "family": "read_pressure",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 5,
+      "seed": 20800523,
+      "session_id": "development-latent-session-0005-03c19e3609d040b5abc35c903565698c",
+      "trajectory_ids": [
+        "development-latent-session-0005-03c19e3609d040b5abc35c903565698c-trajectory-000"
+      ]
+    },
+    {
+      "family": "read_pressure",
+      "measurement_condition": "timer_only",
+      "repeat": 0,
+      "seed": 20860931,
+      "session_id": "development-latent-session-0006-10ccdc02fd7640dca6cad8a4021d1a19",
+      "trajectory_ids": [
+        "development-latent-session-0006-10ccdc02fd7640dca6cad8a4021d1a19-trajectory-000"
+      ]
+    },
+    {
+      "family": "read_pressure",
+      "measurement_condition": "timer_only",
+      "repeat": 1,
+      "seed": 20968853,
+      "session_id": "development-latent-session-0007-8f4c197fbe07452b87ab0de59ce918b2",
+      "trajectory_ids": [
+        "development-latent-session-0007-8f4c197fbe07452b87ab0de59ce918b2-trajectory-000"
+      ]
+    },
+    {
+      "family": "read_pressure",
+      "measurement_condition": "timer_only",
+      "repeat": 2,
+      "seed": 21076775,
+      "session_id": "development-latent-session-0008-0b52c4d303c14687bd0bd0d07ef64103",
+      "trajectory_ids": [
+        "development-latent-session-0008-0b52c4d303c14687bd0bd0d07ef64103-trajectory-000"
+      ]
+    },
+    {
+      "family": "read_pressure",
+      "measurement_condition": "timer_only",
+      "repeat": 3,
+      "seed": 21184697,
+      "session_id": "development-latent-session-0009-6cd6441cc20d4a438c0f058914a4fe3b",
+      "trajectory_ids": [
+        "development-latent-session-0009-6cd6441cc20d4a438c0f058914a4fe3b-trajectory-000"
+      ]
+    },
+    {
+      "family": "read_pressure",
+      "measurement_condition": "timer_only",
+      "repeat": 4,
+      "seed": 21292619,
+      "session_id": "development-latent-session-0010-863712ad45e64062809cc8fd3b46c62e",
+      "trajectory_ids": [
+        "development-latent-session-0010-863712ad45e64062809cc8fd3b46c62e-trajectory-000"
+      ]
+    },
+    {
+      "family": "read_pressure",
+      "measurement_condition": "timer_only",
+      "repeat": 5,
+      "seed": 21400541,
+      "session_id": "development-latent-session-0011-840d9928797043a4a6b5e73b0348c51d",
+      "trajectory_ids": [
+        "development-latent-session-0011-840d9928797043a4a6b5e73b0348c51d-trajectory-000"
+      ]
+    },
+    {
+      "family": "active_quiet",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 0,
+      "seed": 21460949,
+      "session_id": "development-latent-session-0012-afb9b0d662a8494491dfc71df77a54ba",
+      "trajectory_ids": [
+        "development-latent-session-0012-afb9b0d662a8494491dfc71df77a54ba-trajectory-000"
+      ]
+    },
+    {
+      "family": "active_quiet",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 1,
+      "seed": 21568871,
+      "session_id": "development-latent-session-0013-09e82d040df046ef9795644b7dee2bb1",
+      "trajectory_ids": [
+        "development-latent-session-0013-09e82d040df046ef9795644b7dee2bb1-trajectory-000"
+      ]
+    },
+    {
+      "family": "active_quiet",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 2,
+      "seed": 21676793,
+      "session_id": "development-latent-session-0014-d2cf7602f8f0497d843dc50f5db3587a",
+      "trajectory_ids": [
+        "development-latent-session-0014-d2cf7602f8f0497d843dc50f5db3587a-trajectory-000"
+      ]
+    },
+    {
+      "family": "active_quiet",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 3,
+      "seed": 21784715,
+      "session_id": "development-latent-session-0015-9f46e0831a1446afa6d240b1f823b4f0",
+      "trajectory_ids": [
+        "development-latent-session-0015-9f46e0831a1446afa6d240b1f823b4f0-trajectory-000"
+      ]
+    },
+    {
+      "family": "active_quiet",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 4,
+      "seed": 21892637,
+      "session_id": "development-latent-session-0016-94aaaf4ea1b94d1e85eba306f3e6503a",
+      "trajectory_ids": [
+        "development-latent-session-0016-94aaaf4ea1b94d1e85eba306f3e6503a-trajectory-000"
+      ]
+    },
+    {
+      "family": "active_quiet",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 5,
+      "seed": 22000559,
+      "session_id": "development-latent-session-0017-6bb94d05fb01401c919d12362b50a810",
+      "trajectory_ids": [
+        "development-latent-session-0017-6bb94d05fb01401c919d12362b50a810-trajectory-000"
+      ]
+    },
+    {
+      "family": "active_quiet",
+      "measurement_condition": "timer_only",
+      "repeat": 0,
+      "seed": 22060967,
+      "session_id": "development-latent-session-0018-fa7db75a38c545afb4016aa55453ec58",
+      "trajectory_ids": [
+        "development-latent-session-0018-fa7db75a38c545afb4016aa55453ec58-trajectory-000"
+      ]
+    },
+    {
+      "family": "active_quiet",
+      "measurement_condition": "timer_only",
+      "repeat": 1,
+      "seed": 22168889,
+      "session_id": "development-latent-session-0019-4b254515ef324197b751b587427742ae",
+      "trajectory_ids": [
+        "development-latent-session-0019-4b254515ef324197b751b587427742ae-trajectory-000"
+      ]
+    },
+    {
+      "family": "active_quiet",
+      "measurement_condition": "timer_only",
+      "repeat": 2,
+      "seed": 22276811,
+      "session_id": "development-latent-session-0020-8d393320ef7143429cb34c4f12654567",
+      "trajectory_ids": [
+        "development-latent-session-0020-8d393320ef7143429cb34c4f12654567-trajectory-000"
+      ]
+    },
+    {
+      "family": "active_quiet",
+      "measurement_condition": "timer_only",
+      "repeat": 3,
+      "seed": 22384733,
+      "session_id": "development-latent-session-0021-d4735d90659e48a98178bbdd77462745",
+      "trajectory_ids": [
+        "development-latent-session-0021-d4735d90659e48a98178bbdd77462745-trajectory-000"
+      ]
+    },
+    {
+      "family": "active_quiet",
+      "measurement_condition": "timer_only",
+      "repeat": 4,
+      "seed": 22492655,
+      "session_id": "development-latent-session-0022-600a92ab5303480aa7681f6ba06b4f43",
+      "trajectory_ids": [
+        "development-latent-session-0022-600a92ab5303480aa7681f6ba06b4f43-trajectory-000"
+      ]
+    },
+    {
+      "family": "active_quiet",
+      "measurement_condition": "timer_only",
+      "repeat": 5,
+      "seed": 22600577,
+      "session_id": "development-latent-session-0023-9e2cbb2869ba46f68ffcddf45825debe",
+      "trajectory_ids": [
+        "development-latent-session-0023-9e2cbb2869ba46f68ffcddf45825debe-trajectory-000"
+      ]
+    },
+    {
+      "family": "sham",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 0,
+      "seed": 22660985,
+      "session_id": "development-latent-session-0024-54ea16120a694d2695a0f3ac4b617bc0",
+      "trajectory_ids": [
+        "development-latent-session-0024-54ea16120a694d2695a0f3ac4b617bc0-trajectory-000"
+      ]
+    },
+    {
+      "family": "sham",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 1,
+      "seed": 22768907,
+      "session_id": "development-latent-session-0025-40819ff901594e75be0f37f42091c40e",
+      "trajectory_ids": [
+        "development-latent-session-0025-40819ff901594e75be0f37f42091c40e-trajectory-000"
+      ]
+    },
+    {
+      "family": "sham",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 2,
+      "seed": 22876829,
+      "session_id": "development-latent-session-0026-f42fbd6ae8734e07a647a0b1f17349ea",
+      "trajectory_ids": [
+        "development-latent-session-0026-f42fbd6ae8734e07a647a0b1f17349ea-trajectory-000"
+      ]
+    },
+    {
+      "family": "sham",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 3,
+      "seed": 22984751,
+      "session_id": "development-latent-session-0027-c7b7a4ded4b54fc0b6ce2574cbc20ddb",
+      "trajectory_ids": [
+        "development-latent-session-0027-c7b7a4ded4b54fc0b6ce2574cbc20ddb-trajectory-000"
+      ]
+    },
+    {
+      "family": "sham",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 4,
+      "seed": 23092673,
+      "session_id": "development-latent-session-0028-a0481e533647450a8ef1057a1605993f",
+      "trajectory_ids": [
+        "development-latent-session-0028-a0481e533647450a8ef1057a1605993f-trajectory-000"
+      ]
+    },
+    {
+      "family": "sham",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 5,
+      "seed": 23200595,
+      "session_id": "development-latent-session-0029-a3f1484c1e274d8ab64f9e929367ef0d",
+      "trajectory_ids": [
+        "development-latent-session-0029-a3f1484c1e274d8ab64f9e929367ef0d-trajectory-000"
+      ]
+    },
+    {
+      "family": "sham",
+      "measurement_condition": "timer_only",
+      "repeat": 0,
+      "seed": 23261003,
+      "session_id": "development-latent-session-0030-a6d88b26f42d4621b22decd14d3e0c1f",
+      "trajectory_ids": [
+        "development-latent-session-0030-a6d88b26f42d4621b22decd14d3e0c1f-trajectory-000"
+      ]
+    },
+    {
+      "family": "sham",
+      "measurement_condition": "timer_only",
+      "repeat": 1,
+      "seed": 23368925,
+      "session_id": "development-latent-session-0031-bc681797940e4e63a6bcb92c4e20a807",
+      "trajectory_ids": [
+        "development-latent-session-0031-bc681797940e4e63a6bcb92c4e20a807-trajectory-000"
+      ]
+    },
+    {
+      "family": "sham",
+      "measurement_condition": "timer_only",
+      "repeat": 2,
+      "seed": 23476847,
+      "session_id": "development-latent-session-0032-ee0dc6ac011246ef91638cfc326d52d1",
+      "trajectory_ids": [
+        "development-latent-session-0032-ee0dc6ac011246ef91638cfc326d52d1-trajectory-000"
+      ]
+    },
+    {
+      "family": "sham",
+      "measurement_condition": "timer_only",
+      "repeat": 3,
+      "seed": 23584769,
+      "session_id": "development-latent-session-0033-c44b532f7671490187bcaaa6dddb121e",
+      "trajectory_ids": [
+        "development-latent-session-0033-c44b532f7671490187bcaaa6dddb121e-trajectory-000"
+      ]
+    },
+    {
+      "family": "sham",
+      "measurement_condition": "timer_only",
+      "repeat": 4,
+      "seed": 23692691,
+      "session_id": "development-latent-session-0034-ded1630cba8040f3aab0b3dccfc6cd08",
+      "trajectory_ids": [
+        "development-latent-session-0034-ded1630cba8040f3aab0b3dccfc6cd08-trajectory-000"
+      ]
+    },
+    {
+      "family": "sham",
+      "measurement_condition": "timer_only",
+      "repeat": 5,
+      "seed": 23800613,
+      "session_id": "development-latent-session-0035-801530811fff46c6b5222b4c0a2ff4a1",
+      "trajectory_ids": [
+        "development-latent-session-0035-801530811fff46c6b5222b4c0a2ff4a1-trajectory-000"
+      ]
+    },
+    {
+      "family": "passive",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 0,
+      "seed": 23861021,
+      "session_id": "development-latent-session-0036-8ecf0ddf1d1a4a40bf20a02c63f8bf45",
+      "trajectory_ids": [
+        "development-latent-session-0036-8ecf0ddf1d1a4a40bf20a02c63f8bf45-trajectory-000"
+      ]
+    },
+    {
+      "family": "passive",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 1,
+      "seed": 23968943,
+      "session_id": "development-latent-session-0037-8ef04574d9c840c6b27888f3680649ec",
+      "trajectory_ids": [
+        "development-latent-session-0037-8ef04574d9c840c6b27888f3680649ec-trajectory-000"
+      ]
+    },
+    {
+      "family": "passive",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 2,
+      "seed": 24076865,
+      "session_id": "development-latent-session-0038-0281260c2b0b4623a4b768681485743d",
+      "trajectory_ids": [
+        "development-latent-session-0038-0281260c2b0b4623a4b768681485743d-trajectory-000"
+      ]
+    },
+    {
+      "family": "passive",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 3,
+      "seed": 24184787,
+      "session_id": "development-latent-session-0039-5b38778501c54d47a6d97b82e3a4a5bd",
+      "trajectory_ids": [
+        "development-latent-session-0039-5b38778501c54d47a6d97b82e3a4a5bd-trajectory-000"
+      ]
+    },
+    {
+      "family": "passive",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 4,
+      "seed": 24292709,
+      "session_id": "development-latent-session-0040-703e201e7cf24c6f86908d0f516fc6f0",
+      "trajectory_ids": [
+        "development-latent-session-0040-703e201e7cf24c6f86908d0f516fc6f0-trajectory-000"
+      ]
+    },
+    {
+      "family": "passive",
+      "measurement_condition": "cached_preloaded",
+      "repeat": 5,
+      "seed": 24400631,
+      "session_id": "development-latent-session-0041-d555323c1f8842749c382ac798e0154c",
+      "trajectory_ids": [
+        "development-latent-session-0041-d555323c1f8842749c382ac798e0154c-trajectory-000"
+      ]
+    },
+    {
+      "family": "passive",
+      "measurement_condition": "timer_only",
+      "repeat": 0,
+      "seed": 24461039,
+      "session_id": "development-latent-session-0042-0bd04d90f12141e99b3861db6866c9e5",
+      "trajectory_ids": [
+        "development-latent-session-0042-0bd04d90f12141e99b3861db6866c9e5-trajectory-000"
+      ]
+    },
+    {
+      "family": "passive",
+      "measurement_condition": "timer_only",
+      "repeat": 1,
+      "seed": 24568961,
+      "session_id": "development-latent-session-0043-e0c1c899f7894f3a914752112d05537c",
+      "trajectory_ids": [
+        "development-latent-session-0043-e0c1c899f7894f3a914752112d05537c-trajectory-000"
+      ]
+    },
+    {
+      "family": "passive",
+      "measurement_condition": "timer_only",
+      "repeat": 2,
+      "seed": 24676883,
+      "session_id": "development-latent-session-0044-b7768312e7a748d5859a73e6c90c5b5c",
+      "trajectory_ids": [
+        "development-latent-session-0044-b7768312e7a748d5859a73e6c90c5b5c-trajectory-000"
+      ]
+    },
+    {
+      "family": "passive",
+      "measurement_condition": "timer_only",
+      "repeat": 3,
+      "seed": 24784805,
+      "session_id": "development-latent-session-0045-74f4e2b1a9c34b8099fdfa9709f1779f",
+      "trajectory_ids": [
+        "development-latent-session-0045-74f4e2b1a9c34b8099fdfa9709f1779f-trajectory-000"
+      ]
+    },
+    {
+      "family": "passive",
+      "measurement_condition": "timer_only",
+      "repeat": 4,
+      "seed": 24892727,
+      "session_id": "development-latent-session-0046-89df3619e2904b4cb1efa15b2c6d7e27",
+      "trajectory_ids": [
+        "development-latent-session-0046-89df3619e2904b4cb1efa15b2c6d7e27-trajectory-000"
+      ]
+    },
+    {
+      "family": "passive",
+      "measurement_condition": "timer_only",
+      "repeat": 5,
+      "seed": 25000649,
+      "session_id": "development-latent-session-0047-057bb352828140edaa88039e92dc5df3",
+      "trajectory_ids": [
+        "development-latent-session-0047-057bb352828140edaa88039e92dc5df3-trajectory-000"
+      ]
+    }
+  ],
+  "sessions_per_cell": 6,
+  "stage": "development"
+}

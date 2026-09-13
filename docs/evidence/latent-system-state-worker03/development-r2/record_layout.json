@@ -1,0 +1,14 @@
+{
+  "origin_channel_names": [
+    "cached_preloaded",
+    "timer_only",
+    "clflush",
+    "eviction"
+  ],
+  "record_count": 48,
+  "witness_names": [
+    "tsc_aux",
+    "pmu_cache_references_count",
+    "pmu_cache_misses_count"
+  ]
+}

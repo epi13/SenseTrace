@@ -1,0 +1,93 @@
+experiment:
+  name: self-forecasting-construction-falsification-v1
+  seed: 20260912
+  description: >-
+    Frozen construction-preserving null campaign for the replicated horizon-1
+    timing-delta-sign result.
+
+data:
+  target_balance: 0.50
+  samples: 128
+  trace_channels: 1
+  trace_length: 32
+
+acquisition:
+  backend: commodity
+  enabled: false
+  shard_target_mb: 64
+
+phase1a:
+  campaign_intent: measurement_characterization
+  protocol_version: phase1a-commodity-baseline-v1
+  measurement_primitive: commodity-clflush-timed-load
+  location_count: 1
+  trials_per_location: 128
+  labels_per_location: 64
+  samples: 128
+  trace_length: 32
+  pattern: random_word
+  target_bit: 0
+  word_count: 1024
+  lock_memory: true
+  cache_control: eviction_buffer
+  operation: memory_read
+  eviction_bytes: 4194304
+  cpu_affinity: null
+  use_native_kernel: true
+  require_native_kernel: true
+  session_count: 1
+
+construction:
+  conditions:
+    - real_observed
+    - iid_continuous
+    - iid_skewed
+    - iid_quantized
+    - empirical_marginal
+    - raw_order_shuffle
+  horizon_distances: [1, 2, 4, 8, 16]
+  horizon_unit: native_measurement_repetition
+  horizon_alignment: index
+  zero_policy: zero_is_positive
+  quantization_step: 4.0
+  diagnostic_max_lag: 8
+  models:
+    - majority
+    - random
+    - shuffled_labels
+    - reverse_delta_sign
+    - sign_transition
+    - training_median_current_level
+    - empirical_cdf
+    - current_level_logistic
+    - current_delta_logistic
+    - linear_logistic
+    - nearest_neighbor
+
+splits:
+  primary:
+    train_fraction: 0.70
+    validation_fraction: 0.15
+    test_fraction: 0.15
+    group_keys: [trajectory_id]
+
+training:
+  seeds: [11, 23, 37]
+
+reporting:
+  ci_unit: trajectory_id
+  bootstrap_repetitions: 500
+  permutation_repetitions: 2000
+  practical_balanced_accuracy: 0.55
+  practical_continuous_skill: 0.05
+  significance_alpha: 0.05
+
+run_metadata:
+  node: worker-03
+  target_model: sensetrace-commodity-construction-null-v1
+  trace_collection: CommodityDramBackend random_word; labels independent of raw words
+  claim_boundary: commodity timing construction characterization only
+
+host:
+  name: worker-03
+  role: dedicated_experiment_host

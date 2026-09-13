@@ -870,6 +870,30 @@ class RemoteHost:
             raise RuntimeError(result.stderr or result.stdout)
         return result.stdout
 
+    def run_construction_falsification(
+        self,
+        config: str | Path,
+        *,
+        output: str | None = None,
+    ) -> str:
+        """Run construction-preserving timing nulls over a fresh worker trace."""
+
+        home = self._home()
+        venv = f"{home}/.local/share/sensetrace/venv/bin/sensetrace"
+        remote_config = f"{home}/.config/sensetrace/self-forecasting-construction.yaml"
+        self.connection.put(str(config), remote=remote_config)
+        destination = output or (
+            f"{home}/.local/share/sensetrace/runs/self-forecasting-construction-worker03-v1"
+        )
+        command = (
+            f"{venv} run construction-falsification --config {quote(remote_config)} "
+            f"--output {quote(destination)}"
+        )
+        result = self.run(command, warn=True, hide=True)
+        if not result.ok:
+            raise RuntimeError(result.stderr or result.stdout)
+        return result.stdout
+
     def run_native_sensitivity_calibration(
         self,
         config: str | Path,
@@ -1259,8 +1283,10 @@ class RemoteHost:
                 raise RuntimeError("no predictive-horizon experiment artifacts found")
             remote_root = located.stdout.strip().split(maxsplit=1)[1].rsplit("/", 1)[0]
         files = self.run(
-            f"find {quote(remote_root)} -maxdepth 2 -type f "
-            "\\( -name experiment.json -o -name acquisition.json -o -name manifest.json -o -name splits.json "
+            f"find {quote(remote_root)} -maxdepth 4 -type f "
+            "\\( -name experiment.json -o -name acquisition.json -o -name campaign.json "
+            "-o -name condition.json -o -name diagnostics.json -o -name raw_trajectories.json "
+            "-o -name raw_trajectories.npz -o -name manifest.json -o -name splits.json "
             "-o -name results.json \\) -print",
             warn=True,
             hide=True,

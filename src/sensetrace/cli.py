@@ -15,6 +15,7 @@ from .calibration import (
 )
 from .characterization import run_measurement_primitive_characterization
 from .config import load_config, validate_config
+from .construction import run_construction_falsification_experiment
 from .datasets import load_dataset
 from .experiment import run_preregistered_worker03_experiment
 from .horizon import run_synthetic_horizon_experiment
@@ -119,6 +120,16 @@ def build_parser() -> argparse.ArgumentParser:
         "--config", default="configs/self-forecasting-trace-worker03.example.yaml"
     )
     real_horizon.add_argument("--output", default="runs/self-forecasting-trace-worker03-v1")
+    construction = run_sub.add_parser(
+        "construction-falsification",
+        help="run construction-preserving timing nulls and transparent baselines",
+    )
+    construction.add_argument(
+        "--config", default="configs/self-forecasting-construction-worker03.example.yaml"
+    )
+    construction.add_argument(
+        "--output", default="runs/self-forecasting-construction-worker03-v1"
+    )
 
     protocol = sub.add_parser("protocol", help="print a frozen protocol and its fingerprint")
     protocol.add_argument("name", choices=["worker03-fragmented"])
@@ -279,6 +290,12 @@ def build_parser() -> argparse.ArgumentParser:
         "--config", default="configs/self-forecasting-trace-worker03.example.yaml"
     )
     remote_real_horizon.add_argument("--output")
+    remote_construction = host_sub.add_parser("run-construction-falsification")
+    remote_construction.add_argument("host", nargs="?", default="worker-03")
+    remote_construction.add_argument(
+        "--config", default="configs/self-forecasting-construction-worker03.example.yaml"
+    )
+    remote_construction.add_argument("--output")
     remote_calibration = host_sub.add_parser("calibrate-phase0")
     remote_calibration.add_argument("host", nargs="?", default="worker-03")
     remote_calibration.add_argument("--config", default="configs/phase0.example.yaml")
@@ -405,6 +422,10 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "run" and args.run_command in {"trace-horizon", "real-horizon"}:
         config = validate_config(load_config(args.config))
         _json(run_real_trace_horizon_experiment(config, args.output))
+        return 0
+    if args.command == "run" and args.run_command == "construction-falsification":
+        config = validate_config(load_config(args.config))
+        _json(run_construction_falsification_experiment(config, args.output))
         return 0
     if args.command == "protocol" and args.name == "worker03-fragmented":
         from .protocol import (
@@ -610,6 +631,8 @@ def main(argv: list[str] | None = None) -> int:
             )
         elif args.host_command == "run-trace-horizon":
             print(remote.run_trace_horizon(args.config, output=args.output), end="")
+        elif args.host_command == "run-construction-falsification":
+            print(remote.run_construction_falsification(args.config, output=args.output), end="")
         elif args.host_command == "calibrate-phase0":
             print(
                 remote.run_phase0_calibration(

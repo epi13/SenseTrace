@@ -535,10 +535,65 @@ def _fit_predict(
     seed: int,
     target_kind: TargetKind,
     shuffle_labels: bool = False,
+    empirical_cdf_tie_policy: str = "zero_is_positive",
 ) -> np.ndarray:
     if shuffle_labels:
         train_y = np.asarray(train_y).copy()
         np.random.default_rng(seed).shuffle(train_y)
+    if target_kind == "continuous" and model_name in {
+        "reverse_delta_sign",
+        "sign_transition",
+        "training_median_current_level",
+        "empirical_cdf",
+        "current_level_logistic",
+        "current_delta_logistic",
+    }:
+        raise SchemaError(f"{model_name} is only defined for binary timing-sign targets")
+    if model_name == "reverse_delta_sign":
+        if train_x.shape[1] < 2:
+            raise SchemaError("reverse_delta_sign requires [current level, current delta] features")
+        fallback = float(np.mean(train_y))
+        delta = np.asarray(values[:, 1], dtype=np.float64)
+        return np.where(delta < 0.0, 1.0, np.where(delta > 0.0, 0.0, fallback))
+    if model_name == "training_median_current_level":
+        if train_x.shape[1] < 1:
+            raise SchemaError("training_median_current_level requires a current-level feature")
+        median = float(np.median(train_x[:, 0]))
+        fallback = float(np.mean(train_y))
+        level = np.asarray(values[:, 0], dtype=np.float64)
+        return np.where(level < median, 1.0, np.where(level > median, 0.0, fallback))
+    if model_name == "sign_transition":
+        if train_x.shape[1] < 2:
+            raise SchemaError("sign_transition requires [current level, current delta] features")
+        delta = np.asarray(train_x[:, 1], dtype=np.float64)
+        value_delta = np.asarray(values[:, 1], dtype=np.float64)
+        categories = np.sign(delta).astype(np.int8)
+        value_categories = np.sign(value_delta).astype(np.int8)
+        fallback = float(np.mean(train_y))
+        probabilities = np.full(len(values), fallback, dtype=np.float64)
+        for category in (-1, 0, 1):
+            mask = categories == category
+            if np.any(mask):
+                probabilities[value_categories == category] = float(np.mean(train_y[mask]))
+        return probabilities
+    if model_name == "empirical_cdf":
+        if train_x.shape[1] < 1:
+            raise SchemaError("empirical_cdf requires a current-level feature")
+        training_levels = np.sort(np.asarray(train_x[:, 0], dtype=np.float64))
+        side = "left" if empirical_cdf_tie_policy == "zero_is_positive" else "right"
+        if empirical_cdf_tie_policy not in {"zero_is_positive", "zero_is_negative", "exclude"}:
+            raise SchemaError(f"unsupported empirical CDF tie policy {empirical_cdf_tie_policy!r}")
+        ranks = np.searchsorted(training_levels, np.asarray(values[:, 0]), side=side)
+        return np.clip(1.0 - ranks / max(len(training_levels), 1), 0.0, 1.0)
+    if model_name in {"current_level_logistic", "current_delta_logistic"}:
+        column = 0 if model_name == "current_level_logistic" else 1
+        if train_x.shape[1] <= column:
+            raise SchemaError(f"{model_name} requires feature column {column}")
+        train_x = train_x[:, [column]]
+        values = values[:, [column]]
+        model_name = "linear_logistic"
+    if model_name == "combined_logistic":
+        model_name = "linear_logistic"
     if model_name in {"majority", "random"}:
         if model_name == "majority":
             constant = _constant_prediction(train_y, target_kind)[0]
@@ -589,6 +644,55 @@ def _bootstrap_metric(
 ) -> list[float]:
     unique = np.unique(groups)
     rng = np.random.default_rng(seed)
+    if metric in {"balanced_accuracy", "mae", "rmse"} and repetitions > 0:
+        group_codes = np.searchsorted(unique, groups)
+        selected = rng.integers(0, len(unique), size=(repetitions, len(unique)))
+        multiplicity = np.zeros((repetitions, len(unique)), dtype=np.float64)
+        replicate_codes = np.broadcast_to(
+            np.arange(repetitions, dtype=np.int64)[:, None], selected.shape
+        )
+        np.add.at(multiplicity, (replicate_codes, selected), 1.0)
+        if metric == "balanced_accuracy":
+            labels = np.asarray(targets, dtype=np.uint8)
+            predicted = np.asarray(predictions) >= 0.5
+            positive = labels == 1
+            negative = ~positive
+            positive_denominator = multiplicity @ np.bincount(
+                group_codes, weights=positive.astype(np.float64), minlength=len(unique)
+            )
+            negative_denominator = multiplicity @ np.bincount(
+                group_codes, weights=negative.astype(np.float64), minlength=len(unique)
+            )
+            true_positive = multiplicity @ np.bincount(
+                group_codes,
+                weights=(positive & predicted).astype(np.float64),
+                minlength=len(unique),
+            )
+            true_negative = multiplicity @ np.bincount(
+                group_codes,
+                weights=(negative & ~predicted).astype(np.float64),
+                minlength=len(unique),
+            )
+            values_array = 0.5 * (
+                true_positive / np.maximum(positive_denominator, 1.0)
+                + true_negative / np.maximum(negative_denominator, 1.0)
+            )
+        else:
+            errors = (
+                np.abs(np.asarray(targets, dtype=np.float64) - np.asarray(predictions, dtype=np.float64))
+                if metric == "mae"
+                else (np.asarray(targets, dtype=np.float64) - np.asarray(predictions, dtype=np.float64)) ** 2
+            )
+            sums = multiplicity @ np.bincount(
+                group_codes, weights=errors, minlength=len(unique)
+            )
+            counts = multiplicity @ np.bincount(
+                group_codes, weights=np.ones(len(targets)), minlength=len(unique)
+            )
+            values_array = sums / np.maximum(counts, 1.0)
+            if metric == "rmse":
+                values_array = np.sqrt(values_array)
+        return [float(np.quantile(values_array, 0.025)), float(np.quantile(values_array, 0.975))]
     values: list[float] = []
     for _ in range(repetitions):
         selected = rng.choice(unique, size=len(unique), replace=True)
@@ -604,6 +708,31 @@ def _bootstrap_metric(
             values.append(float(mean_absolute_error(y, p)))
         elif metric == "rmse":
             values.append(float(np.sqrt(mean_squared_error(y, p))))
+    if not values:
+        return [float("nan"), float("nan")]
+    return [float(np.quantile(values, 0.025)), float(np.quantile(values, 0.975))]
+
+
+def _bootstrap_difference(
+    targets: np.ndarray,
+    left_predictions: np.ndarray,
+    right_predictions: np.ndarray,
+    groups: np.ndarray,
+    *,
+    seed: int,
+    repetitions: int,
+) -> list[float]:
+    """Bootstrap a paired correctness difference over complete trajectories."""
+
+    unique = np.unique(groups)
+    rng = np.random.default_rng(seed)
+    values: list[float] = []
+    for _ in range(repetitions):
+        selected = rng.choice(unique, size=len(unique), replace=True)
+        indices = np.concatenate([np.flatnonzero(groups == group) for group in selected])
+        left = np.asarray(left_predictions[indices]) >= 0.5
+        right = np.asarray(right_predictions[indices]) >= 0.5
+        values.append(float(np.mean(left == targets[indices]) - np.mean(right == targets[indices])))
     if not values:
         return [float("nan"), float("nan")]
     return [float(np.quantile(values, 0.025)), float(np.quantile(values, 0.975))]
@@ -756,6 +885,69 @@ def _effect_statistic(
     return float(1.0 - rmse / baseline_rmse)
 
 
+def _group_shift_matrix(
+    targets: np.ndarray,
+    groups: np.ndarray,
+    repetitions: int,
+    rng: np.random.Generator,
+    shifts_by_group: Mapping[str, np.ndarray] | None = None,
+) -> np.ndarray:
+    """Vectorize circular within-group shifts over randomization replicates."""
+
+    targets = np.asarray(targets)
+    group_values = np.asarray(groups).astype(str)
+    result = np.empty((repetitions, len(targets)), dtype=targets.dtype)
+    for group in np.unique(group_values):
+        indices = np.flatnonzero(group_values == group)
+        if len(indices) < 2:
+            result[:, indices] = targets[indices]
+            continue
+        shifts = (
+            np.asarray(shifts_by_group[group], dtype=np.int64) % len(indices)
+            if shifts_by_group is not None
+            else rng.integers(0, len(indices), size=repetitions, dtype=np.int64)
+        )
+        source = (np.arange(len(indices), dtype=np.int64)[None, :] - shifts[:, None]) % len(indices)
+        result[:, indices] = targets[indices][source]
+    return result
+
+
+def _vectorized_effects(
+    targets: np.ndarray,
+    predictions: np.ndarray,
+    *,
+    groups: np.ndarray,
+    repetitions: int,
+    rng: np.random.Generator,
+    target_kind: TargetKind,
+    baseline_value: float | None = None,
+    shifts_by_group: Mapping[str, np.ndarray] | None = None,
+) -> np.ndarray:
+    permuted = _group_shift_matrix(
+        targets,
+        groups,
+        repetitions,
+        rng,
+        shifts_by_group=shifts_by_group,
+    )
+    if target_kind == "binary":
+        predicted_positive = np.asarray(predictions) >= 0.5
+        actual_positive = permuted == 1
+        positive_denominator = np.sum(actual_positive, axis=1)
+        negative_denominator = np.sum(~actual_positive, axis=1)
+        true_positive = np.sum(actual_positive & predicted_positive[None, :], axis=1)
+        true_negative = np.sum((~actual_positive) & (~predicted_positive[None, :]), axis=1)
+        return 0.5 * (
+            true_positive / np.maximum(positive_denominator, 1)
+            + true_negative / np.maximum(negative_denominator, 1)
+        ) - 0.5
+    predictions = np.asarray(predictions, dtype=np.float64)
+    baseline = float(np.mean(targets) if baseline_value is None else baseline_value)
+    baseline_rmse = np.sqrt(np.mean((permuted - baseline) ** 2, axis=1))
+    rmse = np.sqrt(np.mean((permuted - predictions[None, :]) ** 2, axis=1))
+    return np.where(baseline_rmse > 0.0, 1.0 - rmse / baseline_rmse, np.nan)
+
+
 def _permutation_p_value(
     targets: np.ndarray,
     predictions: np.ndarray,
@@ -773,6 +965,17 @@ def _permutation_p_value(
         baseline_value=baseline_value,
     )
     rng = np.random.default_rng(seed)
+    if target_kind == "binary":
+        effects = _vectorized_effects(
+            targets,
+            predictions,
+            groups=groups,
+            repetitions=repetitions,
+            rng=rng,
+            target_kind=target_kind,
+            baseline_value=baseline_value,
+        )
+        return float((1 + np.sum(effects >= observed)) / (repetitions + 1))
     null: list[float] = []
     for _ in range(repetitions):
         permuted = _group_preserving_permutation(targets, groups, rng)
@@ -822,24 +1025,23 @@ def _max_statistic_permutation_p_values(
             for group in np.asarray(item["groups"]).astype(str)
         }
     )
-    null_maxima: list[float] = []
-    for _ in range(repetitions):
-        shifts = {group: int(rng.integers(0, 2**32)) for group in all_groups}
-        null_effects: list[float] = []
-        for item in families:
-            targets = np.asarray(item["targets"])
-            groups = np.asarray(item["groups"]).astype(str)
-            permuted = _group_preserving_permutation(targets, groups, rng, shifts)
-            effect = _effect_statistic(
-                permuted,
-                np.asarray(item["predictions"]),
-                target_kind=cast(TargetKind, item["target_kind"]),
-                baseline_value=item.get("baseline_value"),
-            )
-            if np.isfinite(effect):
-                null_effects.append(effect)
-        null_maxima.append(max(null_effects) if null_effects else float("nan"))
-    null_array = np.asarray(null_maxima, dtype=np.float64)
+    shifts = {
+        group: rng.integers(0, 2**32, size=repetitions, dtype=np.uint64)
+        for group in all_groups
+    }
+    null_array = np.full(repetitions, -np.inf, dtype=np.float64)
+    for item in families:
+        effects = _vectorized_effects(
+            np.asarray(item["targets"]),
+            np.asarray(item["predictions"]),
+            groups=np.asarray(item["groups"]).astype(str),
+            repetitions=repetitions,
+            rng=rng,
+            target_kind=cast(TargetKind, item["target_kind"]),
+            baseline_value=item.get("baseline_value"),
+            shifts_by_group=shifts,
+        )
+        null_array = np.maximum(null_array, np.where(np.isfinite(effects), effects, -np.inf))
     return {
         key: float((1 + np.sum(null_array >= effect)) / (repetitions + 1))
         if np.isfinite(effect)
@@ -863,6 +1065,7 @@ def evaluate_horizon_curve(
     practical_balanced_accuracy: float = 0.55,
     practical_continuous_skill: float = 0.05,
     significance_alpha: float = 0.05,
+    empirical_cdf_tie_policy: str = "zero_is_positive",
 ) -> dict[str, Any]:
     """Evaluate fixed baselines and probes for every requested horizon."""
 
@@ -873,6 +1076,13 @@ def evaluate_horizon_curve(
         "metadata_only",
         "linear_logistic",
         "nearest_neighbor",
+        "reverse_delta_sign",
+        "sign_transition",
+        "training_median_current_level",
+        "empirical_cdf",
+        "current_level_logistic",
+        "current_delta_logistic",
+        "combined_logistic",
         "linear_ridge",
         "temporally_shuffled_states",
         "wrong_trajectory_pairing",
@@ -886,6 +1096,7 @@ def evaluate_horizon_curve(
         "schema": "sensetrace.predictive-horizon-curve.v1",
         "feature_view": feature_view,
         "models": list(model_names),
+        "empirical_cdf_tie_policy": empirical_cdf_tie_policy,
         "horizons": {},
         "selection_policy": "all predeclared models are reported; selected_model uses validation only",
         "test_policy": "test predictions are generated once per predeclared model/seed and never used for selection",
@@ -906,8 +1117,20 @@ def evaluate_horizon_curve(
         "wrong_trajectory_pairing",
         "reversed_alignment",
         "same_state",
+        "reverse_delta_sign",
+        "sign_transition",
+        "training_median_current_level",
+        "empirical_cdf",
     }
     test_families: list[dict[str, Any]] = []
+    simple_baseline_names = (
+        "reverse_delta_sign",
+        "sign_transition",
+        "training_median_current_level",
+        "empirical_cdf",
+        "current_level_logistic",
+        "current_delta_logistic",
+    )
     for horizon_key, pairs in pairs_by_horizon.items():
         split = splits_by_horizon[horizon_key]
         partitions = horizon_partition_indices(pairs, split)
@@ -934,6 +1157,7 @@ def evaluate_horizon_curve(
         is_binary = pairs.target.kind == "binary"
         models_report: dict[str, Any] = {}
         validation_scores: dict[str, float] = {}
+        prediction_cache: dict[str, dict[int, dict[str, Any]]] = {}
         for model_name in model_names:
             if (control_features is not None and model_name in control_features) or (
                 control_targets is not None and model_name in control_targets
@@ -969,7 +1193,16 @@ def evaluate_horizon_curve(
             if model_name == "metadata_only" and model_features.shape[1] == 0:
                 models_report[model_name] = {"status": "unavailable", "reason": "empty metadata feature view"}
                 continue
-            if not is_binary and model_name == "linear_logistic":
+            if not is_binary and model_name in {
+                "linear_logistic",
+                "combined_logistic",
+                "reverse_delta_sign",
+                "sign_transition",
+                "training_median_current_level",
+                "empirical_cdf",
+                "current_level_logistic",
+                "current_delta_logistic",
+            }:
                 models_report[model_name] = {
                     "status": "unavailable",
                     "reason": "binary classifier is incompatible with continuous target",
@@ -994,6 +1227,7 @@ def evaluate_horizon_curve(
                         seed=seed,
                         target_kind=pairs.target.kind,
                         shuffle_labels=True,
+                        empirical_cdf_tie_policy=empirical_cdf_tie_policy,
                     )
                     test_predictions = _fit_predict(
                         control_model,
@@ -1003,6 +1237,7 @@ def evaluate_horizon_curve(
                         seed=seed,
                         target_kind=pairs.target.kind,
                         shuffle_labels=True,
+                        empirical_cdf_tie_policy=empirical_cdf_tie_policy,
                     )
                 else:
                     fit_name = (
@@ -1034,6 +1269,7 @@ def evaluate_horizon_curve(
                         model_features[validation],
                         seed=seed,
                         target_kind=pairs.target.kind,
+                        empirical_cdf_tie_policy=empirical_cdf_tie_policy,
                     )
                     test_predictions = _fit_predict(
                         fit_name,
@@ -1042,6 +1278,7 @@ def evaluate_horizon_curve(
                         model_features[test],
                         seed=seed,
                         target_kind=pairs.target.kind,
+                        empirical_cdf_tie_policy=empirical_cdf_tie_policy,
                     )
                 validation_result = _evaluate(
                     model_targets[validation],
@@ -1064,26 +1301,44 @@ def evaluate_horizon_curve(
                 if is_binary:
                     validation_scores.setdefault(model_name, 0.0)
                     validation_scores[model_name] += float(validation_result["balanced_accuracy"]) / len(seeds)
-                    test_result["permutation_p_value"] = _permutation_p_value(
-                        model_targets[test],
-                        test_predictions,
-                        groups=groups[test],
-                        seed=seed + 10_000,
-                        repetitions=permutation_repetitions,
-                        target_kind=pairs.target.kind,
+                    test_result["permutation_p_value"] = (
+                        float("nan")
+                        if model_name in control_models
+                        else _permutation_p_value(
+                            model_targets[test],
+                            test_predictions,
+                            groups=groups[test],
+                            seed=seed + 10_000,
+                            repetitions=permutation_repetitions,
+                            target_kind=pairs.target.kind,
+                        )
                     )
                 else:
                     validation_scores.setdefault(model_name, 0.0)
                     validation_scores[model_name] += float(validation_result["rmse"]) / len(seeds)
-                    test_result["permutation_p_value"] = _permutation_p_value(
-                        model_targets[test],
-                        test_predictions,
-                        groups=groups[test],
-                        seed=seed + 10_000,
-                        repetitions=permutation_repetitions,
-                        target_kind=pairs.target.kind,
-                        baseline_value=float(np.mean(train_y)),
+                    test_result["permutation_p_value"] = (
+                        float("nan")
+                        if model_name in control_models
+                        else _permutation_p_value(
+                            model_targets[test],
+                            test_predictions,
+                            groups=groups[test],
+                            seed=seed + 10_000,
+                            repetitions=permutation_repetitions,
+                            target_kind=pairs.target.kind,
+                            baseline_value=float(np.mean(train_y)),
+                        )
                     )
+                prediction_cache.setdefault(model_name, {})[int(seed)] = {
+                    "validation_score": (
+                        float(validation_result["balanced_accuracy"])
+                        if is_binary
+                        else float(validation_result["rmse"])
+                    ),
+                    "test_predictions": np.asarray(test_predictions),
+                    "targets": np.asarray(model_targets[test]),
+                    "control_target": model_name in (control_targets or {}),
+                }
                 if model_name not in control_models:
                     test_families.append(
                         {
@@ -1105,6 +1360,57 @@ def evaluate_horizon_curve(
                 "control": model_name in control_models,
                 "runs": runs,
             }
+        available_simple = [
+            name
+            for name in simple_baseline_names
+            if name in prediction_cache
+            and any(not item["control_target"] for item in prediction_cache[name].values())
+        ]
+        for model_name, model_runs in models_report.items():
+            if model_runs.get("status") != "evaluated" or model_name not in prediction_cache:
+                continue
+            for run in model_runs["runs"]:
+                seed = int(run["seed"])
+                current = prediction_cache[model_name].get(seed)
+                if current is None or current["control_target"] or not is_binary:
+                    continue
+                candidates = [
+                    name
+                    for name in available_simple
+                    if seed in prediction_cache[name] and not prediction_cache[name][seed]["control_target"]
+                ]
+                if not candidates:
+                    continue
+                baseline_name = max(
+                    candidates,
+                    key=lambda name: prediction_cache[name][seed]["validation_score"],
+                )
+                baseline = prediction_cache[baseline_name][seed]
+                target_values = np.asarray(current["targets"], dtype=np.uint8)
+                current_predictions = np.asarray(current["test_predictions"])
+                baseline_predictions = np.asarray(baseline["test_predictions"])
+                current_correct = (current_predictions >= 0.5) == target_values
+                baseline_correct = (baseline_predictions >= 0.5) == target_values
+                run["paired_baseline_contrast"] = {
+                    "selection": "strongest declared simple baseline by validation balanced accuracy",
+                    "baseline_model": baseline_name,
+                    "balanced_accuracy_difference": float(
+                        _binary_balanced_accuracy(target_values, current_predictions >= 0.5)
+                        - _binary_balanced_accuracy(target_values, baseline_predictions >= 0.5)
+                    ),
+                    "paired_correctness_difference": float(
+                        np.mean(current_correct.astype(np.float64) - baseline_correct.astype(np.float64))
+                    ),
+                    "paired_correctness_confidence_interval_95": _bootstrap_difference(
+                        target_values,
+                        current_predictions,
+                        baseline_predictions,
+                        groups[test],
+                        seed=seed + 30_000,
+                        repetitions=bootstrap_repetitions,
+                    ),
+                    "confidence_interval_unit": "trajectory_id",
+                }
         available_for_selection = [
             name
             for name in model_names
@@ -1188,6 +1494,8 @@ def summarize_useful_lead(
                     float(run.get("permutation_p_value_max_statistic", float("nan")))
                     for run in test_runs
                 ]
+                finite_p_values = [p for p in p_values if np.isfinite(p)]
+                finite_corrected_p_values = [p for p in corrected_p_values if np.isfinite(p)]
                 score = float(np.mean(scores))
                 effect = score - 0.5
                 practical = score >= practical_balanced_accuracy
@@ -1203,10 +1511,10 @@ def summarize_useful_lead(
                         "practical_threshold": practical_balanced_accuracy,
                         "practical": practical,
                         "statistically_supported": supported,
-                        "permutation_p_value": float(np.nanmean(p_values)) if p_values else float("nan"),
+                        "permutation_p_value": float(np.mean(finite_p_values)) if finite_p_values else None,
                         "permutation_p_value_max_statistic": (
-                            float(np.nanmean(corrected_p_values))
-                            if any(np.isfinite(p) for p in corrected_p_values)
+                            float(np.mean(finite_corrected_p_values))
+                            if finite_corrected_p_values
                             else None
                         ),
                     }
@@ -1228,6 +1536,8 @@ def summarize_useful_lead(
                     float(run.get("permutation_p_value_max_statistic", float("nan")))
                     for run in test_runs
                 ]
+                finite_p_values = [p for p in p_values if np.isfinite(p)]
+                finite_corrected_p_values = [p for p in corrected_p_values if np.isfinite(p)]
                 supported = bool(
                     np.isfinite(skill)
                     and sum(
@@ -1244,10 +1554,10 @@ def summarize_useful_lead(
                         "practical_threshold": practical_continuous_skill,
                         "practical": practical,
                         "statistically_supported": supported,
-                        "permutation_p_value": float(np.nanmean(p_values)) if p_values else float("nan"),
+                        "permutation_p_value": float(np.mean(finite_p_values)) if finite_p_values else None,
                         "permutation_p_value_max_statistic": (
-                            float(np.nanmean(corrected_p_values))
-                            if any(np.isfinite(p) for p in corrected_p_values)
+                            float(np.mean(finite_corrected_p_values))
+                            if finite_corrected_p_values
                             else None
                         ),
                     }

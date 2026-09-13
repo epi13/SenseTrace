@@ -159,9 +159,9 @@ The primary confirmation candidate was not early enough to be actionable. For
 all declared horizons, the confirmation replay measured median future elapsed
 time of about 126–128 microseconds and 5th-percentile lead of about 79–80
 microseconds from the origin endpoint to the first target endpoint. The
-delay-state candidate's inference p95 was about 1.73 ms; ARX was about 1.14 ms;
-persistence was about 0.29 ms. The lower-tail lead did not exceed inference
-cost for any model/horizon. These are offline replay timings, not a live-shadow
+delay-state candidate's inference p95 was 1.642 ms; ARX was 1.176 ms;
+persistence was 0.285 ms. The lower-tail lead did not exceed inference cost
+for any model/horizon. These are offline replay timings, not a live-shadow
 claim; the measured gap makes a live online prediction at this sampling
 interval non-actionable.
 

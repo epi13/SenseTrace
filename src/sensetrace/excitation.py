@@ -15,7 +15,9 @@ from typing import Any, Literal
 
 import numpy as np
 
-ExcitationFamily = Literal["prbs", "walsh", "read_pressure", "write_pressure", "active_quiet"]
+ExcitationFamily = Literal[
+    "prbs", "walsh", "read_pressure", "write_pressure", "active_quiet", "sham"
+]
 CoreRoleName = Literal["measurement", "reference", "excitation", "orchestrator"]
 
 
@@ -104,7 +106,14 @@ class CodedExcitationSchedule:
     def validate(self) -> None:
         if not self.schedule_id or self.schedule_id != self.schedule_id.strip():
             raise ValueError("schedule_id must be a non-empty stable identifier")
-        if self.family not in {"prbs", "walsh", "read_pressure", "write_pressure", "active_quiet"}:
+        if self.family not in {
+            "prbs",
+            "walsh",
+            "read_pressure",
+            "write_pressure",
+            "active_quiet",
+            "sham",
+        }:
             raise ValueError(f"unsupported excitation family {self.family!r}")
         if isinstance(self.length, bool) or self.length < 2:
             raise ValueError("excitation length must be at least two")
@@ -114,6 +123,8 @@ class CodedExcitationSchedule:
             raise ValueError("unsupported excitation operation")
         if self.family == "write_pressure" and self.operation != "write":
             raise ValueError("write_pressure requires operation='write'")
+        if self.family == "sham" and self.operation != "idle":
+            raise ValueError("sham requires operation='idle'")
         if self.family in {"read_pressure", "prbs", "walsh"} and self.operation == "write":
             raise ValueError("read-oriented excitation family cannot issue write operations")
         if isinstance(self.phase_ticks, bool) or self.phase_ticks < 1:
@@ -135,6 +146,8 @@ class CodedExcitationSchedule:
             while hadamard.shape[0] < size:
                 hadamard = np.block([[hadamard, hadamard], [hadamard, -hadamard]])
             return (hadamard[: self.length, :width] > 0).astype(np.int8)
+        if self.family == "sham":
+            return np.zeros((self.length, width), dtype=np.int8)
         if self.family == "active_quiet":
             return np.asarray(
                 [

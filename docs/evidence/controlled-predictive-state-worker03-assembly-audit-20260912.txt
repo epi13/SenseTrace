@@ -1,0 +1,29 @@
+Controlled predictive-state native assembly audit
+Protocol: controlled-predictive-state-v1
+Host: worker-03
+Deployed source revision: 670d6ae5846ebc176ca56b5359630ae237db37a9
+Binary: /opt/sensetrace/source/native/libsensetrace_measurement.so
+Binary SHA-256: 44c74a61d4e334f4ebffbe6f542f4486938786421f06ab0ac07877afdd94ad
+Build flags: cc -O3 -std=c11 -Wall -Wextra -fPIC -shared
+
+Commands executed on worker-03:
+  sha256sum /opt/sensetrace/source/native/libsensetrace_measurement.so
+  objdump -t /opt/sensetrace/source/native/libsensetrace_measurement.so
+  objdump -d -Mintel /opt/sensetrace/source/native/libsensetrace_measurement.so
+
+Required symbols observed in the deployed binary:
+  st_measure_trajectory (text address 0x08d0, size 0x04a4)
+  st_trajectory_kernel_version (text address 0x0410, size 0x0008)
+  st_run_memory_pressure (text address 0x0d80, size 0x02ce)
+
+Instruction evidence observed in the disassembly:
+  RDTSCP and LFENCE in the versioned trajectory endpoint paths.
+  CLFLUSH followed by MFENCE in the CLFLUSH control path.
+  The native trajectory condition/order loop and native pressure symbol.
+
+Interpretation:
+  The reported trajectory duration includes the versioned RDTSCP/LFENCE
+  endpoint boundary and the volatile load or timer-only boundary. The
+  CLFLUSH/MFENCE and eviction sweep occur before the timed load. This evidence
+  audits the deployed binary's timing boundaries; it does not establish core
+  cycles, absence of migration between endpoint samples, or DRAM topology.

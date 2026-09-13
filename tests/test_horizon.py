@@ -9,6 +9,7 @@ from sensetrace.acquisition.base import Sample
 from sensetrace.cli import build_parser
 from sensetrace.construction import (
     TimingTargetDefinition,
+    analyze_construction_conditions,
     build_timing_pairs,
     generate_timing_surrogate,
     raw_order_shuffle,
@@ -55,6 +56,39 @@ def test_horizon_cli_commands_are_explicitly_available():
     assert construction.run_command == "construction-falsification"
     remote_construction = build_parser().parse_args(["host", "run-construction-falsification"])
     assert remote_construction.host_command == "run-construction-falsification"
+
+
+def test_construction_report_raw_artifact_reference_resolves_from_target_dir(tmp_path):
+    config = {
+        "experiment": {"name": "construction-path-test", "seed": 3},
+        "training": {"seeds": [11]},
+        "splits": {"primary": {"train_fraction": 0.7, "validation_fraction": 0.15, "test_fraction": 0.15}},
+        "reporting": {"bootstrap_repetitions": 2, "permutation_repetitions": 2},
+        "construction": {
+            "conditions": ["real_observed"],
+            "horizon_distances": [1],
+            "models": ["majority"],
+            "diagnostic_max_lag": 1,
+        },
+    }
+    reference = [
+        StateTrajectory(
+            trajectory_id=f"construction-{index}",
+            states=np.asarray(
+                [[index + time, 0 if time == 0 else 1] for time in range(8)],
+                dtype=np.float32,
+            ),
+        )
+        for index in range(9)
+    ]
+    analyze_construction_conditions(reference, config, tmp_path)
+    target = tmp_path / "real_observed" / "future_adjacent_delta_sign"
+    saved = json.loads((target / "results.json").read_text(encoding="utf-8"))
+    relative = saved["construction_control"]["raw_source_artifact"]
+    assert relative == "../../raw_trajectories.npz"
+    assert (target / relative).resolve() == (
+        tmp_path / "raw_trajectories.npz"
+    ).resolve()
 
 
 def test_index_horizon_uses_current_state_only_and_future_state_only_for_target():
@@ -182,6 +216,7 @@ def test_real_sample_adapter_is_causal_and_ignores_labels_and_label_metadata():
     )
     trajectory = sample_to_trajectory(sample)
     assert trajectory.trajectory_id == "sample-a"
+    assert trajectory.metadata is not None
     assert trajectory.metadata["label_used"] is False
     assert trajectory.states.tolist() == [[10.0, 0.0], [13.0, 3.0], [11.0, -2.0], [18.0, 7.0]]
     changed_future = Sample(

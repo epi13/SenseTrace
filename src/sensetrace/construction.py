@@ -302,7 +302,9 @@ def generate_timing_surrogate(
             # Standardize a log-normal draw to the observed level/scale so the
             # null exercises skew without introducing a scale shortcut.
             skewed = rng.lognormal(mean=0.0, sigma=0.8, size=length)
-            values = mean + scale * (skewed - np.mean(skewed)) / max(np.std(skewed), 1e-12)
+            skewed_mean = float(np.mean(skewed))
+            skewed_scale = float(np.std(skewed))
+            values = mean + scale * (skewed - skewed_mean) / max(skewed_scale, 1e-12)
         elif condition in {"iid_quantized", "iid_discrete"}:
             values = rng.choice(pool, size=length, replace=True)
             step = float(quantization_step)
@@ -627,7 +629,9 @@ def analyze_construction_conditions(
                 ]
                 == [item.trajectory_id for item in reference],
                 "diagnostics_file": "../diagnostics.json",
-                "raw_source_artifact": "../raw_trajectories.npz",
+                # ``target_dir`` is root/condition/target; resolve from that
+                # artifact's directory rather than the condition directory.
+                "raw_source_artifact": "../../raw_trajectories.npz",
             }
             target_dir = condition_dir / definition.name
             from .horizon import write_horizon_run

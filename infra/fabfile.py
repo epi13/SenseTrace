@@ -75,6 +75,25 @@ def run_trace_horizon(
 
 
 @task
+def run_controlled_forecast(
+    c: Connection,
+    config: str = "configs/controlled-predictive-state-worker03.example.yaml",
+    output: str | None = None,
+    stage: str | None = None,
+) -> None:
+    print(_remote(c).run_controlled_forecast(config, output=output, stage=stage))
+
+
+@task
+def calibrate_controlled_forecast(
+    c: Connection,
+    config: str = "configs/controlled-predictive-state-worker03.example.yaml",
+    output: str | None = None,
+) -> None:
+    print(_remote(c).calibrate_controlled_forecast(config, output=output))
+
+
+@task
 def calibrate_phase0(
     c: Connection,
     config: str = "configs/phase0.example.yaml",
@@ -211,6 +230,8 @@ for _name in [
     "run_phase0",
     "run_phase1a",
     "run_trace_horizon",
+    "run_controlled_forecast",
+    "calibrate_controlled_forecast",
     "calibrate_phase0",
     "calibrate_native_sensitivity",
     "characterize_primitive",

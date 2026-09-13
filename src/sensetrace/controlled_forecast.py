@@ -1532,14 +1532,7 @@ def _analyze_cell(
                     candidate = dev_report[target][str(horizon)]["selection"]["candidate"]
                     predictions: dict[str, np.ndarray] = {}
                     values: np.ndarray | None = None
-                    for name in (
-                        baseline,
-                        candidate,
-                        "workload_only",
-                        "workload_history",
-                        "arx_history",
-                        "delay_dmd_control",
-                    ):
+                    for name in _MODEL_NAMES:
                         metrics, y, p = _evaluate_model(fits[name], confirm_selected, list(range(len(confirm_selected))), target, horizon, int(campaign["future_block_length"]), history_length)
                         predictions[name] = p
                         values = y if values is None else values

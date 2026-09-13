@@ -6,12 +6,12 @@ import pytest
 from sensetrace.cli import build_parser
 from sensetrace.controlled_forecast import (
     CausalForecastInterface,
+    _counterbalanced_orders,
     _feature_batch,
     _fit_model,
     _record_from_journal,
     _synthetic_record,
     _target_values,
-    _counterbalanced_orders,
     validate_controlled_forecast_config,
 )
 from sensetrace.errors import SchemaError

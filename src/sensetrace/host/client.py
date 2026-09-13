@@ -833,9 +833,7 @@ class RemoteHost:
         venv = f"{home}/.local/share/sensetrace/venv/bin/sensetrace"
         remote_config = f"{home}/.config/sensetrace/self-forecasting.yaml"
         self.connection.put(str(config), remote=remote_config)
-        destination = output or (
-            f"{home}/.local/share/sensetrace/runs/self-forecasting-horizon-v1"
-        )
+        destination = output or (f"{home}/.local/share/sensetrace/runs/self-forecasting-horizon-v1")
         command = (
             f"{venv} run horizon --config {quote(remote_config)} --output {quote(destination)}"
         )
@@ -917,6 +915,73 @@ class RemoteHost:
         if stage is not None:
             command += f" --stage {quote(stage)}"
         result = self.run(command, warn=True, hide=True)
+        if not result.ok:
+            raise RuntimeError(result.stderr or result.stdout)
+        return result.stdout
+
+    def run_latent_system_state(
+        self,
+        config: str | Path,
+        *,
+        output: str | None = None,
+        stage: str | None = None,
+    ) -> str:
+        """Run the separate causal multichannel latent-system-state campaign."""
+
+        home = self._home()
+        venv = f"{home}/.local/share/sensetrace/venv/bin/sensetrace"
+        remote_config = f"{home}/.config/sensetrace/latent-system-state.yaml"
+        self.connection.put(str(config), remote=remote_config)
+        destination = (
+            output or f"{home}/.local/share/sensetrace/runs/latent-system-state-development"
+        )
+        command = (
+            f"{venv} run latent-system-state --config {quote(remote_config)} "
+            f"--output {quote(destination)}"
+        )
+        if stage is not None:
+            command += f" --stage {quote(stage)}"
+        result = self.run(command, warn=True, hide=True)
+        if not result.ok:
+            raise RuntimeError(result.stderr or result.stdout)
+        return result.stdout
+
+    def characterize_latent_observer(self, config: str | Path, *, output: str | None = None) -> str:
+        """Measure the new witness tiers against the native Tier 0 control."""
+
+        home = self._home()
+        venv = f"{home}/.local/share/sensetrace/venv/bin/sensetrace"
+        remote_config = f"{home}/.config/sensetrace/latent-system-state.yaml"
+        self.connection.put(str(config), remote=remote_config)
+        destination = (
+            output or f"{home}/.local/share/sensetrace/runs/latent-system-state-observer-effect"
+        )
+        result = self.run(
+            f"{venv} characterize-latent-observer --config {quote(remote_config)} "
+            f"--output {quote(destination)}",
+            warn=True,
+            hide=True,
+        )
+        if not result.ok:
+            raise RuntimeError(result.stderr or result.stdout)
+        return result.stdout
+
+    def run_latent_timescale_sweep(self, config: str | Path, *, output: str | None = None) -> str:
+        """Run the explicitly configured development-only sampling sweep."""
+
+        home = self._home()
+        venv = f"{home}/.local/share/sensetrace/venv/bin/sensetrace"
+        remote_config = f"{home}/.config/sensetrace/latent-system-state.yaml"
+        self.connection.put(str(config), remote=remote_config)
+        destination = (
+            output or f"{home}/.local/share/sensetrace/runs/latent-system-state-timescale-sweep"
+        )
+        result = self.run(
+            f"{venv} run latent-timescale-sweep --config {quote(remote_config)} "
+            f"--output {quote(destination)}",
+            warn=True,
+            hide=True,
+        )
         if not result.ok:
             raise RuntimeError(result.stderr or result.stdout)
         return result.stdout
@@ -1311,9 +1376,7 @@ class RemoteHost:
                 self.connection.get(remote, local=str(local_dir / name))
         return str(local_dir)
 
-    def fetch_horizon_results(
-        self, destination: str | Path, *, output: str | None = None
-    ) -> str:
+    def fetch_horizon_results(self, destination: str | Path, *, output: str | None = None) -> str:
         """Fetch passive horizon JSON artifacts while preserving condition paths."""
 
         home = self._home()
@@ -1350,14 +1413,12 @@ class RemoteHost:
             self.connection.get(remote_file, local=str(local_file))
         return str(local_root)
 
-    def fetch_controlled_forecast_results(
-        self, destination: str | Path, *, output: str
-    ) -> str:
+    def fetch_controlled_forecast_results(self, destination: str | Path, *, output: str) -> str:
         """Fetch only the immutable artifacts from an explicit campaign directory."""
 
         remote_root = quote(output)
         files = self.run(
-            f"find {remote_root} -maxdepth 2 -type f "
+            f"find {remote_root} -maxdepth 4 -type f "
             "\\( -name design.json -o -name progress.json -o -name acquisition.json "
             "-o -name experiment.json -o -name trajectory_journal.jsonl "
             "-o -name trajectory_metadata.json -o -name raw_trajectories.npz "
@@ -1368,6 +1429,32 @@ class RemoteHost:
         )
         if not files.stdout.strip():
             raise RuntimeError(f"no controlled-forecast artifacts found under {output}")
+        local_root = Path(destination)
+        local_root.mkdir(parents=True, exist_ok=True)
+        for remote_file in files.stdout.splitlines():
+            relative = remote_file.removeprefix(output).lstrip("/")
+            local_file = local_root / relative
+            local_file.parent.mkdir(parents=True, exist_ok=True)
+            self.connection.get(remote_file, local=str(local_file))
+        return str(local_root)
+
+    def fetch_latent_system_state_results(self, destination: str | Path, *, output: str) -> str:
+        """Fetch immutable latent-system-state artifacts from an explicit root."""
+
+        remote_root = quote(output)
+        files = self.run(
+            f"find {remote_root} -maxdepth 4 -type f "
+            "\\( -name design.json -o -name progress.json -o -name acquisition.json "
+            "-o -name experiment.json -o -name trajectory_journal.jsonl "
+            "-o -name record_layout.json -o -name raw_trajectories.npz "
+            "-o -name observer-effect.json -o -name synthetic_validation.json "
+            "-o -name analysis.json -o -name timescale-sweep.json "
+            "-o -name timescale-analysis.json \\) -print",
+            warn=True,
+            hide=True,
+        )
+        if not files.stdout.strip():
+            raise RuntimeError(f"no latent-system-state artifacts found under {output}")
         local_root = Path(destination)
         local_root.mkdir(parents=True, exist_ok=True)
         for remote_file in files.stdout.splitlines():

@@ -27,6 +27,14 @@ from .experiment import run_preregistered_worker03_experiment
 from .horizon import run_synthetic_horizon_experiment
 from .host.client import RemoteHost
 from .inventory import collect_inventory
+from .latent_system_state import (
+    analyze_latent_system_state,
+    analyze_latent_timescale_sweep,
+    run_latent_observer_characterization,
+    run_latent_system_state_acquisition,
+    run_latent_system_state_synthetic_validation,
+    run_latent_timescale_sweep,
+)
 from .phase0 import run_phase0
 from .phase1a import run_phase1a
 from .real_horizon import run_real_trace_horizon_experiment
@@ -112,9 +120,7 @@ def build_parser() -> argparse.ArgumentParser:
         aliases=["self-forecast"],
         help="run passive present-to-future predictive-horizon controls",
     )
-    horizon.add_argument(
-        "--config", default="configs/self-forecasting-worker03.example.yaml"
-    )
+    horizon.add_argument("--config", default="configs/self-forecasting-worker03.example.yaml")
     horizon.add_argument("--output", default="runs/self-forecasting-horizon-v1")
     horizon.add_argument("--conditions", nargs="*", choices=["predictable", "null"])
     real_horizon = run_sub.add_parser(
@@ -133,27 +139,63 @@ def build_parser() -> argparse.ArgumentParser:
     construction.add_argument(
         "--config", default="configs/self-forecasting-construction-worker03.example.yaml"
     )
-    construction.add_argument(
-        "--output", default="runs/self-forecasting-construction-worker03-v1"
-    )
+    construction.add_argument("--output", default="runs/self-forecasting-construction-worker03-v1")
     controlled = run_sub.add_parser(
         "controlled-forecast",
         aliases=["predictive-state"],
         help="acquire bounded controlled-excitation/quiet trajectories",
     )
-    controlled.add_argument("--config", default="configs/controlled-predictive-state-worker03.example.yaml")
+    controlled.add_argument(
+        "--config", default="configs/controlled-predictive-state-worker03.example.yaml"
+    )
     controlled.add_argument("--output", default="runs/controlled-predictive-state-development")
     controlled.add_argument("--stage", choices=["development", "confirmation"])
+    latent = run_sub.add_parser(
+        "latent-system-state",
+        help="acquire the separate causal multichannel latent-system-state campaign",
+    )
+    latent.add_argument("--config", default="configs/latent-system-state-worker03.example.yaml")
+    latent.add_argument("--output", default="runs/latent-system-state-development")
+    latent.add_argument("--stage", choices=["development", "confirmation"])
+    timescale = run_sub.add_parser(
+        "latent-timescale-sweep",
+        help="acquire the explicitly configured development sampling-timescale sweep",
+    )
+    timescale.add_argument("--config", default="configs/latent-system-state-worker03.example.yaml")
+    timescale.add_argument("--output", default="runs/latent-system-state-timescale-sweep")
 
     analysis = sub.add_parser("analyze", help="analyze persisted experiment artifacts")
     analysis_sub = analysis.add_subparsers(dest="analyze_command", required=True)
     controlled_analysis = analysis_sub.add_parser(
         "controlled-forecast", help="fit on development and evaluate held-out confirmation"
     )
-    controlled_analysis.add_argument("--config", default="configs/controlled-predictive-state-worker03.example.yaml")
+    controlled_analysis.add_argument(
+        "--config", default="configs/controlled-predictive-state-worker03.example.yaml"
+    )
     controlled_analysis.add_argument("--development", required=True)
     controlled_analysis.add_argument("--confirmation")
-    controlled_analysis.add_argument("--output", default="runs/controlled-predictive-state-analysis")
+    controlled_analysis.add_argument(
+        "--output", default="runs/controlled-predictive-state-analysis"
+    )
+    latent_analysis = analysis_sub.add_parser(
+        "latent-system-state", help="analyze development and untouched latent-state confirmation"
+    )
+    latent_analysis.add_argument(
+        "--config", default="configs/latent-system-state-worker03.example.yaml"
+    )
+    latent_analysis.add_argument("--development", required=True)
+    latent_analysis.add_argument("--confirmation")
+    latent_analysis.add_argument("--output", default="runs/latent-system-state-analysis")
+    timescale_analysis = analysis_sub.add_parser(
+        "latent-timescale-sweep", help="summarize development-only timescale memory"
+    )
+    timescale_analysis.add_argument(
+        "--config", default="configs/latent-system-state-worker03.example.yaml"
+    )
+    timescale_analysis.add_argument("--sweep", required=True)
+    timescale_analysis.add_argument(
+        "--output", default="runs/latent-system-state-timescale-analysis"
+    )
 
     protocol = sub.add_parser("protocol", help="print a frozen protocol and its fingerprint")
     protocol.add_argument("name", choices=["worker03-fragmented"])
@@ -195,14 +237,41 @@ def build_parser() -> argparse.ArgumentParser:
     predictive_calibration = calibrate_sub.add_parser(
         "predictive", help="calibrate the versioned trajectory instrument"
     )
-    predictive_calibration.add_argument("--config", default="configs/controlled-predictive-state-worker03.example.yaml")
-    predictive_calibration.add_argument("--output", default="runs/controlled-predictive-state-calibration")
+    predictive_calibration.add_argument(
+        "--config", default="configs/controlled-predictive-state-worker03.example.yaml"
+    )
+    predictive_calibration.add_argument(
+        "--output", default="runs/controlled-predictive-state-calibration"
+    )
     predictive_validation = sub.add_parser(
         "validate-controlled-forecast",
         help="run independent predictive-state synthetic validation controls",
     )
-    predictive_validation.add_argument("--config", default="configs/controlled-predictive-state-worker03.example.yaml")
-    predictive_validation.add_argument("--output", default="runs/controlled-predictive-state-synthetic-validation")
+    predictive_validation.add_argument(
+        "--config", default="configs/controlled-predictive-state-worker03.example.yaml"
+    )
+    predictive_validation.add_argument(
+        "--output", default="runs/controlled-predictive-state-synthetic-validation"
+    )
+    latent_validation = sub.add_parser(
+        "validate-latent-system-state",
+        help="run synthetic latent-state, leakage, workload, and observer-correlation controls",
+    )
+    latent_validation.add_argument(
+        "--config", default="configs/latent-system-state-worker03.example.yaml"
+    )
+    latent_validation.add_argument(
+        "--output", default="runs/latent-system-state-synthetic-validation"
+    )
+
+    latent_observer = sub.add_parser(
+        "characterize-latent-observer",
+        help="measure Tier 0/1/2 observer overhead against the native control",
+    )
+    latent_observer.add_argument(
+        "--config", default="configs/latent-system-state-worker03.example.yaml"
+    )
+    latent_observer.add_argument("--output", default="runs/latent-system-state-observer-effect")
 
     characterize = sub.add_parser("characterize", help="characterize a measurement primitive")
     characterize_sub = characterize.add_subparsers(dest="characterize_command", required=True)
@@ -333,12 +402,35 @@ def build_parser() -> argparse.ArgumentParser:
     remote_construction.add_argument("--output")
     remote_controlled = host_sub.add_parser("run-controlled-forecast")
     remote_controlled.add_argument("host", nargs="?", default="worker-03")
-    remote_controlled.add_argument("--config", default="configs/controlled-predictive-state-worker03.example.yaml")
+    remote_controlled.add_argument(
+        "--config", default="configs/controlled-predictive-state-worker03.example.yaml"
+    )
     remote_controlled.add_argument("--output")
     remote_controlled.add_argument("--stage", choices=["development", "confirmation"])
+    remote_latent = host_sub.add_parser("run-latent-system-state")
+    remote_latent.add_argument("host", nargs="?", default="worker-03")
+    remote_latent.add_argument(
+        "--config", default="configs/latent-system-state-worker03.example.yaml"
+    )
+    remote_latent.add_argument("--output")
+    remote_latent.add_argument("--stage", choices=["development", "confirmation"])
+    remote_timescale = host_sub.add_parser("run-latent-timescale-sweep")
+    remote_timescale.add_argument("host", nargs="?", default="worker-03")
+    remote_timescale.add_argument(
+        "--config", default="configs/latent-system-state-worker03.example.yaml"
+    )
+    remote_timescale.add_argument("--output")
+    remote_latent_observer = host_sub.add_parser("characterize-latent-observer")
+    remote_latent_observer.add_argument("host", nargs="?", default="worker-03")
+    remote_latent_observer.add_argument(
+        "--config", default="configs/latent-system-state-worker03.example.yaml"
+    )
+    remote_latent_observer.add_argument("--output")
     remote_predictive_calibration = host_sub.add_parser("calibrate-controlled-forecast")
     remote_predictive_calibration.add_argument("host", nargs="?", default="worker-03")
-    remote_predictive_calibration.add_argument("--config", default="configs/controlled-predictive-state-worker03.example.yaml")
+    remote_predictive_calibration.add_argument(
+        "--config", default="configs/controlled-predictive-state-worker03.example.yaml"
+    )
     remote_predictive_calibration.add_argument("--output")
     remote_calibration = host_sub.add_parser("calibrate-phase0")
     remote_calibration.add_argument("host", nargs="?", default="worker-03")
@@ -380,8 +472,14 @@ def build_parser() -> argparse.ArgumentParser:
     fetch_horizon.add_argument("--output")
     fetch_controlled = results_sub.add_parser("fetch-controlled-forecast")
     fetch_controlled.add_argument("--host", default="worker-03")
-    fetch_controlled.add_argument("--destination", default="evidence/controlled-predictive-state-worker03")
+    fetch_controlled.add_argument(
+        "--destination", default="evidence/controlled-predictive-state-worker03"
+    )
     fetch_controlled.add_argument("--output", required=True)
+    fetch_latent = results_sub.add_parser("fetch-latent-system-state")
+    fetch_latent.add_argument("--host", default="worker-03")
+    fetch_latent.add_argument("--destination", default="evidence/latent-system-state-worker03")
+    fetch_latent.add_argument("--output", required=True)
     return parser
 
 
@@ -479,6 +577,14 @@ def main(argv: list[str] | None = None) -> int:
         config = validate_config(load_config(args.config))
         _json(run_controlled_forecast_acquisition(config, args.output, stage=args.stage))
         return 0
+    if args.command == "run" and args.run_command == "latent-system-state":
+        config = validate_config(load_config(args.config))
+        _json(run_latent_system_state_acquisition(config, args.output, stage=args.stage))
+        return 0
+    if args.command == "run" and args.run_command == "latent-timescale-sweep":
+        config = validate_config(load_config(args.config))
+        _json(run_latent_timescale_sweep(config, args.output))
+        return 0
     if args.command == "analyze" and args.analyze_command == "controlled-forecast":
         config = validate_config(load_config(args.config))
         _json(
@@ -486,6 +592,18 @@ def main(argv: list[str] | None = None) -> int:
                 args.development, config, args.output, confirmation=args.confirmation
             )
         )
+        return 0
+    if args.command == "analyze" and args.analyze_command == "latent-system-state":
+        config = validate_config(load_config(args.config))
+        _json(
+            analyze_latent_system_state(
+                args.development, config, args.output, confirmation=args.confirmation
+            )
+        )
+        return 0
+    if args.command == "analyze" and args.analyze_command == "latent-timescale-sweep":
+        config = validate_config(load_config(args.config))
+        _json(analyze_latent_timescale_sweep(args.sweep, config, args.output))
         return 0
     if args.command == "protocol" and args.name == "worker03-fragmented":
         from .protocol import (
@@ -549,6 +667,14 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "validate-controlled-forecast":
         config = validate_config(load_config(args.config))
         _json(run_predictive_synthetic_validation(config, args.output))
+        return 0
+    if args.command == "validate-latent-system-state":
+        config = validate_config(load_config(args.config))
+        _json(run_latent_system_state_synthetic_validation(config, args.output))
+        return 0
+    if args.command == "characterize-latent-observer":
+        config = validate_config(load_config(args.config))
+        _json(run_latent_observer_characterization(config, args.output))
         return 0
     if args.command == "characterize" and args.characterize_command == "primitive":
         _json(
@@ -703,11 +829,18 @@ def main(argv: list[str] | None = None) -> int:
             print(remote.run_construction_falsification(args.config, output=args.output), end="")
         elif args.host_command == "run-controlled-forecast":
             print(
-                remote.run_controlled_forecast(
-                    args.config, output=args.output, stage=args.stage
-                ),
+                remote.run_controlled_forecast(args.config, output=args.output, stage=args.stage),
                 end="",
             )
+        elif args.host_command == "run-latent-system-state":
+            print(
+                remote.run_latent_system_state(args.config, output=args.output, stage=args.stage),
+                end="",
+            )
+        elif args.host_command == "run-latent-timescale-sweep":
+            print(remote.run_latent_timescale_sweep(args.config, output=args.output), end="")
+        elif args.host_command == "characterize-latent-observer":
+            print(remote.characterize_latent_observer(args.config, output=args.output), end="")
         elif args.host_command == "calibrate-controlled-forecast":
             print(remote.calibrate_controlled_forecast(args.config, output=args.output), end="")
         elif args.host_command == "calibrate-phase0":
@@ -758,8 +891,14 @@ def main(argv: list[str] | None = None) -> int:
         else:
             if args.results_command == "fetch-horizon":
                 print(remote.fetch_horizon_results(args.destination, output=args.output))
+            elif args.results_command == "fetch-controlled-forecast":
+                print(
+                    remote.fetch_controlled_forecast_results(args.destination, output=args.output)
+                )
             else:
-                print(remote.fetch_controlled_forecast_results(args.destination, output=args.output))
+                print(
+                    remote.fetch_latent_system_state_results(args.destination, output=args.output)
+                )
         return 0
     return 2
 

@@ -1,0 +1,8 @@
+{
+  "completed_trajectory_count": 160,
+  "last_completed_trajectory_id": "confirmation-latent-session-0159-83099ba6f8be413eb2aa4e70ddbd650c-trajectory-000",
+  "planned_trajectory_count": 160,
+  "schema": "sensetrace.latent-system-state-progress.v1",
+  "stage": "confirmation",
+  "updated_at": "2026-09-13T04:34:06.864298+00:00"
+}

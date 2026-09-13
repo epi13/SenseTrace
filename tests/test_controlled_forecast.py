@@ -11,6 +11,7 @@ from sensetrace.controlled_forecast import (
     _record_from_journal,
     _synthetic_record,
     _target_values,
+    _counterbalanced_orders,
     validate_controlled_forecast_config,
 )
 from sensetrace.errors import SchemaError
@@ -125,3 +126,9 @@ def test_configuration_rejects_uncovered_horizon():
     config["controlled_forecast"]["horizons"] = [20]  # type: ignore[index]
     with pytest.raises(SchemaError, match="cover the largest target block"):
         validate_controlled_forecast_config(config)
+
+
+def test_counterbalanced_orders_support_single_origin_observation():
+    orders = _counterbalanced_orders(np.random.default_rng(4), 1)
+    assert orders.shape == (1,)
+    assert orders[0] in {0, 1}

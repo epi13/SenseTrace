@@ -391,6 +391,10 @@ def _counterbalanced_orders(rng: np.random.Generator, count: int) -> np.ndarray:
     orders = np.concatenate(
         [np.zeros(count // 2, dtype=np.uint8), np.ones(count // 2, dtype=np.uint8)]
     )
+    if count % 2:
+        # The origin is intentionally one observation, so exact balance is
+        # impossible there; keep the extra order explicitly randomized.
+        orders = np.concatenate([orders, rng.integers(0, 2, size=1, dtype=np.uint8)])
     rng.shuffle(orders)
     return orders
 
@@ -632,7 +636,7 @@ def _acquire_trajectory(
         )
         excitation_execution.validate(schedule)
         origin = block(1)
-        origin_index = sum(len(item["first_ticks"]) for item in all_channels)
+        origin_index = sum(len(item["first_start_tsc"]) for item in all_channels)
         all_channels.append(origin)
         all_workload.append(0.0)
         all_orders.extend(origin["orders"].astype(int).tolist())

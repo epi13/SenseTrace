@@ -219,7 +219,8 @@ remain the appropriate next tests.
 
 ## 2026-09-12 — construction-preserving falsification protocol
 
-Status: frozen implementation; fresh worker-03 execution pending.
+Status: completed; construction explanation supported and hardware follow-up
+closed for this question.
 
 The historical result's actual target is A, `sign(x[t+h]-x[t+h-1])`, because
 the real adapter exposes `[x[t], x[t]-x[t-1]]` and the target extracts the
@@ -239,3 +240,44 @@ transitions; and per-trajectory lag diagnostics. See
 protocol and interpretation criteria. Historical worker JSON lacks raw timing
 trajectories, so it is retained as historical evidence rather than silently
 reprocessed through the new null.
+
+The clean v4 worker run completed all 12 target/condition reports with 128
+complete `random_word` samples of 32 native repetitions, horizons 1/2/4/8/16,
+three training seeds, 500 trajectory bootstraps, and 2,000
+trajectory-preserving randomizations. The run used source commit
+`be8ea99be2fcf4309d83aa7e445473c54c322572`, session
+`session-eb35f3a028574ad597c4d38ae59d837a`, and the unchanged boot
+`92cdb521-ac36-4649-a35c-bfb55c6ac870`. Artifacts are under
+`evidence/self-forecasting-construction-worker03-20260912/`; raw trajectories
+are retained with SHA-256
+`abd356c7608dc7bc44fa22264a8d5763af0f1e59dd2376e02f5d888c3beffe24`.
+
+For historical target A (`sign(x[t+h]-x[t+h-1])`), the real observed
+current-level logistic score was `0.697` at h=1 and `0.500` at h=2/4/8/16.
+The construction-preserving current-level baseline scored `0.754` on
+continuous IID h=1 and `0.724` after raw-order shuffle; the corresponding
+combined probe matched the current-level baseline at real h=1. The A score
+returned to chance after the one-step shared-value overlap. The current-to-
+future diagnostic target B remained around `0.68–0.76` across horizons in
+both real and null trajectories, as expected from its explicit comparison to
+the current value. The quantized condition showed the declared tie/prevalence
+effect.
+
+Observed lag-1 raw/delta/delta-sign autocorrelation means were
+`-0.018/-0.470/-0.416`; continuous-IID values were
+`-0.038/-0.471/-0.330`, and raw-order-shuffle values were
+`-0.049/-0.469/-0.418`. The negative delta autocorrelation is the expected
+mathematical consequence of differencing, not physical memory. The paired
+combined-versus-median contrast at real A h=1 was exactly zero. The raw and
+max-statistic circular-shift p-value floor of `0.0005` also appeared in the
+construction nulls, so it does not distinguish construction from a physical
+effect.
+
+The final evidence summary is
+`docs/evidence/self-forecasting-construction-null-20260912.md`. The
+historical discovery (`0.689`) and same-boot confirmation (`0.709`) remain
+valid aggregate records, but their raw trajectories are unavailable and were
+not silently reconstructed. The one-step observation is explained by
+shared-value target construction and ordinary timing-trace statistics. No
+reboot, cross-boot, CLFLUSH/eviction, cached-load, or target-address hardware
+follow-up is warranted for this question.

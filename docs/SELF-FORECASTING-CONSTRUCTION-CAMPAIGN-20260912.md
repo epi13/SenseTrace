@@ -1,8 +1,9 @@
 # Construction-preserving falsification campaign — 2026-09-12
 
-Status: frozen campaign implementation and protocol. This document corrects
+Status: completed frozen campaign and evidence record. This document corrects
 the interpretation of the replicated horizon-1 `future_timing_delta_sign`
-observation without changing the historical result files.
+observation without changing the historical result files. Final results are
+summarized in `docs/evidence/self-forecasting-construction-null-20260912.md`.
 
 ## Target and indexing audit
 
@@ -135,9 +136,9 @@ python -m sensetrace.cli host status worker-03
 python -m sensetrace.cli host deploy worker-03
 python -m sensetrace.cli host run-construction-falsification worker-03 \
   --config configs/self-forecasting-construction-worker03.example.yaml \
-  --output /home/worker-03/.local/share/sensetrace/runs/self-forecasting-construction-20260912
+  --output /home/worker-03/.local/share/sensetrace/runs/self-forecasting-construction-20260912-v4
 python -m sensetrace.cli results fetch-horizon --host worker-03 \
-  --output /home/worker-03/.local/share/sensetrace/runs/self-forecasting-construction-20260912 \
+  --output /home/worker-03/.local/share/sensetrace/runs/self-forecasting-construction-20260912-v4 \
   --destination evidence/self-forecasting-construction-worker03-20260912
 ```
 
@@ -167,3 +168,13 @@ separate bounded physical-artifact protocol may be justified. Any such result
 would still concern commodity timing trajectories only; it would not establish
 hidden DRAM-state recovery, PMU claims, model-computation foresight, or
 precognition.
+
+The v4 result is explained by the construction controls. The current-level
+baseline matches the real A horizon-1 score, the raw-order/IID controls
+reproduce the same short-range pattern, and A returns to chance after the
+one-step shared-value overlap. The distinct B target remains predictable at
+all tested horizons in matched nulls because it compares each future value to
+the current value by definition. No hardware follow-up is warranted for this
+question. See
+`docs/evidence/self-forecasting-construction-null-20260912.md` for the
+complete result and provenance.
